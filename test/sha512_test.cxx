@@ -1,9 +1,9 @@
-#include <StormByte/crypto/hash/sha512.hxx>
+#include <StormByte/crypto/implementation/hash/sha512.hxx>
 #include <StormByte/test_handlers.h>
 
 #include <thread>
 
-using namespace StormByte::Crypto::Hash::SHA512;
+using namespace StormByte::Crypto::Implementation::Hash::SHA512;
 
 int TestSHA512HashConsistencyAcrossFormats() {
     const std::string fn_name = "TestSHA512HashConsistencyAcrossFormats";

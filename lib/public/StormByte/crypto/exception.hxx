@@ -5,17 +5,18 @@
 
 /**
  * @namespace Crypto
- * @brief The namespace containing all the cryptographic related classes.
+ * @brief The namespace containing all the cryptographic-related classes.
  */
 namespace StormByte::Crypto {
 	/**
 	 * @class Exception
-	 * @brief The class representing an exception in the crypto module.
+	 * @brief A class representing an exception in the crypto module.
 	 */
 	class STORMBYTE_CRYPTO_PUBLIC Exception: public StormByte::Exception {
 		public:
 			/**
-			 * Constructor
+			 * @brief Constructor
+			 * @param message The exception message.
 			 */
 			using StormByte::Exception::Exception;
 	};

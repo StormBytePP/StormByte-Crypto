@@ -1,4 +1,4 @@
-#include <StormByte/crypto/compressor/gzip.hxx>
+#include <StormByte/crypto/implementation/compressor/gzip.hxx>
 
 #include <gzip.h>
 #include <cryptlib.h>
@@ -8,7 +8,7 @@
 #include <thread>
 #include <vector>
 
-using namespace StormByte::Crypto::Compressor;
+using namespace StormByte::Crypto::Implementation::Compressor;
 
 namespace {
 	ExpectedCompressorFutureBuffer CompressHelper(std::span<const std::byte> inputData) noexcept {

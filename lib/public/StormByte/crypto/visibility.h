@@ -11,5 +11,5 @@
 	#define STORMBYTE_CRYPTO_PRIVATE
 #else
 	#define STORMBYTE_CRYPTO_PUBLIC		__attribute__ ((visibility ("default")))
-	#define STORMBYTE_CRYPTO_PRIVATE	__attribute__ ((visibility ("hidden")))
+	#define STORMBYTE_CRYPTO_PRIVATE	__attribute__ ((visibility ("default")))
 #endif

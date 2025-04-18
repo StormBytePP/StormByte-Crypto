@@ -1,10 +1,10 @@
-#include <StormByte/crypto/encryption/dsa.hxx>
+#include <StormByte/crypto/implementation/encryption/dsa.hxx>
 #include <StormByte/test_handlers.h>
 
 #include <thread>
 #include <iostream>
 
-using namespace StormByte::Crypto::Encryption;
+using namespace StormByte::Crypto::Implementation::Encryption;
 
 int TestDSASignAndVerify() {
     const std::string fn_name = "TestDSASignAndVerify";

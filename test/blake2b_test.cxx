@@ -1,9 +1,9 @@
-#include <StormByte/crypto/hash/blake2b.hxx>
+#include <StormByte/crypto/implementation/hash/blake2b.hxx>
 #include <StormByte/test_handlers.h>
 
 #include <thread>
 
-using namespace StormByte::Crypto::Hash::Blake2b;
+using namespace StormByte::Crypto::Implementation::Hash::Blake2b;
 
 int TestBlake2bHashCorrectness() {
     const std::string fn_name = "TestBlake2bHashCorrectness";

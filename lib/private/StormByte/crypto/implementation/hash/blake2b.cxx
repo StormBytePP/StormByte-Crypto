@@ -1,29 +1,20 @@
-#include <StormByte/crypto/hash/sha512.hxx>
-
+#include <StormByte/crypto/implementation/hash/blake2b.hxx>
+#include <blake2.h>
 #include <hex.h>
-#include <format>
 #include <future>
-#include <sha.h>
 #include <vector>
 #include <thread>
 
-using namespace StormByte::Crypto::Hash;
+using namespace StormByte::Crypto::Implementation::Hash;
 
 namespace {
-    /**
-     * @brief Helper function to compute SHA-512 hash.
-     * @param dataSpan The input data as std::span<const std::byte>.
-     * @return Expected<std::string, CryptoException> containing the hash or an error.
-     */
-    ExpectedHashFutureString ComputeSHA512(std::span<const std::byte> dataSpan) noexcept {
+    ExpectedHashFutureString ComputeBlake2b(std::span<const std::byte> dataSpan) noexcept {
         try {
-            // Convert std::span<std::byte> to std::vector<uint8_t>
-            std::vector<uint8_t> data;
-            std::transform(dataSpan.begin(), dataSpan.end(), std::back_inserter(data),
+            std::vector<uint8_t> data(dataSpan.size());
+            std::transform(dataSpan.begin(), dataSpan.end(), data.begin(),
                            [](std::byte b) { return static_cast<uint8_t>(b); });
 
-            // Compute SHA-512 hash
-            CryptoPP::SHA512 hash;
+            CryptoPP::BLAKE2b hash;
             std::string hashOutput;
 
             CryptoPP::StringSource ss(data.data(), data.size(), true,
@@ -33,33 +24,26 @@ namespace {
 
             return hashOutput;
         } catch (const std::exception& e) {
-            return StormByte::Unexpected<StormByte::Crypto::Exception>("SHA-512 hashing failed: {}", e.what());
+            return StormByte::Unexpected<StormByte::Crypto::Exception>("Blake2b hashing failed: {}", e.what());
         }
     }
 }
 
-ExpectedHashFutureString SHA512::Hash(const std::string& input) noexcept {
-    // Create a std::span<std::byte> from the input string
+ExpectedHashFutureString Blake2b::Hash(const std::string& input) noexcept {
     std::span<const std::byte> dataSpan(reinterpret_cast<const std::byte*>(input.data()), input.size());
-
-    // Use the common helper function to compute the hash
-    return ComputeSHA512(dataSpan);
+    return ComputeBlake2b(dataSpan);
 }
 
-ExpectedHashFutureString SHA512::Hash(const StormByte::Buffers::Simple& buffer) noexcept {
-    // Use Buffer's Data() method to get std::span<std::byte>
-    auto dataSpan = buffer.Data();
-
-    // Use the common helper function to compute the hash
-    return ComputeSHA512(dataSpan);
+ExpectedHashFutureString Blake2b::Hash(const Buffers::Simple& buffer) noexcept {
+    return ComputeBlake2b(buffer.Data());
 }
 
-StormByte::Buffers::Consumer SHA512::Hash(const Buffers::Consumer consumer) noexcept {
+StormByte::Buffers::Consumer Blake2b::Hash(const Buffers::Consumer consumer) noexcept {
     SharedProducerBuffer producer = std::make_shared<StormByte::Buffers::Producer>();
 
     std::thread([consumer, producer]() {
         try {
-            CryptoPP::SHA512 hash;
+            CryptoPP::BLAKE2b hash;
             std::string hashOutput; // Create a string to hold the hash output
             CryptoPP::HexEncoder encoder(new CryptoPP::StringSink(hashOutput)); // Pass the string to StringSink
 

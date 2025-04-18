@@ -1,4 +1,4 @@
-#include <StormByte/crypto/compressor/bzip2.hxx>
+#include <StormByte/crypto/implementation/compressor/bzip2.hxx>
 
 #include <bzlib.h>
 #include <cmath>
@@ -7,7 +7,7 @@
 #include <thread>
 #include <vector>
 
-using namespace StormByte::Crypto::Compressor;
+using namespace StormByte::Crypto::Implementation::Compressor;
 
 namespace {
     ExpectedCompressorFutureBuffer CompressHelper(std::span<const std::byte> inputData, int blockSize = 9) noexcept {
@@ -33,25 +33,41 @@ namespace {
         }
     }
 
-    ExpectedCompressorFutureBuffer DecompressHelper(std::span<const std::byte> compressedData, size_t originalSize) noexcept {
+    ExpectedCompressorFutureBuffer DecompressHelper(std::span<const std::byte> compressedData) noexcept {
         try {
-            std::vector<uint8_t> decompressedData(originalSize);
-            unsigned int decompressedSize = static_cast<unsigned int>(originalSize);
+            // Allocate a buffer with an initial size
+            std::vector<uint8_t> decompressedData(4096); // Start with a reasonable size
+            unsigned int decompressedSize = static_cast<unsigned int>(decompressedData.size());
 
-            if (BZ2_bzBuffToBuffDecompress(reinterpret_cast<char*>(decompressedData.data()), &decompressedSize,
+            // Attempt decompression
+            int result = BZ2_bzBuffToBuffDecompress(
+                reinterpret_cast<char*>(decompressedData.data()), &decompressedSize,
                 const_cast<char*>(reinterpret_cast<const char*>(compressedData.data())),
-                static_cast<unsigned int>(compressedData.size_bytes()), 0, 0) != BZ_OK) {
+                static_cast<unsigned int>(compressedData.size_bytes()), 0, 0);
+
+            // If the buffer was too small, resize and retry
+            while (result == BZ_OUTBUFF_FULL) {
+                decompressedData.resize(decompressedData.size() * 2); // Double the buffer size
+                decompressedSize = static_cast<unsigned int>(decompressedData.size());
+
+                result = BZ2_bzBuffToBuffDecompress(
+                    reinterpret_cast<char*>(decompressedData.data()), &decompressedSize,
+                    const_cast<char*>(reinterpret_cast<const char*>(compressedData.data())),
+                    static_cast<unsigned int>(compressedData.size_bytes()), 0, 0);
+            }
+
+            if (result != BZ_OK) {
                 return StormByte::Unexpected<StormByte::Crypto::Exception>("BZip2 decompression failed");
             }
 
+            // Resize the buffer to the actual decompressed size
             decompressedData.resize(decompressedSize);
             StormByte::Buffers::Simple buffer(reinterpret_cast<const char*>(decompressedData.data()), decompressedSize);
 
             std::promise<StormByte::Buffers::Simple> promise;
             promise.set_value(std::move(buffer));
             return promise.get_future();
-        }
-        catch (const std::exception& e) {
+        } catch (const std::exception& e) {
             return StormByte::Unexpected<StormByte::Crypto::Exception>(e.what());
         }
     }
@@ -143,25 +159,25 @@ StormByte::Buffers::Consumer BZip2::Compress(const Buffers::Consumer consumer) n
 }
 
 // Public Decompress Methods
-ExpectedCompressorFutureBuffer BZip2::Decompress(const std::string& input, size_t originalSize) noexcept {
+ExpectedCompressorFutureBuffer BZip2::Decompress(const std::string& input) noexcept {
     std::span<const std::byte> dataSpan(reinterpret_cast<const std::byte*>(input.data()), input.size());
-    return DecompressHelper(dataSpan, originalSize);
+    return DecompressHelper(dataSpan);
 }
 
-ExpectedCompressorFutureBuffer BZip2::Decompress(const StormByte::Buffers::Simple& input, size_t originalSize) noexcept {
-    return DecompressHelper(input.Data(), originalSize);
+ExpectedCompressorFutureBuffer BZip2::Decompress(const StormByte::Buffers::Simple& input) noexcept {
+    return DecompressHelper(input.Data());
 }
 
-StormByte::Buffers::Consumer BZip2::Decompress(const Buffers::Consumer consumer, size_t originalSize) noexcept {
+StormByte::Buffers::Consumer BZip2::Decompress(const Buffers::Consumer& consumer) noexcept {
     // Create a producer buffer to store the decompressed data
     SharedProducerBuffer producer = std::make_shared<StormByte::Buffers::Producer>();
 
     // Launch a detached thread to handle decompression
-    std::thread([consumer, producer, originalSize]() {
+    std::thread([consumer, producer]() {
         try {
             constexpr size_t chunkSize = 4096; // Define the chunk size for reading from the consumer
             std::vector<uint8_t> compressedBuffer(chunkSize);
-            std::vector<uint8_t> decompressedBuffer(originalSize); // Allocate a buffer for decompressed data
+            std::vector<uint8_t> decompressedBuffer(chunkSize * 2); // Start with a larger buffer for decompressed data
 
             while (true) {
                 // Check how many bytes are available in the consumer
@@ -197,13 +213,22 @@ StormByte::Buffers::Consumer BZip2::Decompress(const Buffers::Consumer consumer,
                 }
 
                 // Decompress the chunk
-                unsigned int decompressedSize = static_cast<unsigned int>(originalSize);
-                decompressedBuffer.resize(decompressedSize);
-
+                unsigned int decompressedSize = static_cast<unsigned int>(decompressedBuffer.size());
                 int result = BZ2_bzBuffToBuffDecompress(
                     reinterpret_cast<char*>(decompressedBuffer.data()), &decompressedSize,
                     const_cast<char*>(reinterpret_cast<const char*>(compressedData.data())),
                     static_cast<unsigned int>(compressedData.size()), 0, 0);
+
+                // If the buffer was too small, resize and retry
+                while (result == BZ_OUTBUFF_FULL) {
+                    decompressedBuffer.resize(decompressedBuffer.size() * 2);
+                    decompressedSize = static_cast<unsigned int>(decompressedBuffer.size());
+
+                    result = BZ2_bzBuffToBuffDecompress(
+                        reinterpret_cast<char*>(decompressedBuffer.data()), &decompressedSize,
+                        const_cast<char*>(reinterpret_cast<const char*>(compressedData.data())),
+                        static_cast<unsigned int>(compressedData.size()), 0, 0);
+                }
 
                 if (result != BZ_OK) {
                     // Decompression failed, mark the producer as Error

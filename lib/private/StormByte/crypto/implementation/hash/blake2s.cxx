@@ -1,20 +1,20 @@
-#include <StormByte/crypto/hash/blake2b.hxx>
+#include <StormByte/crypto/implementation/hash/blake2s.hxx>
 #include <blake2.h>
 #include <hex.h>
 #include <future>
 #include <vector>
 #include <thread>
 
-using namespace StormByte::Crypto::Hash;
+using namespace StormByte::Crypto::Implementation::Hash;
 
 namespace {
-    ExpectedHashFutureString ComputeBlake2b(std::span<const std::byte> dataSpan) noexcept {
+    ExpectedHashFutureString ComputeBlake2s(std::span<const std::byte> dataSpan) noexcept {
         try {
             std::vector<uint8_t> data(dataSpan.size());
             std::transform(dataSpan.begin(), dataSpan.end(), data.begin(),
                            [](std::byte b) { return static_cast<uint8_t>(b); });
 
-            CryptoPP::BLAKE2b hash;
+            CryptoPP::BLAKE2s hash;
             std::string hashOutput;
 
             CryptoPP::StringSource ss(data.data(), data.size(), true,
@@ -24,26 +24,26 @@ namespace {
 
             return hashOutput;
         } catch (const std::exception& e) {
-            return StormByte::Unexpected<StormByte::Crypto::Exception>("Blake2b hashing failed: {}", e.what());
+            return StormByte::Unexpected<StormByte::Crypto::Exception>("Blake2s hashing failed: {}", e.what());
         }
     }
 }
 
-ExpectedHashFutureString Blake2b::Hash(const std::string& input) noexcept {
+ExpectedHashFutureString Blake2s::Hash(const std::string& input) noexcept {
     std::span<const std::byte> dataSpan(reinterpret_cast<const std::byte*>(input.data()), input.size());
-    return ComputeBlake2b(dataSpan);
+    return ComputeBlake2s(dataSpan);
 }
 
-ExpectedHashFutureString Blake2b::Hash(const Buffers::Simple& buffer) noexcept {
-    return ComputeBlake2b(buffer.Data());
+ExpectedHashFutureString Blake2s::Hash(const Buffers::Simple& buffer) noexcept {
+    return ComputeBlake2s(buffer.Data());
 }
 
-StormByte::Buffers::Consumer Blake2b::Hash(const Buffers::Consumer consumer) noexcept {
+StormByte::Buffers::Consumer Blake2s::Hash(const Buffers::Consumer consumer) noexcept {
     SharedProducerBuffer producer = std::make_shared<StormByte::Buffers::Producer>();
 
     std::thread([consumer, producer]() {
         try {
-            CryptoPP::BLAKE2b hash;
+            CryptoPP::BLAKE2s hash;
             std::string hashOutput; // Create a string to hold the hash output
             CryptoPP::HexEncoder encoder(new CryptoPP::StringSink(hashOutput)); // Pass the string to StringSink
 

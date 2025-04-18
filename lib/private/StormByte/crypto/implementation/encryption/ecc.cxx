@@ -1,4 +1,4 @@
-#include <StormByte/crypto/encryption/ecc.hxx>
+#include <StormByte/crypto/implementation/encryption/ecc.hxx>
 
 #include <base64.h>
 #include <cryptlib.h>
@@ -10,7 +10,7 @@
 #include <string>
 #include <thread>
 
-using namespace StormByte::Crypto::Encryption;
+using namespace StormByte::Crypto::Implementation::Encryption;
 
 namespace {
 	using ECIES = CryptoPP::ECIES<CryptoPP::ECP>;

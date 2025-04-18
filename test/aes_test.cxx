@@ -1,9 +1,9 @@
-#include <StormByte/crypto/encryption/aes.hxx>
+#include <StormByte/crypto/implementation/encryption/aes.hxx>
 #include <StormByte/test_handlers.h>
 
 #include <thread>
 
-using namespace StormByte::Crypto::Encryption;
+using namespace StormByte::Crypto::Implementation::Encryption;
 
 int TestAESEncryptDecryptConsistency() {
     const std::string fn_name = "TestAESEncryptDecryptConsistency";

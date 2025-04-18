@@ -1,9 +1,9 @@
-#include <StormByte/crypto/hash/sha256.hxx>
+#include <StormByte/crypto/implementation/hash/sha256.hxx>
 #include <StormByte/test_handlers.h>
 
 #include <thread>
 
-using namespace StormByte::Crypto::Hash::SHA256;
+using namespace StormByte::Crypto::Implementation::Hash::SHA256;
 
 int TestSHA256HashConsistencyAcrossFormats() {
 	const std::string fn_name = "TestSHA256HashConsistencyAcrossFormats";

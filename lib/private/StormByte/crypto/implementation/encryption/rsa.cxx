@@ -1,4 +1,4 @@
-#include <StormByte/crypto/encryption/rsa.hxx>
+#include <StormByte/crypto/implementation/encryption/rsa.hxx>
 
 #include <cryptlib.h>
 #include <base64.h>
@@ -10,7 +10,7 @@
 #include <string>
 #include <thread>
 
-using namespace StormByte::Crypto::Encryption;
+using namespace StormByte::Crypto::Implementation::Encryption;
 
 namespace {
 	std::string SerializeKey(const CryptoPP::RSA::PrivateKey& key) {

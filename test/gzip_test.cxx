@@ -1,9 +1,9 @@
-#include <StormByte/crypto/compressor/gzip.hxx>
+#include <StormByte/crypto/implementation/compressor/gzip.hxx>
 #include <StormByte/test_handlers.h>
 
 #include <thread>
 
-using namespace StormByte::Crypto::Compressor::Gzip;
+using namespace StormByte::Crypto::Implementation::Compressor::Gzip;
 
 int TestGzipCompressConsistencyAcrossFormats() {
 	const std::string fn_name = "TestGzipCompressConsistencyAcrossFormats";

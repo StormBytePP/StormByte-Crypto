@@ -1,4 +1,4 @@
-#include <StormByte/crypto/hash/sha256.hxx>
+#include <StormByte/crypto/implementation/hash/sha256.hxx>
 
 #include <hex.h>
 #include <format>
@@ -7,7 +7,7 @@
 #include <vector>
 #include <thread>
 
-using namespace StormByte::Crypto::Hash;
+using namespace StormByte::Crypto::Implementation::Hash;
 
 namespace {
 	/**

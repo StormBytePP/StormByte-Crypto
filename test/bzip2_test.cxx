@@ -1,9 +1,9 @@
-#include <StormByte/crypto/compressor/bzip2.hxx>
+#include <StormByte/crypto/implementation/compressor/bzip2.hxx>
 #include <StormByte/test_handlers.h>
 #include <iostream>
 #include <thread>
 
-using namespace StormByte::Crypto::Compressor::BZip2;
+using namespace StormByte::Crypto::Implementation::Compressor::BZip2;
 
 int TestBZip2CompressConsistencyAcrossFormats() {
     const std::string fn_name = "TestBZip2CompressConsistencyAcrossFormats";
@@ -45,7 +45,7 @@ int TestBZip2DecompressConsistencyAcrossFormats() {
     ASSERT_TRUE(fn_name, compress_string_result.has_value());
     auto compressed_string_future = std::move(compress_string_result.value());
     StormByte::Buffers::Simple compressed_string = compressed_string_future.get();
-    auto decompress_string_result = Decompress(compressed_string, input_data.size());
+    auto decompress_string_result = Decompress(compressed_string);
     ASSERT_TRUE(fn_name, decompress_string_result.has_value());
     auto decompressed_from_string_future = std::move(decompress_string_result.value());
     StormByte::Buffers::Simple decompressed_from_string = decompressed_from_string_future.get();
@@ -59,7 +59,7 @@ int TestBZip2DecompressConsistencyAcrossFormats() {
     ASSERT_TRUE(fn_name, compress_buffer_result.has_value());
     auto compressed_buffer_future = std::move(compress_buffer_result.value());
     StormByte::Buffers::Simple compressed_buffer = compressed_buffer_future.get();
-    auto decompress_buffer_result = Decompress(compressed_buffer, input_data.size());
+    auto decompress_buffer_result = Decompress(compressed_buffer);
     ASSERT_TRUE(fn_name, decompress_buffer_result.has_value());
     auto decompressed_from_buffer_future = std::move(decompress_buffer_result.value());
     StormByte::Buffers::Simple decompressed_from_buffer = decompressed_from_buffer_future.get();
@@ -84,7 +84,7 @@ int TestBZip2CompressionDecompressionIntegrity() {
     StormByte::Buffers::Simple compressed_data = compressed_data_future.get();
 
     // Decompress the compressed data
-    auto decompress_result = Decompress(compressed_data, input_data.size());
+    auto decompress_result = Decompress(compressed_data);
     ASSERT_TRUE(fn_name, decompress_result.has_value());
     auto decompressed_data_future = std::move(decompress_result.value());
     StormByte::Buffers::Simple decompressed_data = decompressed_data_future.get();
@@ -136,7 +136,7 @@ int TestBZip2DecompressCorruptedData() {
     corrupted_buffer << corrupted_data;
 
     // Attempt to decompress the corrupted data
-    auto decompress_result = Decompress(corrupted_buffer, original_data.size());
+    auto decompress_result = Decompress(corrupted_buffer);
     ASSERT_FALSE(fn_name, decompress_result.has_value()); // Expect decompression to fail
 
     RETURN_TEST(fn_name, 0);
@@ -208,7 +208,7 @@ int TestBZip2DecompressUsingConsumerProducer() {
     }
 
     // Decompress the data asynchronously
-    auto decompressed_consumer = Decompress(compressed_consumer, input_data.size());
+    auto decompressed_consumer = Decompress(compressed_consumer);
 
     // Wait for the decompression process to complete
     while (!decompressed_consumer.IsEoF()) {
@@ -256,7 +256,7 @@ int TestBZip2CompressDecompressInOneStep() {
     auto compressed_consumer = Compress(consumer);
 
     // Decompress the data asynchronously using the compressed consumer
-    auto decompressed_consumer = Decompress(compressed_consumer, input_data.size());
+    auto decompressed_consumer = Decompress(compressed_consumer);
 
     // Wait for the decompression process to complete
     while (!decompressed_consumer.IsEoF()) {

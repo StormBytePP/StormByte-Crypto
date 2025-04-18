@@ -1,12 +1,12 @@
 #pragma once
 
-#include <StormByte/crypto/compressor/typedefs.hxx>
+#include <StormByte/crypto/implementation/compressor/typedefs.hxx>
 
 /**
  * @namespace Gzip
  * @brief The namespace containing Gzip compression and decompression functions.
  */
-namespace StormByte::Crypto::Compressor::Gzip {
+namespace StormByte::Crypto::Implementation::Compressor::Gzip {
     /**
      * @brief Compresses the input string using the Gzip compression algorithm.
      * 
@@ -15,7 +15,7 @@ namespace StormByte::Crypto::Compressor::Gzip {
      * 
      * @note The compression is performed asynchronously, and the result is returned as a future.
      */
-    STORMBYTE_CRYPTO_PUBLIC ExpectedCompressorFutureBuffer Compress(const std::string& input) noexcept;
+    STORMBYTE_CRYPTO_PRIVATE ExpectedCompressorFutureBuffer Compress(const std::string& input) noexcept;
 
     /**
      * @brief Compresses the input buffer using the Gzip compression algorithm.
@@ -25,7 +25,7 @@ namespace StormByte::Crypto::Compressor::Gzip {
      * 
      * @note The compression is performed asynchronously, and the result is returned as a future.
      */
-    STORMBYTE_CRYPTO_PUBLIC ExpectedCompressorFutureBuffer Compress(const StormByte::Buffers::Simple& input) noexcept;
+    STORMBYTE_CRYPTO_PRIVATE ExpectedCompressorFutureBuffer Compress(const StormByte::Buffers::Simple& input) noexcept;
 
     /**
      * @brief Decompresses the input string using the Gzip decompression algorithm.
@@ -35,7 +35,7 @@ namespace StormByte::Crypto::Compressor::Gzip {
      * 
      * @note The decompression is performed asynchronously, and the result is returned as a future.
      */
-    STORMBYTE_CRYPTO_PUBLIC ExpectedCompressorFutureBuffer Decompress(const std::string& input) noexcept;
+    STORMBYTE_CRYPTO_PRIVATE ExpectedCompressorFutureBuffer Decompress(const std::string& input) noexcept;
 
     /**
      * @brief Decompresses the input buffer using the Gzip decompression algorithm.
@@ -45,7 +45,7 @@ namespace StormByte::Crypto::Compressor::Gzip {
      * 
      * @note The decompression is performed asynchronously, and the result is returned as a future.
      */
-    STORMBYTE_CRYPTO_PUBLIC ExpectedCompressorFutureBuffer Decompress(const StormByte::Buffers::Simple& input) noexcept;
+    STORMBYTE_CRYPTO_PRIVATE ExpectedCompressorFutureBuffer Decompress(const StormByte::Buffers::Simple& input) noexcept;
 
     /**
      * @brief Compresses data asynchronously using the Consumer/Producer model.
@@ -53,7 +53,7 @@ namespace StormByte::Crypto::Compressor::Gzip {
      * @param consumer The Consumer buffer containing the input data.
      * @return A Consumer buffer containing the compressed data.
      */
-    STORMBYTE_CRYPTO_PUBLIC StormByte::Buffers::Consumer Compress(const Buffers::Consumer consumer) noexcept;
+    STORMBYTE_CRYPTO_PRIVATE StormByte::Buffers::Consumer Compress(const Buffers::Consumer consumer) noexcept;
 
     /**
      * @brief Decompresses data asynchronously using the Consumer/Producer model.
@@ -61,5 +61,5 @@ namespace StormByte::Crypto::Compressor::Gzip {
      * @param consumer The Consumer buffer containing the compressed data.
      * @return A Consumer buffer containing the decompressed data.
      */
-    STORMBYTE_CRYPTO_PUBLIC StormByte::Buffers::Consumer Decompress(const Buffers::Consumer consumer) noexcept;
+    STORMBYTE_CRYPTO_PRIVATE StormByte::Buffers::Consumer Decompress(const Buffers::Consumer consumer) noexcept;
 }

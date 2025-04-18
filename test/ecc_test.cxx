@@ -1,9 +1,9 @@
-#include <StormByte/crypto/encryption/ecc.hxx>
+#include <StormByte/crypto/implementation/encryption/ecc.hxx>
 #include <StormByte/test_handlers.h>
 
 #include <thread>
 
-using namespace StormByte::Crypto::Encryption;
+using namespace StormByte::Crypto::Implementation::Encryption;
 
 int TestECCEncryptDecrypt() {
 	const std::string fn_name = "TestECCEncryptDecrypt";
