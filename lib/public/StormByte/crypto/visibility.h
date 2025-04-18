@@ -3,7 +3,7 @@
 #include <StormByte/platform.h>
 
 #ifdef WINDOWS
-	#ifdef STORMBYTE_CRYPTO_EXPORTS
+	#ifdef StormByte_Crypto_EXPORTS
 		#define STORMBYTE_CRYPTO_PUBLIC	__declspec(dllexport)
 	#else
 		#define STORMBYTE_CRYPTO_PUBLIC	__declspec(dllimport)
