@@ -28,13 +28,52 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Update repository
+        run: sudo apt update
+
+      - name: Install Doxygen
+        run: sudo apt install -y cmake doxygen gcc g++ graphviz
+
+      - name: Set up ninja
+        uses: ./.github/actions/setup-ninja
+
+      - name: Install dependencies
+        run: |
+          sudo apt install -y clang-19 libc++-19-dev libc++abi-19-dev clang-format-19 clang-tidy-19
+          sudo update-alternatives --remove-all clang
+          sudo update-alternatives --remove-all clang++
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-19 190 --slave /usr/bin/clang++ clang++ /usr/bin/clang++-19
+          sudo apt install -y libcrypto++-dev libcrypto++-doc libcrypto++-utils libbz2-dev # Install it to not download the full code just to make docs
+
+      - name: Configure CMake
+        run: |
+          cmake -B ${{ github.workspace }}/build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=/usr/bin/clang \
+            -DCMAKE_CXX_COMPILER=/usr/bin/clang++ \
+            -DCMAKE_CXX_FLAGS="--stdlib=libc++" \
+            -G "Ninja" \
+            -DENABLE_TEST=OFF \
+            -DENABLE_DOC=ON \
+            -DWITH_SYSTEM_STORMBYTE=OFF \
+            -DWITH_SYSTEM_CRYPTOPP=ON \
+            -DWITH_SYSTEM_BZIP2=ON
+
+      - name: Generating Doxygen documentation
+        run: cmake --build ${{ github.workspace }}/build --target StormByteCryptoDoc
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
+
       - name: Build with Jekyll
         uses: actions/jekyll-build-pages@v1
         with:
-          source: ./
+          source: ./docs
           destination: ./_site
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
 
