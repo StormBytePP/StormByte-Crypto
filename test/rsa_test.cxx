@@ -1,5 +1,6 @@
 #include <StormByte/buffers/producer.hxx>
 #include <StormByte/crypto/asymetric.hxx>
+#include <StormByte/crypto/signer.hxx>
 #include <StormByte/test_handlers.h>
 
 #include <thread>
@@ -270,89 +271,89 @@ int TestRSAEncryptUsingConsumerProducer() {
     RETURN_TEST(fn_name, 0);
 }
 
-// int TestRSASignVerifySuccess() {
-//     const std::string fn_name = "TestRSASignVerifySuccess";
-//     const std::string message = "This is a message to sign.";
-//     const int key_strength = 2048;
+int TestRSASignVerifySuccess() {
+    const std::string fn_name = "TestRSASignVerifySuccess";
+    const std::string message = "This is a message to sign.";
+    const int key_strength = 2048;
 
-//     // Generate a key pair
-//     auto keypair_result = RSA::GenerateKeyPair(key_strength);
-//     ASSERT_TRUE(fn_name, keypair_result.has_value());
-//     auto [private_key, public_key] = keypair_result.value();
+    // Generate a key pair
+    auto keypair_result = KeyPair::Generate(Algorithm::Sign::RSA, key_strength);
+	ASSERT_TRUE(fn_name, keypair_result.has_value());
+	Signer rsa(Algorithm::Sign::RSA, keypair_result.value());
 
-//     // Sign the message
-//     auto sign_result = RSA::Sign(message, private_key);
-//     ASSERT_TRUE(fn_name, sign_result.has_value());
-//     std::string signature = sign_result.value();
+    // Sign the message
+    auto sign_result = rsa.Sign(message);
+    ASSERT_TRUE(fn_name, sign_result.has_value());
+    std::string signature = sign_result.value();
 
-//     // Verify the signature
-//     bool verify_result = RSA::Verify(message, signature, public_key);
-//     ASSERT_TRUE(fn_name, verify_result);
+    // Verify the signature
+    bool verify_result = rsa.Verify(message, signature);
+    ASSERT_TRUE(fn_name, verify_result);
 
-//     RETURN_TEST(fn_name, 0);
-// }
+    RETURN_TEST(fn_name, 0);
+}
 
-// int TestRSASignVerifyWithDifferentKeyPair() {
-//     const std::string fn_name = "TestRSASignVerifyWithDifferentKeyPair";
-//     const std::string message = "This is a message to sign.";
-//     const int key_strength = 2048;
+int TestRSASignVerifyWithDifferentKeyPair() {
+    const std::string fn_name = "TestRSASignVerifyWithDifferentKeyPair";
+    const std::string message = "This is a message to sign.";
+    const int key_strength = 2048;
 
-//     // Generate two different key pairs
-//     auto keypair_result_1 = RSA::GenerateKeyPair(key_strength);
-//     ASSERT_TRUE(fn_name, keypair_result_1.has_value());
-//     auto [private_key_1, public_key_1] = keypair_result_1.value();
+    // Generate two different key pairs
+    auto keypair_result = KeyPair::Generate(Algorithm::Sign::RSA, key_strength);
+	ASSERT_TRUE(fn_name, keypair_result.has_value());
+	Signer rsa(Algorithm::Sign::RSA, keypair_result.value());
 
-//     auto keypair_result_2 = RSA::GenerateKeyPair(key_strength);
-//     ASSERT_TRUE(fn_name, keypair_result_2.has_value());
-//     auto [private_key_2, public_key_2] = keypair_result_2.value();
+    auto keypair_result_2 = KeyPair::Generate(Algorithm::Sign::RSA, key_strength);
+	ASSERT_TRUE(fn_name, keypair_result_2.has_value());
+	Signer rsa2(Algorithm::Sign::RSA, keypair_result_2.value());
 
-//     // Sign the message with the first private key
-//     auto sign_result = RSA::Sign(message, private_key_1);
-//     ASSERT_TRUE(fn_name, sign_result.has_value());
-//     std::string signature = sign_result.value();
+    // Sign the message with the first private key
+    auto sign_result = rsa.Sign(message);
+    ASSERT_TRUE(fn_name, sign_result.has_value());
+    std::string signature = sign_result.value();
 
-//     // Attempt to verify the signature with the second public key
-//     bool verify_result = RSA::Verify(message, signature, public_key_2);
-//     ASSERT_FALSE(fn_name, verify_result);
+    // Attempt to verify the signature with the second public key
+    bool verify_result = rsa2.Verify(message, signature);
+    ASSERT_FALSE(fn_name, verify_result);
 
-//     RETURN_TEST(fn_name, 0);
-// }
+    RETURN_TEST(fn_name, 0);
+}
 
-// int TestRSASignVerifyWithCorruptedMessage() {
-//     const std::string fn_name = "TestRSASignVerifyWithCorruptedMessage";
-//     const std::string message = "This is a message to sign.";
-//     const int key_strength = 2048;
+int TestRSASignVerifyWithCorruptedMessage() {
+    const std::string fn_name = "TestRSASignVerifyWithCorruptedMessage";
+    const std::string message = "This is a message to sign.";
+    const int key_strength = 2048;
 
-//     // Generate a key pair
-//     auto keypair_result = RSA::GenerateKeyPair(key_strength);
-//     ASSERT_TRUE(fn_name, keypair_result.has_value());
-//     auto [private_key, public_key] = keypair_result.value();
+    // Generate a key pair
+    auto keypair_result = KeyPair::Generate(Algorithm::Sign::RSA, key_strength);
+	ASSERT_TRUE(fn_name, keypair_result.has_value());
+	Signer rsa(Algorithm::Sign::RSA, keypair_result.value());
 
-//     // Sign the message
-//     auto sign_result = RSA::Sign(message, private_key);
-//     ASSERT_TRUE(fn_name, sign_result.has_value());
-//     std::string signature = sign_result.value();
+    // Sign the message
+    auto sign_result = rsa.Sign(message);
+    ASSERT_TRUE(fn_name, sign_result.has_value());
+    std::string signature = sign_result.value();
 
-//     // Corrupt the message
-//     std::string corrupted_message = message;
-//     if (!corrupted_message.empty()) {
-//         corrupted_message[0] = static_cast<char>(~corrupted_message[0]);
-//     }
+    // Corrupt the message
+    std::string corrupted_message = message;
+    if (!corrupted_message.empty()) {
+        corrupted_message[0] = static_cast<char>(~corrupted_message[0]);
+    }
 
-//     // Attempt to verify the signature with the corrupted message
-//     bool verify_result = RSA::Verify(corrupted_message, signature, public_key);
-//     ASSERT_FALSE(fn_name, verify_result);
+    // Attempt to verify the signature with the corrupted message
+    bool verify_result = rsa.Verify(corrupted_message, signature);
+    ASSERT_FALSE(fn_name, verify_result);
 
-//     RETURN_TEST(fn_name, 0);
-// }
+    RETURN_TEST(fn_name, 0);
+}
 
 int main() {
     int result = 0;
 
     result += TestRSAEncryptDecrypt();
-    //result += TestRSASignVerifySuccess();
-    //result += TestRSASignVerifyWithDifferentKeyPair();
-    //result += TestRSASignVerifyWithCorruptedMessage();
+    result += TestRSASignVerifySuccess();
+    result += TestRSASignVerifyWithDifferentKeyPair();
+    result += TestRSASignVerifyWithCorruptedMessage();
     result += TestRSADecryptionWithCorruptedData();
     result += TestRSADecryptWithMismatchedKey();
     result += TestRSAWithCorruptedKeys();

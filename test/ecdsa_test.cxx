@@ -1,10 +1,11 @@
-#include <StormByte/crypto/implementation/encryption/ecdsa.hxx>
+#include <StormByte/buffers/producer.hxx>
+#include <StormByte/crypto/signer.hxx>
 #include <StormByte/test_handlers.h>
 
 #include <thread>
 #include <iostream>
 
-using namespace StormByte::Crypto::Implementation::Encryption;
+using namespace StormByte::Crypto;
 
 int TestECDSASignAndVerify() {
     const std::string fn_name = "TestECDSASignAndVerify";
@@ -12,17 +13,17 @@ int TestECDSASignAndVerify() {
     const std::string curve_name = "secp256r1";
 
     // Generate a key pair
-    auto keypair_result = ECDSA::GenerateKeyPair(curve_name);
-    ASSERT_TRUE(fn_name, keypair_result.has_value());
-    auto [private_key, public_key] = keypair_result.value();
+    auto keypair_result = KeyPair::Generate(Algorithm::Sign::ECDSA, curve_name);
+	ASSERT_TRUE(fn_name, keypair_result.has_value());
+	Signer ecdsa(Algorithm::Sign::ECDSA, keypair_result.value());
 
     // Sign the message
-    auto sign_result = ECDSA::Sign(message, private_key);
+    auto sign_result = ecdsa.Sign(message);
     ASSERT_TRUE(fn_name, sign_result.has_value());
     std::string signature = sign_result.value();
 
     // Verify the signature
-    bool verify_result = ECDSA::Verify(message, signature, public_key);
+    bool verify_result = ecdsa.Verify(message, signature);
     ASSERT_TRUE(fn_name, verify_result);
 
     RETURN_TEST(fn_name, 0);
@@ -34,12 +35,12 @@ int TestECDSAVerifyWithCorruptedSignature() {
     const std::string curve_name = "secp256r1";
 
     // Generate a key pair
-    auto keypair_result = ECDSA::GenerateKeyPair(curve_name);
-    ASSERT_TRUE(fn_name, keypair_result.has_value());
-    auto [private_key, public_key] = keypair_result.value();
+    auto keypair_result = KeyPair::Generate(Algorithm::Sign::ECDSA, curve_name);
+	ASSERT_TRUE(fn_name, keypair_result.has_value());
+	Signer ecdsa(Algorithm::Sign::ECDSA, keypair_result.value());
 
     // Sign the message
-    auto sign_result = ECDSA::Sign(message, private_key);
+    auto sign_result = ecdsa.Sign(message);
     ASSERT_TRUE(fn_name, sign_result.has_value());
     std::string signature = sign_result.value();
 
@@ -49,7 +50,7 @@ int TestECDSAVerifyWithCorruptedSignature() {
     }
 
     // Verify the corrupted signature
-    bool verify_result = ECDSA::Verify(message, signature, public_key);
+    bool verify_result = ecdsa.Verify(message, signature);
     ASSERT_FALSE(fn_name, verify_result);
 
     RETURN_TEST(fn_name, 0);
@@ -61,21 +62,21 @@ int TestECDSAVerifyWithMismatchedKey() {
     const std::string curve_name = "secp256r1";
 
     // Generate two key pairs
-    auto keypair_result_1 = ECDSA::GenerateKeyPair(curve_name);
-    ASSERT_TRUE(fn_name, keypair_result_1.has_value());
-    auto [private_key_1, public_key_1] = keypair_result_1.value();
+    auto keypair_result = KeyPair::Generate(Algorithm::Sign::ECDSA, curve_name);
+	ASSERT_TRUE(fn_name, keypair_result.has_value());
+	Signer ecdsa(Algorithm::Sign::ECDSA, keypair_result.value());
 
-    auto keypair_result_2 = ECDSA::GenerateKeyPair(curve_name);
-    ASSERT_TRUE(fn_name, keypair_result_2.has_value());
-    auto [private_key_2, public_key_2] = keypair_result_2.value();
+    auto keypair_result_2 = KeyPair::Generate(Algorithm::Sign::ECDSA, curve_name);
+	ASSERT_TRUE(fn_name, keypair_result_2.has_value());
+	Signer ecdsa2(Algorithm::Sign::ECDSA, keypair_result_2.value());
 
     // Sign the message with the first private key
-    auto sign_result = ECDSA::Sign(message, private_key_1);
+    auto sign_result = ecdsa.Sign(message);
     ASSERT_TRUE(fn_name, sign_result.has_value());
     std::string signature = sign_result.value();
 
     // Verify the signature with the second public key
-    bool verify_result = ECDSA::Verify(message, signature, public_key_2);
+    bool verify_result = ecdsa2.Verify(message, signature);
     ASSERT_FALSE(fn_name, verify_result);
 
     RETURN_TEST(fn_name, 0);
