@@ -333,7 +333,7 @@ ExpectedCryptoFutureString RSA::Sign(const std::string& message, const std::stri
     }
 }
 
-ExpectedCryptoFutureString RSA::Sign(const Buffers::Simple& message, const std::string& privateKey) noexcept {
+ExpectedCryptoFutureBuffer RSA::Sign(const Buffers::Simple& message, const std::string& privateKey) noexcept {
     try {
         CryptoPP::AutoSeededRandomPool rng;
 
@@ -353,7 +353,14 @@ ExpectedCryptoFutureString RSA::Sign(const Buffers::Simple& message, const std::
             new CryptoPP::SignerFilter(rng, signer, new CryptoPP::StringSink(signature))
         );
 
-        return signature;
+        // Convert the signature to a buffer
+        std::vector<std::byte> signatureBuffer(signature.size());
+        std::transform(signature.begin(), signature.end(), signatureBuffer.begin(),
+                       [](char c) { return static_cast<std::byte>(c); });
+
+        std::promise<StormByte::Buffers::Simple> promise;
+        promise.set_value(StormByte::Buffers::Simple(std::move(signatureBuffer)));
+        return promise.get_future();
     } catch (const std::exception& e) {
         return StormByte::Unexpected<Exception>("RSA signing failed: " + std::string(e.what()));
     }

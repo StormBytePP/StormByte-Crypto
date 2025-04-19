@@ -74,9 +74,9 @@ namespace StormByte::Crypto::Implementation::Encryption::RSA {
      * @brief Signs a buffer using the RSA private key.
      * @param message The buffer to sign.
      * @param privateKey The RSA private key to use for signing.
-     * @return ExpectedCryptoFutureString containing the signature or an error.
+     * @return ExpectedCryptoFutureBuffer containing the signature or an error.
      */
-    STORMBYTE_CRYPTO_PRIVATE ExpectedCryptoFutureString Sign(const Buffers::Simple& message, const std::string& privateKey) noexcept;
+    STORMBYTE_CRYPTO_PRIVATE ExpectedCryptoFutureBuffer Sign(const Buffers::Simple& message, const std::string& privateKey) noexcept;
 
     /**
      * @brief Signs data asynchronously using the Consumer/Producer model.
