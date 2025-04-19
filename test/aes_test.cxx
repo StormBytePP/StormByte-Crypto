@@ -262,8 +262,9 @@ int main() {
     result += TestAESEncryptDecryptInOneStep();
 
     if (result == 0) {
-        return 0;
+        std::cout << "All tests passed!" << std::endl;
     } else {
-        return result;
+        std::cout << result << " tests failed." << std::endl;
     }
+    return result;
 }
