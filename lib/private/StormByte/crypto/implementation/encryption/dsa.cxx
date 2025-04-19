@@ -37,7 +37,7 @@ namespace {
     CryptoPP::DSA::PublicKey DeserializePublicKey(const std::string& keyString) {
         CryptoPP::DSA::PublicKey key;
         CryptoPP::Base64Decoder decoder;
-        CryptoPP::StringSource(keyString, true, new CryptoPP::Redirector(decoder));
+        CryptoPP::StringSource keyStringSource(keyString, true, new CryptoPP::Redirector(decoder));
         key.Load(decoder); // Load the decoded key
         return key;
     }
@@ -45,7 +45,7 @@ namespace {
     CryptoPP::DSA::PrivateKey DeserializePrivateKey(const std::string& keyString) {
         CryptoPP::DSA::PrivateKey key;
         CryptoPP::Base64Decoder decoder;
-        CryptoPP::StringSource(keyString, true, new CryptoPP::Redirector(decoder));
+        CryptoPP::StringSource keyStringSource(keyString, true, new CryptoPP::Redirector(decoder));
         key.Load(decoder); // Load the decoded key
         return key;
     }
@@ -82,7 +82,7 @@ ExpectedKeyPair DSA::GenerateKeyPair(const int& keyStrength) noexcept {
     }
 }
 
-// Signing
+// Signing with std::string
 ExpectedCryptoFutureString DSA::Sign(const std::string& message, const std::string& privateKey) noexcept {
     try {
         CryptoPP::AutoSeededRandomPool rng;
@@ -112,6 +112,7 @@ ExpectedCryptoFutureString DSA::Sign(const std::string& message, const std::stri
     }
 }
 
+// Signing with Buffers::Simple
 ExpectedCryptoFutureBuffer DSA::Sign(const Buffers::Simple& message, const std::string& privateKey) noexcept {
     try {
         CryptoPP::AutoSeededRandomPool rng;
@@ -145,42 +146,9 @@ ExpectedCryptoFutureBuffer DSA::Sign(const Buffers::Simple& message, const std::
     }
 }
 
-// Other functions (Sign for Buffers::Consumer, Verify, etc.) remain unchanged.
-
-bool DSA::Verify(const std::string& message, const std::string& signature, const std::string& publicKey) noexcept {
-    try {
-        CryptoPP::AutoSeededRandomPool rng;
-
-        // Deserialize and validate the public key
-        CryptoPP::DSA::PublicKey key = DeserializePublicKey(publicKey);
-        if (!key.Validate(rng, 3)) {
-            return false; // Public key validation failed
-        }
-
-        // Initialize the verifier
-        CryptoPP::DSA::Verifier verifier(key);
-
-        // Verify the signature
-        bool result = false;
-        CryptoPP::StringSource ss(
-            signature + message, true,
-            new CryptoPP::SignatureVerificationFilter(
-                verifier,
-                new CryptoPP::ArraySink((CryptoPP::byte*)&result, sizeof(result)),
-                CryptoPP::SignatureVerificationFilter::PUT_RESULT | CryptoPP::SignatureVerificationFilter::SIGNATURE_AT_BEGIN
-            )
-        );
-
-        return result;
-    } catch (const CryptoPP::Exception&) {
-        return false; // Signature verification failed
-    } catch (const std::exception&) {
-        return false; // Other errors
-    }
-}
-
+// Signing with Buffers::Consumer
 StormByte::Buffers::Consumer DSA::Sign(const Buffers::Consumer consumer, const std::string& privateKey) noexcept {
-    SharedProducerBuffer producer = std::make_shared<StormByte::Buffers::Producer>();
+    auto producer = std::make_shared<StormByte::Buffers::Producer>();
 
     std::thread([consumer, producer, privateKey]() {
         try {
@@ -240,6 +208,73 @@ StormByte::Buffers::Consumer DSA::Sign(const Buffers::Consumer consumer, const s
     return producer->Consumer();
 }
 
+// Verification with std::string
+bool DSA::Verify(const std::string& message, const std::string& signature, const std::string& publicKey) noexcept {
+    try {
+        CryptoPP::AutoSeededRandomPool rng;
+
+        // Deserialize and validate the public key
+        CryptoPP::DSA::PublicKey key = DeserializePublicKey(publicKey);
+        if (!key.Validate(rng, 3)) {
+            return false; // Public key validation failed
+        }
+
+        // Initialize the verifier
+        CryptoPP::DSA::Verifier verifier(key);
+
+        // Verify the signature
+        bool result = false;
+        CryptoPP::StringSource ss(
+            signature + message, true,
+            new CryptoPP::SignatureVerificationFilter(
+                verifier,
+                new CryptoPP::ArraySink((CryptoPP::byte*)&result, sizeof(result)),
+                CryptoPP::SignatureVerificationFilter::PUT_RESULT | CryptoPP::SignatureVerificationFilter::SIGNATURE_AT_BEGIN
+            )
+        );
+
+        return result;
+    } catch (const CryptoPP::Exception&) {
+        return false; // Signature verification failed
+    } catch (const std::exception&) {
+        return false; // Other errors
+    }
+}
+
+// Verification with Buffers::Simple
+bool DSA::Verify(const Buffers::Simple& message, const std::string& signature, const std::string& publicKey) noexcept {
+    try {
+        CryptoPP::AutoSeededRandomPool rng;
+
+        // Deserialize and validate the public key
+        CryptoPP::DSA::PublicKey key = DeserializePublicKey(publicKey);
+        if (!key.Validate(rng, 3)) {
+            return false; // Public key validation failed
+        }
+
+        // Initialize the verifier
+        CryptoPP::DSA::Verifier verifier(key);
+
+        // Verify the signature
+        bool result = false;
+        CryptoPP::StringSource ss(
+            signature + std::string(reinterpret_cast<const char*>(message.Data().data()), message.Size()), true,
+            new CryptoPP::SignatureVerificationFilter(
+                verifier,
+                new CryptoPP::ArraySink((CryptoPP::byte*)&result, sizeof(result)),
+                CryptoPP::SignatureVerificationFilter::PUT_RESULT | CryptoPP::SignatureVerificationFilter::SIGNATURE_AT_BEGIN
+            )
+        );
+
+        return result;
+    } catch (const CryptoPP::Exception&) {
+        return false; // Signature verification failed
+    } catch (const std::exception&) {
+        return false; // Other errors
+    }
+}
+
+// Verification with Buffers::Consumer
 bool DSA::Verify(const Buffers::Consumer consumer, const std::string& signature, const std::string& publicKey) noexcept {
     try {
         CryptoPP::AutoSeededRandomPool rng;
