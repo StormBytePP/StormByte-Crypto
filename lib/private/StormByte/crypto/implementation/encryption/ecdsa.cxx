@@ -13,9 +13,9 @@
 using namespace StormByte::Crypto::Implementation::Encryption;
 
 namespace {
-    using ECDSA = CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>;
+    using CryptoECDSA = CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>;
 
-    std::string SerializeKey(const ECDSA::PrivateKey& key) {
+    std::string SerializeKey(const CryptoECDSA::PrivateKey& key) {
         std::string keyString;
         CryptoPP::ByteQueue queue;
         key.Save(queue); // Save key in ASN.1 format
@@ -25,7 +25,7 @@ namespace {
         return keyString;
     }
 
-    std::string SerializeKey(const ECDSA::PublicKey& key) {
+    std::string SerializeKey(const CryptoECDSA::PublicKey& key) {
         std::string keyString;
         CryptoPP::ByteQueue queue;
         key.Save(queue); // Save key in ASN.1 format
@@ -35,18 +35,18 @@ namespace {
         return keyString;
     }
 
-    ECDSA::PublicKey DeserializePublicKey(const std::string& keyString) {
-        ECDSA::PublicKey key;
+    CryptoECDSA::PublicKey DeserializePublicKey(const std::string& keyString) {
+        CryptoECDSA::PublicKey key;
         CryptoPP::Base64Decoder decoder;
-        CryptoPP::StringSource(keyString, true, new CryptoPP::Redirector(decoder));
+        CryptoPP::StringSource keySource(keyString, true, new CryptoPP::Redirector(decoder));
         key.Load(decoder); // Load the decoded key
         return key;
     }
 
-    ECDSA::PrivateKey DeserializePrivateKey(const std::string& keyString) {
-        ECDSA::PrivateKey key;
+    CryptoECDSA::PrivateKey DeserializePrivateKey(const std::string& keyString) {
+        CryptoECDSA::PrivateKey key;
         CryptoPP::Base64Decoder decoder;
-        CryptoPP::StringSource(keyString, true, new CryptoPP::Redirector(decoder));
+        CryptoPP::StringSource keySource(keyString, true, new CryptoPP::Redirector(decoder));
         key.Load(decoder); // Load the decoded key
         return key;
     }
@@ -70,11 +70,11 @@ ExpectedKeyPair ECDSA::GenerateKeyPair(const std::string& curveName) noexcept {
         }
 
         // Generate the private key
-        ECDSA::PrivateKey privateKey;
+        CryptoECDSA::PrivateKey privateKey;
         privateKey.Initialize(rng, curve);
 
         // Generate the public key
-        ECDSA::PublicKey publicKey;
+        CryptoECDSA::PublicKey publicKey;
         privateKey.MakePublicKey(publicKey);
 
         // Validate the keys
@@ -101,13 +101,13 @@ ExpectedCryptoFutureString ECDSA::Sign(const std::string& message, const std::st
         CryptoPP::AutoSeededRandomPool rng;
 
         // Deserialize and validate the private key
-        ECDSA::PrivateKey key = DeserializePrivateKey(privateKey);
+        CryptoECDSA::PrivateKey key = DeserializePrivateKey(privateKey);
         if (!key.Validate(rng, 3)) {
             return StormByte::Unexpected<Exception>("Private key validation failed");
         }
 
         // Initialize the signer
-        ECDSA::Signer signer(key);
+        CryptoECDSA::Signer signer(key);
 
         // Sign the message
         std::string signature;
@@ -130,13 +130,13 @@ ExpectedCryptoFutureBuffer ECDSA::Sign(const Buffers::Simple& message, const std
         CryptoPP::AutoSeededRandomPool rng;
 
         // Deserialize and validate the private key
-        ECDSA::PrivateKey key = DeserializePrivateKey(privateKey);
+        CryptoECDSA::PrivateKey key = DeserializePrivateKey(privateKey);
         if (!key.Validate(rng, 3)) {
             return StormByte::Unexpected<Exception>("Private key validation failed");
         }
 
         // Initialize the signer
-        ECDSA::Signer signer(key);
+        CryptoECDSA::Signer signer(key);
 
         // Sign the message
         std::string signature;
@@ -164,13 +164,13 @@ bool ECDSA::Verify(const std::string& message, const std::string& signature, con
         CryptoPP::AutoSeededRandomPool rng;
 
         // Deserialize and validate the public key
-        ECDSA::PublicKey key = DeserializePublicKey(publicKey);
+        CryptoECDSA::PublicKey key = DeserializePublicKey(publicKey);
         if (!key.Validate(rng, 3)) {
             return false; // Public key validation failed
         }
 
         // Initialize the verifier
-        ECDSA::Verifier verifier(key);
+        CryptoECDSA::Verifier verifier(key);
 
         // Verify the signature
         bool result = false;
