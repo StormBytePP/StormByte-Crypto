@@ -211,18 +211,18 @@ int main() {
     const int key_strength = 2048;
 
     // Generate DSA key pair
-    auto keypair_result = GenerateKeyPair(key_strength);
+    auto keypair_result = KeyPair::Generate(Algorithm::Sign::DSA, key_Strength);
     if (keypair_result.has_value()) {
-        auto [private_key, public_key] = keypair_result.value();
+        Signer dsa(keypair_result.value());
 
         // Sign the message
-        auto sign_result = Sign(message, private_key);
+        auto sign_result = dsa.Sign(message);
         if (sign_result.has_value()) {
             std::string signature = sign_result.value();
             std::cout << "Message signed successfully!" << std::endl;
 
             // Verify the signature
-            if (Verify(message, signature, public_key)) {
+            if (dsa.Verify(message, signature)) {
                 std::cout << "Signature verified successfully!" << std::endl;
             } else {
                 std::cerr << "Signature verification failed!" << std::endl;
