@@ -1,28 +1,31 @@
-#include <StormByte/crypto/implementation/hash/sha256.hxx>
+#include <StormByte/buffers/producer.hxx>
+#include <StormByte/crypto/hasher.hxx>
 #include <StormByte/test_handlers.h>
 
 #include <thread>
 
-using namespace StormByte::Crypto::Implementation::Hash::SHA256;
+using namespace StormByte::Crypto;
 
 int TestSHA256HashConsistencyAcrossFormats() {
 	const std::string fn_name = "TestSHA256HashConsistencyAcrossFormats";
 	const std::string input_data = "DataToHash";
 
+	Hasher sha256(Algorithm::Hash::SHA256);
+
 	// Compute hash for a string
-	auto hash_string_result = Hash(input_data);
+	auto hash_string_result = sha256.Hash(input_data);
 	ASSERT_TRUE(fn_name, hash_string_result.has_value());
 	std::string hash_from_string = hash_string_result.value();
 
 	// Compute hash for a Buffer
 	StormByte::Buffers::Simple input_buffer;
 	input_buffer << input_data;
-	auto hash_buffer_result = Hash(input_buffer);
+	auto hash_buffer_result = sha256.Hash(input_buffer);
 	ASSERT_TRUE(fn_name, hash_buffer_result.has_value());
 	std::string hash_from_buffer = hash_buffer_result.value();
 
 	// Compute hash for a Simple buffer
-	auto hash_future_result = Hash(input_buffer);
+	auto hash_future_result = sha256.Hash(input_buffer);
 	ASSERT_TRUE(fn_name, hash_future_result.has_value());
 	std::string hash_from_future = hash_future_result.value();
 
@@ -40,8 +43,10 @@ int TestSHA256HashCorrectness() {
 	// Expected SHA-256 hash value (use an external tool or verified source to precompute the correct hash)
 	const std::string expected_hash = "BE767EABA134CB2F01E8D1755A8DD3B18BC8B063049CFF5E6228F5F7143FF777";
 
+	Hasher sha256(Algorithm::Hash::SHA256);
+
 	// Compute hash for the input string
-	auto hash_result = Hash(input_data);
+	auto hash_result = sha256.Hash(input_data);
 	ASSERT_TRUE(fn_name, hash_result.has_value());
 	std::string actual_hash = hash_result.value();
 
@@ -56,13 +61,15 @@ int TestSHA256CollisionResistance() {
 	const std::string input_data_1 = "Original Input Data";
 	const std::string input_data_2 = "Original Input Data!"; // Slightly different input
 
+	Hasher sha256(Algorithm::Hash::SHA256);
+
 	// Compute hash for input_data_1
-	auto hash_result_1 = Hash(input_data_1);
+	auto hash_result_1 = sha256.Hash(input_data_1);
 	ASSERT_TRUE(fn_name, hash_result_1.has_value());
 	std::string hash_1 = hash_result_1.value();
 
 	// Compute hash for input_data_2
-	auto hash_result_2 = Hash(input_data_2);
+	auto hash_result_2 = sha256.Hash(input_data_2);
 	ASSERT_TRUE(fn_name, hash_result_2.has_value());
 	std::string hash_2 = hash_result_2.value();
 
@@ -76,8 +83,10 @@ int TestSHA256ProducesDifferentContent() {
 	const std::string fn_name = "TestSHA256ProducesDifferentContent";
 	const std::string original_data = "Data to hash";
 
+	Hasher sha256(Algorithm::Hash::SHA256);
+
 	// Generate the hash
-	auto hash_result = Hash(original_data);
+	auto hash_result = sha256.Hash(original_data);
 	ASSERT_TRUE(fn_name, hash_result.has_value());
 	std::string hashed_data = hash_result.value();
 
@@ -94,6 +103,8 @@ int TestSHA256HashUsingConsumerProducer() {
     // Expected SHA-256 hash value (from TestSHA256HashCorrectness)
     const std::string expected_hash = "BE767EABA134CB2F01E8D1755A8DD3B18BC8B063049CFF5E6228F5F7143FF777";
 
+	Hasher sha256(Algorithm::Hash::SHA256);
+
     // Create a producer buffer and write the input data
     StormByte::Buffers::Producer producer;
     producer << input_data;
@@ -103,7 +114,7 @@ int TestSHA256HashUsingConsumerProducer() {
     StormByte::Buffers::Consumer consumer(producer.Consumer());
 
     // Hash the data asynchronously
-    auto hash_consumer = Hash(consumer);
+    auto hash_consumer = sha256.Hash(consumer);
 
     // Wait for the hashing process to complete
     while (!hash_consumer.IsEoF()) {

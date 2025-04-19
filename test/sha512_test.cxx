@@ -1,23 +1,26 @@
-#include <StormByte/crypto/implementation/hash/sha512.hxx>
+#include <StormByte/buffers/producer.hxx>
+#include <StormByte/crypto/hasher.hxx>
 #include <StormByte/test_handlers.h>
 
 #include <thread>
 
-using namespace StormByte::Crypto::Implementation::Hash::SHA512;
+using namespace StormByte::Crypto;
 
 int TestSHA512HashConsistencyAcrossFormats() {
     const std::string fn_name = "TestSHA512HashConsistencyAcrossFormats";
     const std::string input_data = "DataToHash";
 
+	Hasher sha512(Algorithm::Hash::SHA512);
+
     // Compute hash for a string
-    auto hash_string_result = Hash(input_data);
+    auto hash_string_result = sha512.Hash(input_data);
     ASSERT_TRUE(fn_name, hash_string_result.has_value());
     std::string hash_from_string = hash_string_result.value();
 
     // Compute hash for a Buffer
     StormByte::Buffers::Simple input_buffer;
     input_buffer << input_data;
-    auto hash_buffer_result = Hash(input_buffer);
+    auto hash_buffer_result = sha512.Hash(input_buffer);
     ASSERT_TRUE(fn_name, hash_buffer_result.has_value());
     std::string hash_from_buffer = hash_buffer_result.value();
 
@@ -36,8 +39,10 @@ int TestSHA512HashCorrectness() {
         "6D69A62B60C16398A2482B03FB56FB041E5014E3D8E1480833EB8427C3F45910"
         "B5B1ED812EC8C04087C92F47B50016C1495F358DD34E98723795E6E852B92875";
 
+	Hasher sha512(Algorithm::Hash::SHA512);
+
     // Compute hash for the input string
-    auto hash_result = Hash(input_data);
+    auto hash_result = sha512.Hash(input_data);
     ASSERT_TRUE(fn_name, hash_result.has_value());
     std::string actual_hash = hash_result.value();
 
@@ -52,13 +57,15 @@ int TestSHA512CollisionResistance() {
     const std::string input_data_1 = "Original Input Data";
     const std::string input_data_2 = "Original Input Data!"; // Slightly different input
 
+	Hasher sha512(Algorithm::Hash::SHA512);
+
     // Compute hash for input_data_1
-    auto hash_result_1 = Hash(input_data_1);
+    auto hash_result_1 = sha512.Hash(input_data_1);
     ASSERT_TRUE(fn_name, hash_result_1.has_value());
     std::string hash_1 = hash_result_1.value();
 
     // Compute hash for input_data_2
-    auto hash_result_2 = Hash(input_data_2);
+    auto hash_result_2 = sha512.Hash(input_data_2);
     ASSERT_TRUE(fn_name, hash_result_2.has_value());
     std::string hash_2 = hash_result_2.value();
 
@@ -72,8 +79,10 @@ int TestSHA512ProducesDifferentContent() {
     const std::string fn_name = "TestSHA512ProducesDifferentContent";
     const std::string original_data = "Data to hash";
 
+	Hasher sha512(Algorithm::Hash::SHA512);
+
     // Generate the hash
-    auto hash_result = Hash(original_data);
+    auto hash_result = sha512.Hash(original_data);
     ASSERT_TRUE(fn_name, hash_result.has_value());
     std::string hashed_data = hash_result.value();
 
@@ -92,6 +101,8 @@ int TestSHA512HashUsingConsumerProducer() {
         "6D69A62B60C16398A2482B03FB56FB041E5014E3D8E1480833EB8427C3F45910"
         "B5B1ED812EC8C04087C92F47B50016C1495F358DD34E98723795E6E852B92875";
 
+	Hasher sha512(Algorithm::Hash::SHA512);
+
     // Create a producer buffer and write the input data
     StormByte::Buffers::Producer producer;
     producer << input_data;
@@ -101,7 +112,7 @@ int TestSHA512HashUsingConsumerProducer() {
     StormByte::Buffers::Consumer consumer(producer.Consumer());
 
     // Hash the data asynchronously
-    auto hash_consumer = Hash(consumer);
+    auto hash_consumer = sha512.Hash(consumer);
 
     // Wait for the hashing process to complete
     while (!hash_consumer.IsEoF()) {

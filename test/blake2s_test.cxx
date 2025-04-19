@@ -1,9 +1,10 @@
-#include <StormByte/crypto/implementation/hash/blake2s.hxx>
+#include <StormByte/buffers/producer.hxx>
+#include <StormByte/crypto/hasher.hxx>
 #include <StormByte/test_handlers.h>
 
 #include <thread>
 
-using namespace StormByte::Crypto::Implementation::Hash::Blake2s;
+using namespace StormByte::Crypto;
 
 int TestBlake2sHashCorrectness() {
     const std::string fn_name = "TestBlake2sHashCorrectness";
@@ -13,8 +14,10 @@ int TestBlake2sHashCorrectness() {
     const std::string expected_hash = 
         "542412C16951C1538BDCB190255C363F7FA1986B500FFBAB8377EF5E67785F1D";
 
+	Hasher blake2s(Algorithm::Hash::Blake2s);
+
     // Compute hash for the input string
-    auto hash_result = Hash(input_data);
+    auto hash_result = blake2s.Hash(input_data);
     ASSERT_TRUE(fn_name, hash_result.has_value());
     std::string actual_hash = hash_result.value();
 
@@ -29,13 +32,15 @@ int TestBlake2sCollisionResistance() {
     const std::string input_data_1 = "Original Input Data";
     const std::string input_data_2 = "Original Input Data!"; // Slightly different input
 
+	Hasher blake2s(Algorithm::Hash::Blake2s);
+
     // Compute hash for input_data_1
-    auto hash_result_1 = Hash(input_data_1);
+    auto hash_result_1 = blake2s.Hash(input_data_1);
     ASSERT_TRUE(fn_name, hash_result_1.has_value());
     std::string hash_1 = hash_result_1.value();
 
     // Compute hash for input_data_2
-    auto hash_result_2 = Hash(input_data_2);
+    auto hash_result_2 = blake2s.Hash(input_data_2);
     ASSERT_TRUE(fn_name, hash_result_2.has_value());
     std::string hash_2 = hash_result_2.value();
 
@@ -49,8 +54,10 @@ int TestBlake2sProducesDifferentContent() {
     const std::string fn_name = "TestBlake2sProducesDifferentContent";
     const std::string original_data = "Data to hash";
 
+	Hasher blake2s(Algorithm::Hash::Blake2s);
+
     // Generate the hash
-    auto hash_result = Hash(original_data);
+    auto hash_result = blake2s.Hash(original_data);
     ASSERT_TRUE(fn_name, hash_result.has_value());
     std::string hashed_data = hash_result.value();
 
@@ -67,6 +74,8 @@ int TestBlake2sHashUsingConsumerProducer() {
     // Expected Blake2s hash value (from TestBlake2sHashCorrectness)
     const std::string expected_hash = "542412C16951C1538BDCB190255C363F7FA1986B500FFBAB8377EF5E67785F1D";
 
+	Hasher blake2s(Algorithm::Hash::Blake2s);
+
     // Create a producer buffer and write the input data
     StormByte::Buffers::Producer producer;
     producer << input_data;
@@ -76,7 +85,7 @@ int TestBlake2sHashUsingConsumerProducer() {
     StormByte::Buffers::Consumer consumer(producer.Consumer());
 
     // Hash the data asynchronously
-    auto hash_consumer = Hash(consumer);
+    auto hash_consumer = blake2s.Hash(consumer);
 
     // Wait for the hashing process to complete
     while (!hash_consumer.IsEoF()) {
