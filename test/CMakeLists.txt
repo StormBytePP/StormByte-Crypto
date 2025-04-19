@@ -28,9 +28,9 @@ if(ENABLE_TEST AND NOT STORMBYTE_AS_DEPENDENCY)
 	target_link_libraries(ECCTests StormByte::Crypto)
 	add_test(NAME ECCTests COMMAND ECCTests)
 
-	# add_executable(ECDHTests ecdh_test.cxx)
-	# target_link_libraries(ECDHTests StormByte::Crypto)
-	# add_test(NAME ECDHTests COMMAND ECDHTests)
+	add_executable(ECDHTests ecdh_test.cxx)
+	target_link_libraries(ECDHTests StormByte::Crypto)
+	add_test(NAME ECDHTests COMMAND ECDHTests)
 
 	add_executable(ECDSATests ecdsa_test.cxx)
 	target_link_libraries(ECDSATests StormByte::Crypto)

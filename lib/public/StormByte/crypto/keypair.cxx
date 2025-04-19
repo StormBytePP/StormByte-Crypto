@@ -1,5 +1,6 @@
 #include <StormByte/crypto/implementation/encryption/dsa.hxx>
 #include <StormByte/crypto/implementation/encryption/ecc.hxx>
+#include <StormByte/crypto/implementation/encryption/ecdh.hxx>
 #include <StormByte/crypto/implementation/encryption/ecdsa.hxx>
 #include <StormByte/crypto/implementation/encryption/rsa.hxx>
 #include <StormByte/crypto/keypair.hxx>
@@ -124,5 +125,24 @@ StormByte::Expected<KeyPair, Exception> KeyPair::Generate(const Algorithm::Sign&
         return KeyPair(std::move(key_pair->value().Public), std::move(key_pair->value().Private));
     } else {
         return StormByte::Unexpected(key_pair->error());
+    }
+}
+
+// Generate KeyPair for Secret Sharing Algorithms
+StormByte::Expected<KeyPair, Exception> KeyPair::Generate(const Algorithm::SecretShare& algorithm, const std::string& curve_name) noexcept {
+    try {
+        if (algorithm != Algorithm::SecretShare::ECDH) {
+            return StormByte::Unexpected<Exception>("Unsupported algorithm for key pair generation.");
+        }
+
+        // Call the ECDH implementation to generate the key pair
+        auto key_pair = Implementation::Encryption::ECDH::GenerateKeyPair(curve_name);
+        if (!key_pair.has_value()) {
+            return StormByte::Unexpected(key_pair.error());
+        }
+
+        return KeyPair(std::move(key_pair->Public), std::move(key_pair->Private));
+    } catch (const std::exception& e) {
+        return StormByte::Unexpected<Exception>("Unexpected error during key pair generation: " + std::string(e.what()));
     }
 }

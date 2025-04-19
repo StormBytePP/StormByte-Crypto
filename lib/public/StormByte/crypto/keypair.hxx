@@ -158,6 +158,18 @@ namespace StormByte::Crypto {
 			[[nodiscard]]
 			static Expected<KeyPair, Exception> 			Generate(const Algorithm::Sign& algo, const std::string& curve_name) noexcept;
 
+			/**
+			 * @brief Generates a random key pair for secret-sharing using the specified algorithm and curve name.
+			 * 
+			 * This method generates both a public and private key, creating a `KeyPair` that can be used for shared secret generation.
+			 * 
+			 * @param algo The secret-sharing algorithm to use.
+			 * @param curve_name The name of the elliptic curve (e.g., "secp256r1").
+			 * @return An Expected containing the generated KeyPair or an error.
+			 */
+			[[nodiscard]]
+			static Expected<KeyPair, Exception> Generate(const Algorithm::SecretShare& algo, const std::string& curve_name) noexcept;
+
 		private:
 			std::string m_public_key; ///< The public key.
 			std::optional<std::string> m_private_key; ///< The private key (optional).

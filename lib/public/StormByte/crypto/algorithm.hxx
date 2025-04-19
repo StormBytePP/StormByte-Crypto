@@ -56,4 +56,12 @@ namespace StormByte::Crypto::Algorithm {
 		ECDSA,				///> Elliptic Curve Digital Signature Algorithm (ECDSA)
 		RSA,				///> RSA signing
 	};
+
+	/**
+	 * @enum SecretShare
+	 * @brief Enum representing the type of secret sharing algorithms.
+	 */
+	enum class STORMBYTE_CRYPTO_PUBLIC SecretShare {
+		ECDH,				///> Elliptic Curve Diffie-Hellman (ECDH) for shared secret generation
+	};
 }
