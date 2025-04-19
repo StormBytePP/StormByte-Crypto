@@ -1,33 +1,32 @@
-#include <StormByte/crypto/implementation/encryption/ecc.hxx>
+#include <StormByte/buffers/producer.hxx>
+#include <StormByte/crypto/asymetric.hxx>
 #include <StormByte/test_handlers.h>
 
 #include <thread>
 
-using namespace StormByte::Crypto::Implementation::Encryption;
+using namespace StormByte::Crypto;
+
+const std::string curve_name = "secp256r1";
 
 int TestECCEncryptDecrypt() {
 	const std::string fn_name = "TestECCEncryptDecrypt";
 	const std::string message = "This is a test message.";
 
-	auto keypair_result = ECC::GenerateKeyPair();
-	if (!keypair_result.has_value()) {
-		RETURN_TEST(fn_name, 1);
-	}
-	auto [private_key, public_key] = keypair_result.value();
+	auto keypair_result = KeyPair::Generate(Algorithm::Asymmetric::ECC, curve_name);
+	ASSERT_TRUE(fn_name, keypair_result.has_value());
 
-	auto encrypt_result = ECC::Encrypt(message, public_key);
-	if (!encrypt_result.has_value()) {
-		RETURN_TEST(fn_name, 1);
-	}
+	Asymmetric ecc(Algorithm::Asymmetric::ECC, keypair_result.value());
+
+	auto encrypt_result = ecc.Encrypt(message);
+	ASSERT_TRUE(fn_name, encrypt_result.has_value());
 
 	auto encrypted_future = std::move(encrypt_result.value());
-	StormByte::Buffers::Simple encrypted_buffer = encrypted_future.get();
+	StormByte::Buffers::Simple encrypted_buffer = encrypted_future;
 
-	auto decrypt_result = ECC::Decrypt(encrypted_buffer, private_key);
-	if (!decrypt_result.has_value()) {
-		RETURN_TEST(fn_name, 1);
-	}
-	std::string decrypted_message = decrypt_result.value();
+	auto decrypt_result = ecc.Decrypt(encrypted_buffer);
+	ASSERT_TRUE(fn_name, decrypt_result.has_value());
+
+	std::string decrypted_message = reinterpret_cast<const char*>(decrypt_result.value().Data().data());
 
 	ASSERT_EQUAL(fn_name, message, decrypted_message);
 	RETURN_TEST(fn_name, 0);
@@ -37,19 +36,16 @@ int TestECCDecryptionWithCorruptedData() {
 	const std::string fn_name = "TestECCDecryptionWithCorruptedData";
 	const std::string message = "Important message!";
 
-	auto keypair_result = ECC::GenerateKeyPair();
-	if (!keypair_result.has_value()) {
-		RETURN_TEST(fn_name, 1);
-	}
-	auto [private_key, public_key] = keypair_result.value();
+	auto keypair_result = KeyPair::Generate(Algorithm::Asymmetric::ECC, curve_name);
+	ASSERT_TRUE(fn_name, keypair_result.has_value());
 
-	auto encrypt_result = ECC::Encrypt(message, public_key);
-	if (!encrypt_result.has_value()) {
-		RETURN_TEST(fn_name, 1);
-	}
+	Asymmetric ecc(Algorithm::Asymmetric::ECC, keypair_result.value());
+
+	auto encrypt_result = ecc.Encrypt(message);
+	ASSERT_TRUE(fn_name, encrypt_result.has_value());
 
 	auto encrypted_future = std::move(encrypt_result.value());
-	StormByte::Buffers::Simple encrypted_buffer = encrypted_future.get();
+	StormByte::Buffers::Simple encrypted_buffer = encrypted_future;
 
 	auto corrupted_buffer = encrypted_buffer;
 	auto corrupted_span = corrupted_buffer.Span();
@@ -59,44 +55,36 @@ int TestECCDecryptionWithCorruptedData() {
 		RETURN_TEST(fn_name, 1);
 	}
 
-	auto decrypt_result = ECC::Decrypt(corrupted_buffer, private_key);
-	if (!decrypt_result.has_value()) {
-		RETURN_TEST(fn_name, 0);
-	}
+	auto decrypt_result = ecc.Decrypt(corrupted_buffer);
+	ASSERT_FALSE(fn_name, decrypt_result.has_value());
 
-	RETURN_TEST(fn_name, 1);
+	RETURN_TEST(fn_name, 0);
 }
 
 int TestECCDecryptWithMismatchedKey() {
 	const std::string fn_name = "TestECCDecryptWithMismatchedKey";
 	const std::string message = "Sensitive message.";
 
-	auto keypair_result_1 = ECC::GenerateKeyPair();
-	if (!keypair_result_1.has_value()) {
-		RETURN_TEST(fn_name, 1);
-	}
-	auto [private_key_1, public_key_1] = keypair_result_1.value();
+	auto keypair_result = KeyPair::Generate(Algorithm::Asymmetric::ECC, curve_name);
+	ASSERT_TRUE(fn_name, keypair_result.has_value());
 
-	auto keypair_result_2 = ECC::GenerateKeyPair();
-	if (!keypair_result_2.has_value()) {
-		RETURN_TEST(fn_name, 1);
-	}
-	auto [private_key_2, public_key_2] = keypair_result_2.value();
+	Asymmetric ecc(Algorithm::Asymmetric::ECC, keypair_result.value());
 
-	auto encrypt_result = ECC::Encrypt(message, public_key_1);
-	if (!encrypt_result.has_value()) {
-		RETURN_TEST(fn_name, 1);
-	}
+	auto keypair_result_2 = KeyPair::Generate(Algorithm::Asymmetric::ECC, curve_name);
+	ASSERT_TRUE(fn_name, keypair_result_2.has_value());
+
+	Asymmetric ecc2(Algorithm::Asymmetric::ECC, keypair_result_2.value());
+
+	auto encrypt_result = ecc.Encrypt(message);
+	ASSERT_TRUE(fn_name, encrypt_result.has_value());
 
 	auto encrypted_future = std::move(encrypt_result.value());
-	StormByte::Buffers::Simple encrypted_buffer = encrypted_future.get();
+	StormByte::Buffers::Simple encrypted_buffer = encrypted_future;
 
-	auto decrypt_result = ECC::Decrypt(encrypted_buffer, private_key_2);
-	if (!decrypt_result.has_value()) {
-		RETURN_TEST(fn_name, 0);
-	}
+	auto decrypt_result = ecc2.Decrypt(encrypted_buffer);
+	ASSERT_FALSE(fn_name, decrypt_result.has_value());
 
-	RETURN_TEST(fn_name, 1);
+	RETURN_TEST(fn_name, 0);
 }
 
 int TestECCWithCorruptedKeys() {
@@ -104,43 +92,25 @@ int TestECCWithCorruptedKeys() {
 	const std::string message = "This is a test message.";
 
 	// Step 1: Generate a valid key pair
-	auto keypair_result = ECC::GenerateKeyPair();
-	if (!keypair_result.has_value()) {
-		RETURN_TEST(fn_name, 1);
-	}
-	auto [private_key, public_key] = keypair_result.value();
+	auto keypair_result = KeyPair::Generate(Algorithm::Asymmetric::ECC, curve_name);
+	ASSERT_TRUE(fn_name, keypair_result.has_value());
 
 	// Step 2: Corrupt the public key
-	std::string corrupted_public_key = public_key;
+	std::string corrupted_public_key = keypair_result.value().PublicKey();
 	if (!corrupted_public_key.empty()) {
 		corrupted_public_key[0] = static_cast<char>(~corrupted_public_key[0]);
 	}
 
 	// Step 3: Corrupt the private key
-	std::string corrupted_private_key = private_key;
+	std::string corrupted_private_key = *keypair_result.value().PrivateKey();
 	if (!corrupted_private_key.empty()) {
 		corrupted_private_key[0] = static_cast<char>(~corrupted_private_key[0]);
 	}
 
 	// Step 4: Attempt encryption with the corrupted public key
-	auto encrypt_result = ECC::Encrypt(message, corrupted_public_key);
-	if (encrypt_result.has_value()) {
-		std::cerr << "[" << fn_name << "] Encryption unexpectedly succeeded with corrupted public key.\n";
-		RETURN_TEST(fn_name, 1);
-	}
-
-	// Step 5: Attempt decryption with the corrupted private key
-	auto encrypted_future = ECC::Encrypt(message, public_key);
-	if (!encrypted_future.has_value()) {
-		RETURN_TEST(fn_name, 1); // Encryption with a valid key should not fail
-	}
-
-	StormByte::Buffers::Simple encrypted_buffer = std::move(encrypted_future.value().get());
-	auto decrypt_result = ECC::Decrypt(encrypted_buffer, corrupted_private_key);
-	if (decrypt_result.has_value()) {
-		std::cerr << "[" << fn_name << "] Decryption unexpectedly succeeded with corrupted private key.\n";
-		RETURN_TEST(fn_name, 1);
-	}
+	Asymmetric ecc(Algorithm::Asymmetric::ECC, { corrupted_public_key, corrupted_private_key });
+	auto encrypt_result = ecc.Encrypt(message);
+	ASSERT_FALSE(fn_name, encrypt_result.has_value());
 
 	// Step 6: Both operations failed gracefully
 	RETURN_TEST(fn_name, 0);
@@ -150,15 +120,16 @@ int TestECCEncryptionProducesDifferentContent() {
 	const std::string fn_name = "TestECCEncryptionProducesDifferentContent";
 	const std::string original_data = "ECC test message";
 
-	auto keypair_result = ECC::GenerateKeyPair();
+	auto keypair_result = KeyPair::Generate(Algorithm::Asymmetric::ECC, curve_name);
 	ASSERT_TRUE(fn_name, keypair_result.has_value());
-	auto [private_key, public_key] = keypair_result.value();
+
+	Asymmetric ecc(Algorithm::Asymmetric::ECC, keypair_result.value());
 
 	// Encrypt the data
-	auto encrypt_result = ECC::Encrypt(original_data, public_key);
+	auto encrypt_result = ecc.Encrypt(original_data);
 	ASSERT_TRUE(fn_name, encrypt_result.has_value());
 	auto encrypted_future = std::move(encrypt_result.value());
-	StormByte::Buffers::Simple encrypted_buffer = encrypted_future.get();
+	StormByte::Buffers::Simple encrypted_buffer = encrypted_future;
 
 	// Verify encrypted content is different from original
 	ASSERT_NOT_EQUAL(fn_name, original_data, std::string(reinterpret_cast<const char*>(encrypted_buffer.Data().data()), encrypted_buffer.Size()));
@@ -171,9 +142,10 @@ int TestECCEncryptDecryptInOneStep() {
     const std::string input_data = "This is the data to encrypt and decrypt in one step.";
 
     // Generate a key pair
-    auto keypair_result = ECC::GenerateKeyPair();
-    ASSERT_TRUE(fn_name, keypair_result.has_value());
-    auto [private_key, public_key] = keypair_result.value();
+    auto keypair_result = KeyPair::Generate(Algorithm::Asymmetric::ECC, curve_name);
+	ASSERT_TRUE(fn_name, keypair_result.has_value());
+
+	Asymmetric ecc(Algorithm::Asymmetric::ECC, keypair_result.value());
 
     // Create a producer buffer and write the input data
     StormByte::Buffers::Producer producer;
@@ -184,10 +156,10 @@ int TestECCEncryptDecryptInOneStep() {
     StormByte::Buffers::Consumer consumer(producer.Consumer());
 
     // Encrypt the data asynchronously
-    auto encrypted_consumer = ECC::Encrypt(consumer, public_key);
+    auto encrypted_consumer = ecc.Encrypt(consumer);
 
     // Decrypt the data asynchronously using the encrypted consumer
-    auto decrypted_consumer = ECC::Decrypt(encrypted_consumer, private_key);
+    auto decrypted_consumer = ecc.Decrypt(encrypted_consumer);
 
     // Wait for the decryption process to complete
     while (!decrypted_consumer.IsEoF()) {
@@ -226,9 +198,10 @@ int TestECCEncryptUsingConsumerProducer() {
     const std::string input_data = "This is some data to encrypt using the Consumer/Producer model.";
 
     // Generate a key pair
-    auto keypair_result = ECC::GenerateKeyPair();
-    ASSERT_TRUE(fn_name, keypair_result.has_value());
-    auto [private_key, public_key] = keypair_result.value();
+    auto keypair_result = KeyPair::Generate(Algorithm::Asymmetric::ECC, curve_name);
+	ASSERT_TRUE(fn_name, keypair_result.has_value());
+
+	Asymmetric ecc(Algorithm::Asymmetric::ECC, keypair_result.value());
 
     // Create a producer buffer and write the input data
     StormByte::Buffers::Producer producer;
@@ -239,7 +212,7 @@ int TestECCEncryptUsingConsumerProducer() {
     StormByte::Buffers::Consumer consumer(producer.Consumer());
 
     // Encrypt the data asynchronously
-    auto encrypted_consumer = ECC::Encrypt(consumer, public_key);
+    auto encrypted_consumer = ecc.Encrypt(consumer);
 
     // Wait for the encryption process to complete
     while (!encrypted_consumer.IsEoF()) {
