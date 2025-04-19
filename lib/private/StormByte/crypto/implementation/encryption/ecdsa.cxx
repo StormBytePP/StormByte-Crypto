@@ -55,11 +55,16 @@ ExpectedKeyPair ECDSA::GenerateKeyPair(const std::string& curveName) noexcept {
         CryptoPP::AutoSeededRandomPool rng;
 
         // Select the curve
-        CryptoPP::OID curve = CryptoPP::ASN1::secp256r1();
-        if (curveName == "secp384r1") {
+        CryptoPP::OID curve;
+        if (curveName == "secp256r1") {
+            curve = CryptoPP::ASN1::secp256r1();
+        } else if (curveName == "secp384r1") {
             curve = CryptoPP::ASN1::secp384r1();
         } else if (curveName == "secp521r1") {
             curve = CryptoPP::ASN1::secp521r1();
+        } else {
+            // Return an error if the curve name is not recognized
+            return StormByte::Unexpected<Exception>("Unknown curve name: " + curveName);
         }
 
         // Generate the private key

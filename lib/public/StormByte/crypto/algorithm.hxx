@@ -52,5 +52,7 @@ namespace StormByte::Crypto::Algorithm {
 	 */
 	enum class STORMBYTE_CRYPTO_PUBLIC Sign {
 		DSA,				///> Digital Signature Algorithm (DSA)
+		ECDSA,				///> Elliptic Curve Digital Signature Algorithm (ECDSA)
+		RSA,				///> RSA signing
 	};
 }

@@ -13,141 +13,150 @@
 using namespace StormByte::Crypto::Implementation::Encryption;
 
 namespace {
-	using ECIES = CryptoPP::ECIES<CryptoPP::ECP>;
+    using ECIES = CryptoPP::ECIES<CryptoPP::ECP>;
 
-	std::string SerializeKey(const ECIES::PrivateKey& key) {
-		std::string keyString;
-		CryptoPP::ByteQueue queue;
-		key.Save(queue); // Save the key in ASN.1 format
-		CryptoPP::Base64Encoder encoder(new CryptoPP::StringSink(keyString), false); // Base64 encode
-		queue.CopyTo(encoder);
-		encoder.MessageEnd();
-		return keyString;
-	}
+    std::string SerializeKey(const ECIES::PrivateKey& key) {
+        std::string keyString;
+        CryptoPP::ByteQueue queue;
+        key.Save(queue); // Save the key in ASN.1 format
+        CryptoPP::Base64Encoder encoder(new CryptoPP::StringSink(keyString), false); // Base64 encode
+        queue.CopyTo(encoder);
+        encoder.MessageEnd();
+        return keyString;
+    }
 
-	std::string SerializeKey(const ECIES::PublicKey& key) {
-		std::string keyString;
-		CryptoPP::ByteQueue queue;
-		key.Save(queue); // Save the key in ASN.1 format
-		CryptoPP::Base64Encoder encoder(new CryptoPP::StringSink(keyString), false); // Base64 encode
-		queue.CopyTo(encoder);
-		encoder.MessageEnd();
-		return keyString;
-	}
+    std::string SerializeKey(const ECIES::PublicKey& key) {
+        std::string keyString;
+        CryptoPP::ByteQueue queue;
+        key.Save(queue); // Save the key in ASN.1 format
+        CryptoPP::Base64Encoder encoder(new CryptoPP::StringSink(keyString), false); // Base64 encode
+        queue.CopyTo(encoder);
+        encoder.MessageEnd();
+        return keyString;
+    }
 
-	ECIES::PrivateKey DeserializePrivateKey(const std::string& keyString) {
-		ECIES::PrivateKey key;
-		CryptoPP::Base64Decoder decoder;
-		CryptoPP::StringSource(keyString, true, new CryptoPP::Redirector(decoder));
-		key.Load(decoder); // Load the decoded key
-	
-		// Explicitly initialize curve parameters
-		key.AccessGroupParameters().Initialize(CryptoPP::ASN1::secp256r1());
-	
-		return key;
-	}	
+    ECIES::PrivateKey DeserializePrivateKey(const std::string& keyString) {
+        ECIES::PrivateKey key;
+        CryptoPP::Base64Decoder decoder;
+        CryptoPP::StringSource(keyString, true, new CryptoPP::Redirector(decoder));
+        key.Load(decoder); // Load the decoded key
 
-	ECIES::PublicKey DeserializePublicKey(const std::string& keyString) {
-		ECIES::PublicKey key;
-		CryptoPP::Base64Decoder decoder;
-		CryptoPP::StringSource(keyString, true, new CryptoPP::Redirector(decoder));
-		key.Load(decoder); // Load the decoded key
-	
-		// Explicitly initialize curve parameters
-		key.AccessGroupParameters().Initialize(CryptoPP::ASN1::secp256r1());
-	
-		return key;
-	}	
+        // Explicitly initialize curve parameters
+        key.AccessGroupParameters().Initialize(CryptoPP::ASN1::secp256r1());
+
+        return key;
+    }
+
+    ECIES::PublicKey DeserializePublicKey(const std::string& keyString) {
+        ECIES::PublicKey key;
+        CryptoPP::Base64Decoder decoder;
+        CryptoPP::StringSource(keyString, true, new CryptoPP::Redirector(decoder));
+        key.Load(decoder); // Load the decoded key
+
+        // Explicitly initialize curve parameters
+        key.AccessGroupParameters().Initialize(CryptoPP::ASN1::secp256r1());
+
+        return key;
+    }
+
+    // Helper function to map curve names to CryptoPP::OID
+    std::optional<CryptoPP::OID> GetCurveOID(const std::string& curve_name) {
+        if (curve_name == "secp256r1") {
+            return CryptoPP::ASN1::secp256r1();
+        } else if (curve_name == "secp384r1") {
+            return CryptoPP::ASN1::secp384r1();
+        } else if (curve_name == "secp521r1") {
+            return CryptoPP::ASN1::secp521r1();
+        }
+        return std::nullopt; // Unknown curve name
+    }
 }
 
-ExpectedKeyPair ECC::GenerateKeyPair(const int& curve_id) noexcept {
-	try {
-		CryptoPP::AutoSeededRandomPool rng;
+ExpectedKeyPair ECC::GenerateKeyPair(const std::string& curve_name) noexcept {
+    try {
+        CryptoPP::AutoSeededRandomPool rng;
 
-		ECIES::PrivateKey privateKey;
-		switch (curve_id) {
-			case 256:
-				privateKey.Initialize(rng, CryptoPP::ASN1::secp256r1());
-				break;
-			case 384:
-				privateKey.Initialize(rng, CryptoPP::ASN1::secp384r1());
-				break;
-			case 521:
-				privateKey.Initialize(rng, CryptoPP::ASN1::secp521r1());
-				break;
-			default:
-				return StormByte::Unexpected<Exception>("Unsupported curve ID {}, valid values are: {}", curve_id, "256, 384, 521");
-		}
+        // Map curve_name to CryptoPP::OID
+        auto curve_oid = GetCurveOID(curve_name);
+        if (!curve_oid.has_value()) {
+            return StormByte::Unexpected<Exception>("Unknown curve name: " + curve_name);
+        }
 
-		ECIES::PublicKey publicKey;
-		privateKey.MakePublicKey(publicKey);
+        // Generate private key
+        ECIES::PrivateKey privateKey;
+        privateKey.Initialize(rng, curve_oid.value());
 
-		KeyPair keyPair{
-			.Private = SerializeKey(privateKey),
-			.Public = SerializeKey(publicKey),
-		};
+        // Generate public key
+        ECIES::PublicKey publicKey;
+        privateKey.MakePublicKey(publicKey);
 
-		return keyPair;
-	} catch (const std::exception& e) {
-		return StormByte::Unexpected<Exception>("Failed to generate ECC keys: {}", e.what());
-	}
+        // Serialize keys
+        KeyPair keyPair{
+            .Private = SerializeKey(privateKey),
+            .Public = SerializeKey(publicKey),
+        };
+
+        return keyPair;
+    } catch (const std::exception& e) {
+        return StormByte::Unexpected<Exception>("Failed to generate ECC keys: " + std::string(e.what()));
+    }
 }
 
 ExpectedCryptoFutureBuffer ECC::Encrypt(const std::string& message, const std::string& publicKey) noexcept {
-	try {
-		CryptoPP::AutoSeededRandomPool rng;
+    try {
+        CryptoPP::AutoSeededRandomPool rng;
 
-		// Deserialize, initialize, and validate the public key
-		ECIES::PublicKey key = DeserializePublicKey(publicKey);
-		if (!key.Validate(rng, 3)) {
-			return StormByte::Unexpected<Exception>("Public key validation failed");
-		}
+        // Deserialize, initialize, and validate the public key
+        ECIES::PublicKey key = DeserializePublicKey(publicKey);
+        if (!key.Validate(rng, 3)) {
+            return StormByte::Unexpected<Exception>("Public key validation failed");
+        }
 
-		// Initialize the encryptor
-		ECIES::Encryptor encryptor(key);
+        // Initialize the encryptor
+        ECIES::Encryptor encryptor(key);
 
-		// Perform encryption
-		std::string encryptedMessage;
-		CryptoPP::StringSource ss(message, true,
-									new CryptoPP::PK_EncryptorFilter(rng, encryptor,
-																	new CryptoPP::StringSink(encryptedMessage)));
+        // Perform encryption
+        std::string encryptedMessage;
+        CryptoPP::StringSource ss(message, true,
+                                    new CryptoPP::PK_EncryptorFilter(rng, encryptor,
+                                                                    new CryptoPP::StringSink(encryptedMessage)));
 
-		// Convert the encrypted message into a buffer
-		StormByte::Buffers::Simple buffer;
-		buffer << encryptedMessage;
+        // Convert the encrypted message into a buffer
+        StormByte::Buffers::Simple buffer;
+        buffer << encryptedMessage;
 
-		std::promise<StormByte::Buffers::Simple> promise;
-		promise.set_value(std::move(buffer));
-		return promise.get_future();
-	} catch (const std::exception& e) {
-		return StormByte::Unexpected<Exception>(std::string("ECC encryption failed: ") + e.what());
-	}
-}	
+        std::promise<StormByte::Buffers::Simple> promise;
+        promise.set_value(std::move(buffer));
+        return promise.get_future();
+    } catch (const std::exception& e) {
+        return StormByte::Unexpected<Exception>(std::string("ECC encryption failed: ") + e.what());
+    }
+}    
 
 ExpectedCryptoFutureString ECC::Decrypt(const StormByte::Buffers::Simple& encryptedBuffer, const std::string& privateKey) noexcept {
-	try {
-		CryptoPP::AutoSeededRandomPool rng;
+    try {
+        CryptoPP::AutoSeededRandomPool rng;
 
-		// Deserialize, initialize, and validate the private key
-		ECIES::PrivateKey key = DeserializePrivateKey(privateKey);
-		if (!key.Validate(rng, 3)) {
-			return StormByte::Unexpected<Exception>("Private key validation failed");
-		}
+        // Deserialize, initialize, and validate the private key
+        ECIES::PrivateKey key = DeserializePrivateKey(privateKey);
+        if (!key.Validate(rng, 3)) {
+            return StormByte::Unexpected<Exception>("Private key validation failed");
+        }
 
-		// Initialize the decryptor
-		ECIES::Decryptor decryptor(key);
+        // Initialize the decryptor
+        ECIES::Decryptor decryptor(key);
 
-		// Perform decryption
-		std::string decryptedMessage;
-		std::string encryptedString(reinterpret_cast<const char*>(encryptedBuffer.Data().data()), encryptedBuffer.Size());
-		CryptoPP::StringSource ss(encryptedString, true,
-									new CryptoPP::PK_DecryptorFilter(rng, decryptor,
-																	new CryptoPP::StringSink(decryptedMessage)));
+        // Perform decryption
+        std::string decryptedMessage;
+        std::string encryptedString(reinterpret_cast<const char*>(encryptedBuffer.Data().data()), encryptedBuffer.Size());
+        CryptoPP::StringSource ss(encryptedString, true,
+                                    new CryptoPP::PK_DecryptorFilter(rng, decryptor,
+                                                                    new CryptoPP::StringSink(decryptedMessage)));
 
-		return decryptedMessage;
-	} catch (const std::exception& e) {
-		return StormByte::Unexpected<Exception>(std::string("ECC decryption failed: ") + e.what());
-	}
+        return decryptedMessage;
+    } catch (const std::exception& e) {
+        return StormByte::Unexpected<Exception>(std::string("ECC decryption failed: ") + e.what());
+    }
 }
 
 StormByte::Buffers::Consumer ECC::Encrypt(const Buffers::Consumer consumer, const std::string& publicKey) noexcept {

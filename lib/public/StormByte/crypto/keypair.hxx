@@ -140,6 +140,9 @@ namespace StormByte::Crypto {
 			[[nodiscard]]
 			static Expected<KeyPair, Exception> 			Generate(const Algorithm::Asymmetric& algo, const size_t& key_size) noexcept;
 
+			[[nodiscard]]
+			static Expected<KeyPair, Exception> 			Generate(const Algorithm::Asymmetric& algo, const std::string& curve_name) noexcept;
+
 			/**
 			 * @brief Generates a random key pair for signing using the specified algorithm and key size.
 			 * 
@@ -151,6 +154,9 @@ namespace StormByte::Crypto {
 			 */
 			[[nodiscard]]
 			static Expected<KeyPair, Exception> 			Generate(const Algorithm::Sign& algo, const size_t& key_size) noexcept;
+
+			[[nodiscard]]
+			static Expected<KeyPair, Exception> 			Generate(const Algorithm::Sign& algo, const std::string& curve_name) noexcept;
 
 		private:
 			std::string m_public_key; ///< The public key.
