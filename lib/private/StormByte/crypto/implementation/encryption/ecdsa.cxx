@@ -8,12 +8,14 @@
 #include <filters.h>
 #include <string>
 #include <future>
-#include <iostream>
+#include <thread>
 
 using namespace StormByte::Crypto::Implementation::Encryption;
 
 namespace {
-    std::string SerializeKey(const CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>::PrivateKey& key) {
+    using ECDSA = CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>;
+
+    std::string SerializeKey(const ECDSA::PrivateKey& key) {
         std::string keyString;
         CryptoPP::ByteQueue queue;
         key.Save(queue); // Save key in ASN.1 format
@@ -23,7 +25,7 @@ namespace {
         return keyString;
     }
 
-    std::string SerializeKey(const CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>::PublicKey& key) {
+    std::string SerializeKey(const ECDSA::PublicKey& key) {
         std::string keyString;
         CryptoPP::ByteQueue queue;
         key.Save(queue); // Save key in ASN.1 format
@@ -33,16 +35,16 @@ namespace {
         return keyString;
     }
 
-    CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>::PublicKey DeserializePublicKey(const std::string& keyString) {
-        CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>::PublicKey key;
+    ECDSA::PublicKey DeserializePublicKey(const std::string& keyString) {
+        ECDSA::PublicKey key;
         CryptoPP::Base64Decoder decoder;
         CryptoPP::StringSource(keyString, true, new CryptoPP::Redirector(decoder));
         key.Load(decoder); // Load the decoded key
         return key;
     }
 
-    CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>::PrivateKey DeserializePrivateKey(const std::string& keyString) {
-        CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>::PrivateKey key;
+    ECDSA::PrivateKey DeserializePrivateKey(const std::string& keyString) {
+        ECDSA::PrivateKey key;
         CryptoPP::Base64Decoder decoder;
         CryptoPP::StringSource(keyString, true, new CryptoPP::Redirector(decoder));
         key.Load(decoder); // Load the decoded key
@@ -50,6 +52,7 @@ namespace {
     }
 }
 
+// Key Pair Generation
 ExpectedKeyPair ECDSA::GenerateKeyPair(const std::string& curveName) noexcept {
     try {
         CryptoPP::AutoSeededRandomPool rng;
@@ -63,16 +66,15 @@ ExpectedKeyPair ECDSA::GenerateKeyPair(const std::string& curveName) noexcept {
         } else if (curveName == "secp521r1") {
             curve = CryptoPP::ASN1::secp521r1();
         } else {
-            // Return an error if the curve name is not recognized
             return StormByte::Unexpected<Exception>("Unknown curve name: " + curveName);
         }
 
         // Generate the private key
-        CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>::PrivateKey privateKey;
+        ECDSA::PrivateKey privateKey;
         privateKey.Initialize(rng, curve);
 
         // Generate the public key
-        CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>::PublicKey publicKey;
+        ECDSA::PublicKey publicKey;
         privateKey.MakePublicKey(publicKey);
 
         // Validate the keys
@@ -84,31 +86,28 @@ ExpectedKeyPair ECDSA::GenerateKeyPair(const std::string& curveName) noexcept {
         }
 
         // Serialize the keys
-        std::string serializedPrivateKey = SerializeKey(privateKey);
-        std::string serializedPublicKey = SerializeKey(publicKey);
-
-        // Return the key pair
         return KeyPair{
-            .Private = serializedPrivateKey,
-            .Public = serializedPublicKey,
+            .Private = SerializeKey(privateKey),
+            .Public = SerializeKey(publicKey),
         };
     } catch (const std::exception& e) {
         return StormByte::Unexpected<Exception>("Unexpected error during key generation: " + std::string(e.what()));
     }
 }
 
+// Signing
 ExpectedCryptoFutureString ECDSA::Sign(const std::string& message, const std::string& privateKey) noexcept {
     try {
         CryptoPP::AutoSeededRandomPool rng;
 
         // Deserialize and validate the private key
-        CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>::PrivateKey key = DeserializePrivateKey(privateKey);
+        ECDSA::PrivateKey key = DeserializePrivateKey(privateKey);
         if (!key.Validate(rng, 3)) {
             return StormByte::Unexpected<Exception>("Private key validation failed");
         }
 
         // Initialize the signer
-        CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>::Signer signer(key);
+        ECDSA::Signer signer(key);
 
         // Sign the message
         std::string signature;
@@ -126,18 +125,52 @@ ExpectedCryptoFutureString ECDSA::Sign(const std::string& message, const std::st
     }
 }
 
+ExpectedCryptoFutureBuffer ECDSA::Sign(const Buffers::Simple& message, const std::string& privateKey) noexcept {
+    try {
+        CryptoPP::AutoSeededRandomPool rng;
+
+        // Deserialize and validate the private key
+        ECDSA::PrivateKey key = DeserializePrivateKey(privateKey);
+        if (!key.Validate(rng, 3)) {
+            return StormByte::Unexpected<Exception>("Private key validation failed");
+        }
+
+        // Initialize the signer
+        ECDSA::Signer signer(key);
+
+        // Sign the message
+        std::string signature;
+        CryptoPP::StringSource ss(
+            reinterpret_cast<const CryptoPP::byte*>(message.Data().data()), message.Size(), true,
+            new CryptoPP::SignerFilter(rng, signer, new CryptoPP::StringSink(signature))
+        );
+
+        // Convert the signature to a buffer
+        std::vector<std::byte> signatureBuffer(signature.size());
+        std::transform(signature.begin(), signature.end(), signatureBuffer.begin(),
+                       [](char c) { return static_cast<std::byte>(c); });
+
+        std::promise<StormByte::Buffers::Simple> promise;
+        promise.set_value(StormByte::Buffers::Simple(std::move(signatureBuffer)));
+        return promise.get_future();
+    } catch (const std::exception& e) {
+        return StormByte::Unexpected<Exception>("ECDSA signing failed: " + std::string(e.what()));
+    }
+}
+
+// Verification
 bool ECDSA::Verify(const std::string& message, const std::string& signature, const std::string& publicKey) noexcept {
     try {
         CryptoPP::AutoSeededRandomPool rng;
 
         // Deserialize and validate the public key
-        CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>::PublicKey key = DeserializePublicKey(publicKey);
+        ECDSA::PublicKey key = DeserializePublicKey(publicKey);
         if (!key.Validate(rng, 3)) {
             return false; // Public key validation failed
         }
 
         // Initialize the verifier
-        CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>::Verifier verifier(key);
+        ECDSA::Verifier verifier(key);
 
         // Verify the signature
         bool result = false;

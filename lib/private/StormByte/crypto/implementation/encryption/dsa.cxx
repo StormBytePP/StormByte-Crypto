@@ -51,6 +51,7 @@ namespace {
     }
 }
 
+// Key Pair Generation
 ExpectedKeyPair DSA::GenerateKeyPair(const int& keyStrength) noexcept {
     try {
         CryptoPP::AutoSeededRandomPool rng;
@@ -72,19 +73,16 @@ ExpectedKeyPair DSA::GenerateKeyPair(const int& keyStrength) noexcept {
         }
 
         // Serialize the keys
-        std::string serializedPrivateKey = SerializeKey(privateKey);
-        std::string serializedPublicKey = SerializeKey(publicKey);
-
-        // Return the key pair
         return KeyPair{
-            .Private = serializedPrivateKey,
-            .Public = serializedPublicKey,
+            .Private = SerializeKey(privateKey),
+            .Public = SerializeKey(publicKey),
         };
     } catch (const std::exception& e) {
         return StormByte::Unexpected<Exception>("Unexpected error during key generation: " + std::string(e.what()));
     }
 }
 
+// Signing
 ExpectedCryptoFutureString DSA::Sign(const std::string& message, const std::string& privateKey) noexcept {
     try {
         CryptoPP::AutoSeededRandomPool rng;
@@ -113,6 +111,41 @@ ExpectedCryptoFutureString DSA::Sign(const std::string& message, const std::stri
         return StormByte::Unexpected<Exception>("DSA signing failed: " + std::string(e.what()));
     }
 }
+
+ExpectedCryptoFutureBuffer DSA::Sign(const Buffers::Simple& message, const std::string& privateKey) noexcept {
+    try {
+        CryptoPP::AutoSeededRandomPool rng;
+
+        // Deserialize and validate the private key
+        CryptoPP::DSA::PrivateKey key = DeserializePrivateKey(privateKey);
+        if (!key.Validate(rng, 3)) {
+            return StormByte::Unexpected<Exception>("Private key validation failed");
+        }
+
+        // Initialize the signer
+        CryptoPP::DSA::Signer signer(key);
+
+        // Sign the message
+        std::string signature;
+        CryptoPP::StringSource ss(
+            reinterpret_cast<const CryptoPP::byte*>(message.Data().data()), message.Size(), true,
+            new CryptoPP::SignerFilter(rng, signer, new CryptoPP::StringSink(signature))
+        );
+
+        // Convert the signature to a buffer
+        std::vector<std::byte> signatureBuffer(signature.size());
+        std::transform(signature.begin(), signature.end(), signatureBuffer.begin(),
+                       [](char c) { return static_cast<std::byte>(c); });
+
+        std::promise<StormByte::Buffers::Simple> promise;
+        promise.set_value(StormByte::Buffers::Simple(std::move(signatureBuffer)));
+        return promise.get_future();
+    } catch (const std::exception& e) {
+        return StormByte::Unexpected<Exception>("DSA signing failed: " + std::string(e.what()));
+    }
+}
+
+// Other functions (Sign for Buffers::Consumer, Verify, etc.) remain unchanged.
 
 bool DSA::Verify(const std::string& message, const std::string& signature, const std::string& publicKey) noexcept {
     try {
