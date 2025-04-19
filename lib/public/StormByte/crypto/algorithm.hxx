@@ -23,6 +23,7 @@ namespace StormByte::Crypto::Algorithm {
 	enum class STORMBYTE_CRYPTO_PUBLIC Symmetric {
 		None = 0,			///> No encryption
 		AES,				///> AES encryption
+		Camellia,			///> Camellia encryption
 	};
 
 	/**

@@ -1,8 +1,8 @@
 option(ENABLE_TEST "Enable Unit Tests" OFF)
 if(ENABLE_TEST AND NOT STORMBYTE_AS_DEPENDENCY)
-	# add_executable(AESTests aes_test.cxx)
-	# target_link_libraries(AESTests StormByte::Crypto)
-	# add_test(NAME AESTests COMMAND AESTests)
+	add_executable(AESTests aes_test.cxx)
+	target_link_libraries(AESTests StormByte::Crypto)
+	add_test(NAME AESTests COMMAND AESTests)
 
 	add_executable(Blake2bTests blake2b_test.cxx)
 	target_link_libraries(Blake2bTests StormByte::Crypto)
@@ -15,6 +15,10 @@ if(ENABLE_TEST AND NOT STORMBYTE_AS_DEPENDENCY)
 	add_executable(Bzip2Tests bzip2_test.cxx)
 	target_link_libraries(Bzip2Tests StormByte::Crypto)
 	add_test(NAME Bzip2Tests COMMAND Bzip2Tests)
+
+	add_executable(Camellia camellia_test.cxx)
+	target_link_libraries(Camellia StormByte::Crypto)
+	add_test(NAME Camellia COMMAND Camellia)
 
 	# add_executable(DSATests dsa_test.cxx)
 	# target_link_libraries(DSATests StormByte::Crypto)

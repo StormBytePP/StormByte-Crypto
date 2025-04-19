@@ -1,29 +1,32 @@
-#include <StormByte/crypto/implementation/encryption/aes.hxx>
+#include <StormByte/buffers/producer.hxx>
+#include <StormByte/crypto/symmetric.hxx>
 #include <StormByte/test_handlers.h>
 
 #include <thread>
 
-using namespace StormByte::Crypto::Implementation::Encryption;
+using namespace StormByte::Crypto;
 
 int TestAESEncryptDecryptConsistency() {
     const std::string fn_name = "TestAESEncryptDecryptConsistency";
     const std::string password = "SecurePassword123!";
     const std::string original_data = "Confidential information to encrypt and decrypt.";
 
+	Symmetric aes(Algorithm::Symmetric::AES, password);
+
     // Encrypt the data
-    auto encrypt_result = AES::Encrypt(original_data, password);
+    auto encrypt_result = aes.Encrypt(original_data);
     ASSERT_TRUE(fn_name, encrypt_result.has_value());
 
     auto encrypted_future = std::move(encrypt_result.value());
-    StormByte::Buffers::Simple encrypted_buffer = encrypted_future.get();
+    StormByte::Buffers::Simple encrypted_buffer = encrypted_future;
     ASSERT_FALSE(fn_name, encrypted_buffer.Empty());
 
     // Decrypt the data
-    auto decrypt_result = AES::Decrypt(encrypted_buffer, password);
+    auto decrypt_result = aes.Decrypt(encrypted_buffer);
     ASSERT_TRUE(fn_name, decrypt_result.has_value());
 
     auto decrypted_future = std::move(decrypt_result.value());
-    StormByte::Buffers::Simple decrypted_buffer = decrypted_future.get();
+    StormByte::Buffers::Simple decrypted_buffer = decrypted_future;
     ASSERT_FALSE(fn_name, decrypted_buffer.Empty());
 
     // Validate decrypted data matches the original data
@@ -39,16 +42,19 @@ int TestAESWrongDecryptionPassword() {
     const std::string wrong_password = "WrongPassword456!";
     const std::string original_data = "This is sensitive data.";
 
+	Symmetric aes(Algorithm::Symmetric::AES, password);
+	Symmetric aes_wrong(Algorithm::Symmetric::AES, wrong_password);
+
     // Encrypt the data
-    auto encrypt_result = AES::Encrypt(original_data, password);
+    auto encrypt_result = aes.Encrypt(original_data);
     ASSERT_TRUE(fn_name, encrypt_result.has_value());
 
     auto encrypted_future = std::move(encrypt_result.value());
-    StormByte::Buffers::Simple encrypted_buffer = encrypted_future.get();
+    StormByte::Buffers::Simple encrypted_buffer = encrypted_future;
     ASSERT_FALSE(fn_name, encrypted_buffer.Empty());
 
     // Attempt to decrypt with a wrong password
-    auto decrypt_result = AES::Decrypt(encrypted_buffer, wrong_password);
+    auto decrypt_result = aes_wrong.Decrypt(encrypted_buffer);
     ASSERT_FALSE(fn_name, decrypt_result.has_value()); // Decryption must fail
 
     RETURN_TEST(fn_name, 0);
@@ -59,12 +65,14 @@ int TestAESDecryptionWithCorruptedData() {
     const std::string password = "StrongPassword123!";
     const std::string original_data = "Important confidential data";
 
+	Symmetric aes(Algorithm::Symmetric::AES, password);
+
     // Encrypt the data
-    auto encrypt_result = AES::Encrypt(original_data, password);
+    auto encrypt_result = aes.Encrypt(original_data);
     ASSERT_TRUE(fn_name, encrypt_result.has_value());
 
     auto encrypted_future = std::move(encrypt_result.value());
-    StormByte::Buffers::Simple encrypted_buffer = encrypted_future.get();
+    StormByte::Buffers::Simple encrypted_buffer = encrypted_future;
     ASSERT_FALSE(fn_name, encrypted_buffer.Empty());
 
     // Corrupt the encrypted data (flip a bit in the buffer)
@@ -75,7 +83,7 @@ int TestAESDecryptionWithCorruptedData() {
     }
 
     // Attempt to decrypt the corrupted data
-    auto decrypt_result = AES::Decrypt(corrupted_buffer, password);
+    auto decrypt_result = aes.Decrypt(corrupted_buffer);
     ASSERT_FALSE(fn_name, decrypt_result.has_value()); // Decryption must fail
 
     RETURN_TEST(fn_name, 0);
@@ -86,12 +94,14 @@ int TestAESEncryptionProducesDifferentContent() {
     const std::string password = "SecurePassword123!";
     const std::string original_data = "Important data to encrypt";
 
+	Symmetric aes(Algorithm::Symmetric::AES, password);
+
     // Encrypt the data
-    auto encrypt_result = AES::Encrypt(original_data, password);
+    auto encrypt_result = aes.Encrypt(original_data);
     ASSERT_TRUE(fn_name, encrypt_result.has_value());
 
     auto encrypted_future = std::move(encrypt_result.value());
-    StormByte::Buffers::Simple encrypted_buffer = encrypted_future.get();
+    StormByte::Buffers::Simple encrypted_buffer = encrypted_future;
     ASSERT_FALSE(fn_name, encrypted_buffer.Empty());
 
     // Verify encrypted content is different from original
@@ -105,6 +115,8 @@ int TestAESEncryptUsingConsumerProducer() {
     const std::string input_data = "This is some data to encrypt using the Consumer/Producer model.";
     const std::string password = "SecurePassword123!";
 
+	Symmetric aes(Algorithm::Symmetric::AES, password);
+
     // Create a producer buffer and write the input data
     StormByte::Buffers::Producer producer;
     producer << input_data;
@@ -114,7 +126,7 @@ int TestAESEncryptUsingConsumerProducer() {
     StormByte::Buffers::Consumer consumer(producer.Consumer());
 
     // Encrypt the data asynchronously
-    auto encrypted_consumer = AES::Encrypt(consumer, password);
+    auto encrypted_consumer = aes.Encrypt(consumer);
 
     // Wait for the encryption process to complete
     while (!encrypted_consumer.IsEoF()) {
@@ -152,6 +164,8 @@ int TestAESDecryptUsingConsumerProducer() {
     const std::string input_data = "This is some data to encrypt and decrypt using the Consumer/Producer model.";
     const std::string password = "SecurePassword123!";
 
+	Symmetric aes(Algorithm::Symmetric::AES, password);
+
     // Create a producer buffer and write the input data
     StormByte::Buffers::Producer producer;
     producer << input_data;
@@ -161,10 +175,10 @@ int TestAESDecryptUsingConsumerProducer() {
     StormByte::Buffers::Consumer consumer(producer.Consumer());
 
     // Encrypt the data asynchronously
-    auto encrypted_consumer = AES::Encrypt(consumer, password);
+    auto encrypted_consumer = aes.Encrypt(consumer);
 
     // Decrypt the data asynchronously
-    auto decrypted_consumer = AES::Decrypt(encrypted_consumer, password);
+    auto decrypted_consumer = aes.Decrypt(encrypted_consumer);
 
     // Wait for the decryption process to complete
     while (!decrypted_consumer.IsEoF()) {
@@ -203,6 +217,8 @@ int TestAESEncryptDecryptInOneStep() {
     const std::string input_data = "This is the data to encrypt and decrypt in one step.";
     const std::string password = "SecurePassword123!";
 
+	Symmetric aes(Algorithm::Symmetric::AES, password);
+
     // Create a producer buffer and write the input data
     StormByte::Buffers::Producer producer;
     producer << input_data;
@@ -212,10 +228,10 @@ int TestAESEncryptDecryptInOneStep() {
     StormByte::Buffers::Consumer consumer(producer.Consumer());
 
     // Encrypt the data asynchronously
-    auto encrypted_consumer = AES::Encrypt(consumer, password);
+    auto encrypted_consumer = aes.Encrypt(consumer);
 
     // Decrypt the data asynchronously using the encrypted consumer
-    auto decrypted_consumer = AES::Decrypt(encrypted_consumer, password);
+    auto decrypted_consumer = aes.Decrypt(encrypted_consumer);
 
     // Wait for the decryption process to complete
     while (!decrypted_consumer.IsEoF()) {
