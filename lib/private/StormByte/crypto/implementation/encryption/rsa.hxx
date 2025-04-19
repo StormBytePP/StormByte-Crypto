@@ -18,7 +18,7 @@ namespace StormByte::Crypto::Implementation::Encryption::RSA {
      * @brief Encrypts a message using the RSA public key.
      * @param message The message to encrypt.
      * @param publicKey The RSA public key to use for encryption.
-     * @return ExpectedCryptoFutureBuffer containing the encrypted Buffer or an error.
+     * @return ExpectedCryptoFutureString containing the encrypted message or an error.
      */
     STORMBYTE_CRYPTO_PRIVATE ExpectedCryptoFutureString Encrypt(const std::string& message, const std::string& publicKey) noexcept;
 
@@ -38,11 +38,11 @@ namespace StormByte::Crypto::Implementation::Encryption::RSA {
      */
     STORMBYTE_CRYPTO_PRIVATE StormByte::Buffers::Consumer Encrypt(const Buffers::Consumer consumer, const std::string& publicKey) noexcept;
 
-	/**
-     * @brief Decrypts a message using the RSA public key.
-     * @param message The message to encrypt.
-     * @param privateKey The RSA public key to use for encryption.
-     * @return ExpectedCryptoFutureBuffer containing the encrypted Buffer or an error.
+    /**
+     * @brief Decrypts a message using the RSA private key.
+     * @param message The encrypted message to decrypt.
+     * @param privateKey The RSA private key to use for decryption.
+     * @return ExpectedCryptoFutureString containing the decrypted message or an error.
      */
     STORMBYTE_CRYPTO_PRIVATE ExpectedCryptoFutureString Decrypt(const std::string& message, const std::string& privateKey) noexcept;
 
