@@ -68,6 +68,9 @@ StormByte::Buffers::Consumer Asymmetric::Encrypt(const Buffers::Consumer consume
 }
 
 StormByte::Expected<std::string, Exception> Asymmetric::Decrypt(const std::string& input) const noexcept {
+	if (!m_keys.PrivateKey().has_value()) {
+		return StormByte::Unexpected<Exception>("Private key is not available for decryption.");
+	}
 	Implementation::Encryption::ExpectedCryptoFutureString outstr;
 	switch(m_algorithm) {
 		case Algorithm::Asymmetric::ECC:
@@ -88,6 +91,9 @@ StormByte::Expected<std::string, Exception> Asymmetric::Decrypt(const std::strin
 }
 
 StormByte::Expected<StormByte::Buffers::Simple, StormByte::Crypto::Exception> Asymmetric::Decrypt(const Buffers::Simple& buffer) const noexcept {
+	if (!m_keys.PrivateKey().has_value()) {
+		return StormByte::Unexpected<Exception>("Private key is not available for decryption.");
+	}
 	Implementation::Encryption::ExpectedCryptoFutureBuffer outbuff;
 	switch(m_algorithm) {
 		case Algorithm::Asymmetric::ECC:
@@ -114,6 +120,11 @@ StormByte::Expected<StormByte::Buffers::Simple, StormByte::Crypto::Exception> As
 }
 
 StormByte::Buffers::Consumer Asymmetric::Decrypt(const Buffers::Consumer consumer) const noexcept {
+	if (!m_keys.PrivateKey().has_value()) {
+		Buffers::Producer producer;
+		producer << StormByte::Buffers::Status::Error;
+		return producer.Consumer();
+	}
 	switch(m_algorithm) {
 		case Algorithm::Asymmetric::ECC:
 			return Implementation::Encryption::ECC::Decrypt(consumer, m_keys.PrivateKey().value());
