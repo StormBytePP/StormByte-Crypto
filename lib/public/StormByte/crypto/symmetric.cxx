@@ -48,7 +48,7 @@ StormByte::Expected<std::string, Exception> Symmetric::Encrypt(const std::string
 	}
 }
 
-StormByte::Expected<StormByte::Buffers::Simple, StormByte::Crypto::Exception> Symmetric::Encrypt(const Buffers::Simple& buffer) const noexcept {
+StormByte::Expected<StormByte::Buffer::Simple, StormByte::Crypto::Exception> Symmetric::Encrypt(const Buffer::Simple& buffer) const noexcept {
 	Implementation::Encryption::ExpectedCryptoFutureBuffer outbuff;
 	switch(m_algorithm) {
 		case Algorithm::Symmetric::AES:
@@ -74,7 +74,7 @@ StormByte::Expected<StormByte::Buffers::Simple, StormByte::Crypto::Exception> Sy
 	}
 }
 
-StormByte::Buffers::Consumer Symmetric::Encrypt(const Buffers::Consumer consumer) const noexcept {
+StormByte::Buffer::Consumer Symmetric::Encrypt(const Buffer::Consumer consumer) const noexcept {
 	switch(m_algorithm) {
 		case Algorithm::Symmetric::AES:
 			return Implementation::Encryption::AES::Encrypt(consumer, m_password);
@@ -111,7 +111,7 @@ StormByte::Expected<std::string, Exception> Symmetric::Decrypt(const std::string
 	}
 }
 
-StormByte::Expected<StormByte::Buffers::Simple, StormByte::Crypto::Exception> Symmetric::Decrypt(const Buffers::Simple& buffer) const noexcept {
+StormByte::Expected<StormByte::Buffer::Simple, StormByte::Crypto::Exception> Symmetric::Decrypt(const Buffer::Simple& buffer) const noexcept {
 	Implementation::Encryption::ExpectedCryptoFutureBuffer outbuff;
 	switch(m_algorithm) {
 		case Algorithm::Symmetric::AES:
@@ -137,7 +137,7 @@ StormByte::Expected<StormByte::Buffers::Simple, StormByte::Crypto::Exception> Sy
 	}
 }
 
-StormByte::Buffers::Consumer Symmetric::Decrypt(const Buffers::Consumer consumer) const noexcept {
+StormByte::Buffer::Consumer Symmetric::Decrypt(const Buffer::Consumer consumer) const noexcept {
 	switch(m_algorithm) {
 		case Algorithm::Symmetric::AES:
 			return Implementation::Encryption::AES::Decrypt(consumer, m_password);

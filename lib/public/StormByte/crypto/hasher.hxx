@@ -1,6 +1,6 @@
 #pragma once
 
-#include <StormByte/buffers/consumer.hxx>
+#include <StormByte/buffer/consumer.hxx>
 #include <StormByte/crypto/algorithm.hxx>
 #include <StormByte/crypto/exception.hxx>
 #include <StormByte/expected.hxx>
@@ -71,7 +71,7 @@ namespace StormByte::Crypto {
 			 * @return An Expected containing the hashed string or an error.
 			 */
 			[[nodiscard]]
-			Expected<std::string, Exception>				Hash(const Buffers::Simple& buffer) const noexcept;
+			Expected<std::string, Exception>				Hash(const Buffer::Simple& buffer) const noexcept;
 
 			/**
 			 * @brief Hashes data asynchronously using a Consumer/Producer model.
@@ -79,7 +79,7 @@ namespace StormByte::Crypto {
 			 * @return A Consumer buffer containing the hashed data.
 			 */
 			[[nodiscard]]
-			Buffers::Consumer 								Hash(const Buffers::Consumer consumer) const noexcept;
+			Buffer::Consumer 								Hash(const Buffer::Consumer consumer) const noexcept;
 
 		private:
 			const Algorithm::Hash m_algorithm; ///< The hashing algorithm to use.

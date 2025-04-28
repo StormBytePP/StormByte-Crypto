@@ -1,4 +1,4 @@
-#include <StormByte/buffers/producer.hxx>
+#include <StormByte/buffer/producer.hxx>
 #include <StormByte/crypto/hasher.hxx>
 #include <StormByte/crypto/implementation/hash/blake2b.hxx>
 #include <StormByte/crypto/implementation/hash/blake2s.hxx>
@@ -25,7 +25,7 @@ StormByte::Expected<std::string, Exception> Hasher::Hash(const std::string& inpu
 	}
 }
 
-StormByte::Expected<std::string, Exception> Hasher::Hash(const Buffers::Simple& buffer) const noexcept {
+StormByte::Expected<std::string, Exception> Hasher::Hash(const Buffer::Simple& buffer) const noexcept {
 	switch(m_algorithm) {
 		case Algorithm::Hash::Blake2b:
 			return Implementation::Hash::Blake2b::Hash(buffer);
@@ -42,7 +42,7 @@ StormByte::Expected<std::string, Exception> Hasher::Hash(const Buffers::Simple& 
 	}
 }
 
-StormByte::Buffers::Consumer Hasher::Hash(const Buffers::Consumer consumer) const noexcept {
+StormByte::Buffer::Consumer Hasher::Hash(const Buffer::Consumer consumer) const noexcept {
 	switch(m_algorithm) {
 		case Algorithm::Hash::Blake2b:
 			return Implementation::Hash::Blake2b::Hash(consumer);

@@ -27,10 +27,10 @@ namespace {
 				[](char c) { return static_cast<std::byte>(c); });
 
 			// Create Buffer from std::vector<std::byte>
-			StormByte::Buffers::Simple buffer(std::move(compressedData));
+			StormByte::Buffer::Simple buffer(std::move(compressedData));
 
 			// Wrap the result into a promise and future
-			std::promise<StormByte::Buffers::Simple> promise;
+			std::promise<StormByte::Buffer::Simple> promise;
 			promise.set_value(std::move(buffer));
 			return promise.get_future();
 		}
@@ -54,10 +54,10 @@ namespace {
 				[](char c) { return static_cast<std::byte>(c); });
 
 			// Create Buffer from std::vector<std::byte>
-			StormByte::Buffers::Simple buffer(std::move(decompressedData));
+			StormByte::Buffer::Simple buffer(std::move(decompressedData));
 
 			// Wrap the result into a promise and future
-			std::promise<StormByte::Buffers::Simple> promise;
+			std::promise<StormByte::Buffer::Simple> promise;
 			promise.set_value(std::move(buffer));
 			return promise.get_future();
 		}
@@ -73,62 +73,57 @@ ExpectedCompressorFutureBuffer Gzip::Compress(const std::string& input) noexcept
 	return CompressHelper(dataSpan);
 }
 
-ExpectedCompressorFutureBuffer Gzip::Compress(const StormByte::Buffers::Simple& input) noexcept {
+ExpectedCompressorFutureBuffer Gzip::Compress(const StormByte::Buffer::Simple& input) noexcept {
 	return CompressHelper(input.Data());
 }
 
-StormByte::Buffers::Consumer Gzip::Compress(const Buffers::Consumer consumer) noexcept {
-    // Create a producer buffer to store the compressed data
-    SharedProducerBuffer producer = std::make_shared<StormByte::Buffers::Producer>();
+StormByte::Buffer::Consumer Gzip::Compress(const Buffer::Consumer consumer) noexcept {
+	// Create a producer buffer to store the compressed data
+	SharedProducerBuffer producer = std::make_shared<StormByte::Buffer::Producer>();
 
-    // Launch a detached thread to handle compression
-    std::thread([consumer, producer]() {
-        try {
-            constexpr size_t chunkSize = 4096; // Define the chunk size for reading from the consumer
-            std::vector<uint8_t> inputBuffer(chunkSize);
-            std::string compressedString;
+	// Launch a detached thread to handle compression
+	std::thread([consumer, producer]() {
+		try {
+			constexpr size_t chunkSize = 4096; // Define the chunk size for reading from the consumer
+			std::vector<uint8_t> inputBuffer(chunkSize);
+			std::string compressedString;
 
-            while (true) {
-                // Check how many bytes are available in the consumer
-                size_t availableBytes = consumer.AvailableBytes();
+			while (consumer.IsReadable() && !consumer.IsEoF()) {
+				// Check how many bytes are available in the consumer
+				size_t availableBytes = consumer.AvailableBytes();
 
-                if (availableBytes == 0) {
-                    if (consumer.IsEoF()) {
-                        // If EOF is reached and no bytes are available, mark the producer as EOF
-                        *producer << StormByte::Buffers::Status::EoF;
-                        break;
-                    } else {
-                        // Wait for more data to become available
-                        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                        continue;
-                    }
-                }
+				if (availableBytes == 0) {
+					// Wait for more data to become available
+					std::this_thread::sleep_for(std::chrono::milliseconds(10));
+					continue;
+				}
 
-                // Read the available bytes (up to chunkSize)
-                size_t bytesToRead = std::min(availableBytes, chunkSize);
-                auto readResult = consumer.Read(bytesToRead);
-                if (!readResult.has_value()) {
-                    *producer << StormByte::Buffers::Status::Error;
-                    break;
-                }
+				// Read the available bytes (up to chunkSize)
+				size_t bytesToRead = std::min(availableBytes, chunkSize);
+				auto readResult = consumer.Read(bytesToRead);
+				if (!readResult.has_value()) {
+					*producer << StormByte::Buffer::Status::Error;
+					return;
+				}
 
-                const auto& inputData = readResult.value();
+				const auto& inputData = readResult.value();
 
-                // Use Crypto++'s Gzip for compression
-                CryptoPP::StringSource ss(
-                    reinterpret_cast<const uint8_t*>(inputData.data()), inputData.size(), true,
-                    new CryptoPP::Gzip(new CryptoPP::StringSink(compressedString), CryptoPP::Gzip::MAX_DEFLATE_LEVEL));
+				// Use Crypto++'s Gzip for compression
+				CryptoPP::StringSource ss(
+					reinterpret_cast<const uint8_t*>(inputData.data()), inputData.size(), true,
+					new CryptoPP::Gzip(new CryptoPP::StringSink(compressedString), CryptoPP::Gzip::MAX_DEFLATE_LEVEL));
 
-                // Write the compressed data to the producer
-                *producer << StormByte::Buffers::Simple(compressedString.data(), compressedString.size());
-            }
-        } catch (...) {
-            *producer << StormByte::Buffers::Status::Error;
-        }
-    }).detach();
+				// Write the compressed data to the producer
+				*producer << StormByte::Buffer::Simple(compressedString.data(), compressedString.size());
+			}
+			*producer << consumer.Status(); // Update status (EOF or Error)
+		} catch (...) {
+			*producer << StormByte::Buffer::Status::Error;
+		}
+	}).detach();
 
-    // Return a consumer buffer for the producer
-    return producer->Consumer();
+	// Return a consumer buffer for the producer
+	return producer->Consumer();
 }
 
 // Public Decompress Methods
@@ -137,60 +132,55 @@ ExpectedCompressorFutureBuffer Gzip::Decompress(const std::string& input) noexce
 	return DecompressHelper(dataSpan);
 }
 
-ExpectedCompressorFutureBuffer Gzip::Decompress(const StormByte::Buffers::Simple& input) noexcept {
+ExpectedCompressorFutureBuffer Gzip::Decompress(const StormByte::Buffer::Simple& input) noexcept {
 	return DecompressHelper(input.Data());
 }
 
-StormByte::Buffers::Consumer Gzip::Decompress(const Buffers::Consumer consumer) noexcept {
-    // Create a producer buffer to store the decompressed data
-    SharedProducerBuffer producer = std::make_shared<StormByte::Buffers::Producer>();
+StormByte::Buffer::Consumer Gzip::Decompress(const Buffer::Consumer consumer) noexcept {
+	// Create a producer buffer to store the decompressed data
+	SharedProducerBuffer producer = std::make_shared<StormByte::Buffer::Producer>();
 
-    // Launch a detached thread to handle decompression
-    std::thread([consumer, producer]() {
-        try {
-            constexpr size_t chunkSize = 4096; // Define the chunk size for reading from the consumer
-            std::vector<uint8_t> compressedBuffer(chunkSize);
-            std::string decompressedString;
+	// Launch a detached thread to handle decompression
+	std::thread([consumer, producer]() {
+		try {
+			constexpr size_t chunkSize = 4096; // Define the chunk size for reading from the consumer
+			std::vector<uint8_t> compressedBuffer(chunkSize);
+			std::string decompressedString;
 
-            while (true) {
-                // Check how many bytes are available in the consumer
-                size_t availableBytes = consumer.AvailableBytes();
+			while (consumer.IsReadable() && !consumer.IsEoF()) {
+				// Check how many bytes are available in the consumer
+				size_t availableBytes = consumer.AvailableBytes();
 
-                if (availableBytes == 0) {
-                    if (consumer.IsEoF()) {
-                        // If EOF is reached and no bytes are available, mark the producer as EOF
-                        *producer << StormByte::Buffers::Status::EoF;
-                        break;
-                    } else {
-                        // Wait for more data to become available
-                        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                        continue;
-                    }
-                }
+				if (availableBytes == 0) {
+					// Wait for more data to become available
+					std::this_thread::sleep_for(std::chrono::milliseconds(10));
+					continue;
+				}
 
-                // Read the available bytes (up to chunkSize)
-                size_t bytesToRead = std::min(availableBytes, chunkSize);
-                auto readResult = consumer.Read(bytesToRead);
-                if (!readResult.has_value()) {
-                    *producer << StormByte::Buffers::Status::Error;
-                    break;
-                }
+				// Read the available bytes (up to chunkSize)
+				size_t bytesToRead = std::min(availableBytes, chunkSize);
+				auto readResult = consumer.Read(bytesToRead);
+				if (!readResult.has_value()) {
+					*producer << StormByte::Buffer::Status::Error;
+					return;
+				}
 
-                const auto& compressedData = readResult.value();
+				const auto& compressedData = readResult.value();
 
-                // Use Crypto++'s Gunzip for decompression
-                CryptoPP::StringSource ss(
-                    reinterpret_cast<const uint8_t*>(compressedData.data()), compressedData.size(), true,
-                    new CryptoPP::Gunzip(new CryptoPP::StringSink(decompressedString)));
+				// Use Crypto++'s Gunzip for decompression
+				CryptoPP::StringSource ss(
+					reinterpret_cast<const uint8_t*>(compressedData.data()), compressedData.size(), true,
+					new CryptoPP::Gunzip(new CryptoPP::StringSink(decompressedString)));
 
-                // Write the decompressed data to the producer
-                *producer << StormByte::Buffers::Simple(decompressedString.data(), decompressedString.size());
-            }
-        } catch (...) {
-            *producer << StormByte::Buffers::Status::Error;
-        }
-    }).detach();
+				// Write the decompressed data to the producer
+				*producer << StormByte::Buffer::Simple(decompressedString.data(), decompressedString.size());
+			}
+			*producer << consumer.Status(); // Update status (EOF or Error)
+		} catch (...) {
+			*producer << StormByte::Buffer::Status::Error;
+		}
+	}).detach();
 
-    // Return a consumer buffer for the producer
-    return producer->Consumer();
+	// Return a consumer buffer for the producer
+	return producer->Consumer();
 }

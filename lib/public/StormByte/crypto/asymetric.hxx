@@ -75,7 +75,7 @@ namespace StormByte::Crypto {
 			 * @return An Expected containing the encrypted buffer or an error.
 			 */
 			[[nodiscard]]
-			Expected<Buffers::Simple, Exception> 						Encrypt(const Buffers::Simple& buffer) const noexcept override;
+			Expected<Buffer::Simple, Exception> 						Encrypt(const Buffer::Simple& buffer) const noexcept override;
 
 			/**
 			 * @brief Encrypts data asynchronously using a Consumer/Producer model.
@@ -83,7 +83,7 @@ namespace StormByte::Crypto {
 			 * @return A Consumer buffer containing the encrypted data.
 			 */
 			[[nodiscard]]
-			Buffers::Consumer 											Encrypt(const Buffers::Consumer consumer) const noexcept override;
+			Buffer::Consumer 											Encrypt(const Buffer::Consumer consumer) const noexcept override;
 
 			/**
 			 * @brief Decrypts a string input using the asymmetric encryption algorithm.
@@ -99,7 +99,7 @@ namespace StormByte::Crypto {
 			 * @return An Expected containing the decrypted buffer or an error.
 			 */
 			[[nodiscard]]
-			Expected<Buffers::Simple, Exception> 						Decrypt(const Buffers::Simple& buffer) const noexcept override;
+			Expected<Buffer::Simple, Exception> 						Decrypt(const Buffer::Simple& buffer) const noexcept override;
 
 			/**
 			 * @brief Decrypts data asynchronously using a Consumer/Producer model.
@@ -107,7 +107,7 @@ namespace StormByte::Crypto {
 			 * @return A Consumer buffer containing the decrypted data.
 			 */
 			[[nodiscard]]
-			Buffers::Consumer 											Decrypt(const Buffers::Consumer consumer) const noexcept override;
+			Buffer::Consumer 											Decrypt(const Buffer::Consumer consumer) const noexcept override;
 
 			/**
 			 * @brief Returns the key pair associated with this Asymmetric instance.

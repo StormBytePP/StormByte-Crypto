@@ -33,7 +33,7 @@ StormByte::Expected<std::string, Exception> Compressor::Compress(const std::stri
 	}
 }
 
-StormByte::Expected<StormByte::Buffers::Simple, StormByte::Crypto::Exception> Compressor::Compress(const Buffers::Simple& buffer) const noexcept {
+StormByte::Expected<StormByte::Buffer::Simple, StormByte::Crypto::Exception> Compressor::Compress(const Buffer::Simple& buffer) const noexcept {
 	Implementation::Compressor::ExpectedCompressorFutureBuffer outbuff;
 	switch(m_algorithm) {
 		case Algorithm::Compress::Bzip2:
@@ -60,7 +60,7 @@ StormByte::Expected<StormByte::Buffers::Simple, StormByte::Crypto::Exception> Co
 	}
 }
 
-StormByte::Buffers::Consumer Compressor::Compress(const Buffers::Consumer consumer) const noexcept {
+StormByte::Buffer::Consumer Compressor::Compress(const Buffer::Consumer consumer) const noexcept {
 	switch(m_algorithm) {
 		case Algorithm::Compress::Bzip2:
 			return Implementation::Compressor::BZip2::Compress(consumer);
@@ -97,7 +97,7 @@ StormByte::Expected<std::string, Exception> Compressor::Decompress(const std::st
 	}
 }
 
-StormByte::Expected<StormByte::Buffers::Simple, StormByte::Crypto::Exception> Compressor::Decompress(const Buffers::Simple& buffer) const noexcept {
+StormByte::Expected<StormByte::Buffer::Simple, StormByte::Crypto::Exception> Compressor::Decompress(const Buffer::Simple& buffer) const noexcept {
 	Implementation::Compressor::ExpectedCompressorFutureBuffer outbuff;
 	switch(m_algorithm) {
 		case Algorithm::Compress::Bzip2:
@@ -124,7 +124,7 @@ StormByte::Expected<StormByte::Buffers::Simple, StormByte::Crypto::Exception> Co
 	}
 }
 
-StormByte::Buffers::Consumer Compressor::Decompress(const Buffers::Consumer consumer) const noexcept {
+StormByte::Buffer::Consumer Compressor::Decompress(const Buffer::Consumer consumer) const noexcept {
 	switch(m_algorithm) {
 		case Algorithm::Compress::Bzip2:
 			return Implementation::Compressor::BZip2::Decompress(consumer);

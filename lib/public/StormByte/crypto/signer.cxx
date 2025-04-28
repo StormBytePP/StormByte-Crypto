@@ -37,7 +37,7 @@ StormByte::Expected<std::string, Exception> Signer::Sign(const std::string& inpu
 	}
 }
 
-StormByte::Expected<std::string, Exception> Signer::Sign(const Buffers::Simple& buffer) const noexcept {
+StormByte::Expected<std::string, Exception> Signer::Sign(const Buffer::Simple& buffer) const noexcept {
 	if (!m_keys.PrivateKey().has_value()) {
 		return StormByte::Unexpected<Exception>("Private key is not available for signing.");
 	}
@@ -69,10 +69,10 @@ StormByte::Expected<std::string, Exception> Signer::Sign(const Buffers::Simple& 
 	}
 }
 
-StormByte::Buffers::Consumer Signer::Sign(const Buffers::Consumer consumer) const noexcept {
+StormByte::Buffer::Consumer Signer::Sign(const Buffer::Consumer consumer) const noexcept {
 	if (!m_keys.PrivateKey().has_value()) {
-		Buffers::Producer producer;
-		producer << StormByte::Buffers::Status::Error;
+		Buffer::Producer producer;
+		producer << StormByte::Buffer::Status::Error;
 		return producer.Consumer();
 	}
 	switch(m_algorithm) {
@@ -100,7 +100,7 @@ bool Signer::Verify(const std::string& message, const std::string& signature) co
 	}
 }
 
-bool Signer::Verify(const Buffers::Simple& buffer, const std::string& signature) const noexcept {
+bool Signer::Verify(const Buffer::Simple& buffer, const std::string& signature) const noexcept {
 	switch(m_algorithm) {
 		case Algorithm::Sign::DSA:
 			return Implementation::Encryption::DSA::Verify(buffer, signature, m_keys.PublicKey());
@@ -113,7 +113,7 @@ bool Signer::Verify(const Buffers::Simple& buffer, const std::string& signature)
 	}
 }
 
-bool Signer::Verify(const Buffers::Consumer consumer, const std::string& signature) const noexcept {
+bool Signer::Verify(const Buffer::Consumer consumer, const std::string& signature) const noexcept {
 	switch(m_algorithm) {
 		case Algorithm::Sign::DSA:
 			return Implementation::Encryption::DSA::Verify(consumer, signature, m_keys.PublicKey());

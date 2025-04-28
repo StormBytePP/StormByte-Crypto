@@ -1,6 +1,6 @@
 #pragma once
 
-#include <StormByte/buffers/consumer.hxx>
+#include <StormByte/buffer/consumer.hxx>
 #include <StormByte/crypto/algorithm.hxx>
 #include <StormByte/crypto/exception.hxx>
 #include <StormByte/expected.hxx>
@@ -71,7 +71,7 @@ namespace StormByte::Crypto {
 			 * @return An Expected containing the compressed buffer or an error.
 			 */
 			[[nodiscard]]
-			Expected<Buffers::Simple, Exception> 						Compress(const Buffers::Simple& buffer) const noexcept;
+			Expected<Buffer::Simple, Exception> 						Compress(const Buffer::Simple& buffer) const noexcept;
 
 			/**
 			 * @brief Compresses data asynchronously using a Consumer/Producer model.
@@ -79,7 +79,7 @@ namespace StormByte::Crypto {
 			 * @return A Consumer buffer containing the compressed data.
 			 */
 			[[nodiscard]]
-			Buffers::Consumer 											Compress(const Buffers::Consumer consumer) const noexcept;
+			Buffer::Consumer 											Compress(const Buffer::Consumer consumer) const noexcept;
 
 			/**
 			 * @brief Decompresses a string input using the specified compression algorithm.
@@ -95,7 +95,7 @@ namespace StormByte::Crypto {
 			 * @return An Expected containing the decompressed buffer or an error.
 			 */
 			[[nodiscard]]
-			Expected<Buffers::Simple, Exception> 						Decompress(const Buffers::Simple& buffer) const noexcept;
+			Expected<Buffer::Simple, Exception> 						Decompress(const Buffer::Simple& buffer) const noexcept;
 
 			/**
 			 * @brief Decompresses data asynchronously using a Consumer/Producer model.
@@ -103,7 +103,7 @@ namespace StormByte::Crypto {
 			 * @return A Consumer buffer containing the decompressed data.
 			 */
 			[[nodiscard]]
-			Buffers::Consumer 											Decompress(const Buffers::Consumer consumer) const noexcept;
+			Buffer::Consumer 											Decompress(const Buffer::Consumer consumer) const noexcept;
 
 		private:
 			const Algorithm::Compress m_algorithm; ///< The compression algorithm to use.

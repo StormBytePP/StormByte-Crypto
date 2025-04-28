@@ -30,7 +30,7 @@ StormByte::Expected<std::string, Exception> Asymmetric::Encrypt(const std::strin
 	}
 }
 
-StormByte::Expected<StormByte::Buffers::Simple, StormByte::Crypto::Exception> Asymmetric::Encrypt(const Buffers::Simple& buffer) const noexcept {
+StormByte::Expected<StormByte::Buffer::Simple, StormByte::Crypto::Exception> Asymmetric::Encrypt(const Buffer::Simple& buffer) const noexcept {
 	Implementation::Encryption::ExpectedCryptoFutureBuffer outbuff;
 	switch(m_algorithm) {
 		case Algorithm::Asymmetric::ECC:
@@ -56,7 +56,7 @@ StormByte::Expected<StormByte::Buffers::Simple, StormByte::Crypto::Exception> As
 	}
 }
 
-StormByte::Buffers::Consumer Asymmetric::Encrypt(const Buffers::Consumer consumer) const noexcept {
+StormByte::Buffer::Consumer Asymmetric::Encrypt(const Buffer::Consumer consumer) const noexcept {
 	switch(m_algorithm) {
 		case Algorithm::Asymmetric::ECC:
 			return Implementation::Encryption::ECC::Encrypt(consumer, m_keys.PublicKey());
@@ -90,7 +90,7 @@ StormByte::Expected<std::string, Exception> Asymmetric::Decrypt(const std::strin
 	}
 }
 
-StormByte::Expected<StormByte::Buffers::Simple, StormByte::Crypto::Exception> Asymmetric::Decrypt(const Buffers::Simple& buffer) const noexcept {
+StormByte::Expected<StormByte::Buffer::Simple, StormByte::Crypto::Exception> Asymmetric::Decrypt(const Buffer::Simple& buffer) const noexcept {
 	if (!m_keys.PrivateKey().has_value()) {
 		return StormByte::Unexpected<Exception>("Private key is not available for decryption.");
 	}
@@ -119,10 +119,10 @@ StormByte::Expected<StormByte::Buffers::Simple, StormByte::Crypto::Exception> As
 	}
 }
 
-StormByte::Buffers::Consumer Asymmetric::Decrypt(const Buffers::Consumer consumer) const noexcept {
+StormByte::Buffer::Consumer Asymmetric::Decrypt(const Buffer::Consumer consumer) const noexcept {
 	if (!m_keys.PrivateKey().has_value()) {
-		Buffers::Producer producer;
-		producer << StormByte::Buffers::Status::Error;
+		Buffer::Producer producer;
+		producer << StormByte::Buffer::Status::Error;
 		return producer.Consumer();
 	}
 	switch(m_algorithm) {

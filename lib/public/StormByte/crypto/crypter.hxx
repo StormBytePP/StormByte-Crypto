@@ -1,6 +1,6 @@
 #pragma once
 
-#include <StormByte/buffers/consumer.hxx>
+#include <StormByte/buffer/consumer.hxx>
 #include <StormByte/crypto/algorithm.hxx>
 #include <StormByte/crypto/exception.hxx>
 #include <StormByte/expected.hxx>
@@ -70,7 +70,7 @@ namespace StormByte::Crypto {
 			 * @return An Expected containing the encrypted buffer or an error.
 			 */
 			[[nodiscard]]
-			virtual Expected<Buffers::Simple, Exception>		Encrypt(const Buffers::Simple& buffer) const noexcept = 0;
+			virtual Expected<Buffer::Simple, Exception>		Encrypt(const Buffer::Simple& buffer) const noexcept = 0;
 
 			/**
 			 * @brief Encrypts data asynchronously using a Consumer/Producer model.
@@ -78,7 +78,7 @@ namespace StormByte::Crypto {
 			 * @return A Consumer buffer containing the encrypted data.
 			 */
 			[[nodiscard]]
-			virtual Buffers::Consumer 							Encrypt(const Buffers::Consumer consumer) const noexcept = 0;
+			virtual Buffer::Consumer 							Encrypt(const Buffer::Consumer consumer) const noexcept = 0;
 
 			/**
 			 * @brief Decrypts a string input.
@@ -94,7 +94,7 @@ namespace StormByte::Crypto {
 			 * @return An Expected containing the decrypted buffer or an error.
 			 */
 			[[nodiscard]]
-			virtual Expected<Buffers::Simple, Exception>		Decrypt(const Buffers::Simple& buffer) const noexcept = 0;
+			virtual Expected<Buffer::Simple, Exception>		Decrypt(const Buffer::Simple& buffer) const noexcept = 0;
 
 			/**
 			 * @brief Decrypts data asynchronously using a Consumer/Producer model.
@@ -102,6 +102,6 @@ namespace StormByte::Crypto {
 			 * @return A Consumer buffer containing the decrypted data.
 			 */
 			[[nodiscard]]
-			virtual Buffers::Consumer 							Decrypt(const Buffers::Consumer consumer) const noexcept = 0;
+			virtual Buffer::Consumer 							Decrypt(const Buffer::Consumer consumer) const noexcept = 0;
 	};
 }
