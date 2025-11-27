@@ -19,3 +19,4 @@ jobs:
     with:
       doc_target: StormByteCryptoDoc
       docs_source_dir: './docs'
+      extra-cmake-options: '-DWITH_SYSTEM_CRYPTOPP=OFF -DWITH_SYSTEM_BZIP2=OFF'
