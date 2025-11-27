@@ -14,20 +14,13 @@ int TestDSASignAndVerify() {
 
     // Generate a key pair
 	auto keypair_result = KeyPair::Generate(Algorithm::Sign::DSA, key_strength);
-	if (!keypair_result.has_value()) {
-		std::cout << "KeyPair generation failed: " << keypair_result.error()->what() << std::endl;
-	}
 	ASSERT_TRUE(fn_name, keypair_result.has_value());
 	Signer dsa(Algorithm::Sign::DSA, keypair_result.value());
 
     // Sign the message
     auto sign_result = dsa.Sign(message);
-    if (!sign_result.has_value()) {
-        std::cout << "Sign failed: " << sign_result.error()->what() << std::endl;
-    }
     ASSERT_TRUE(fn_name, sign_result.has_value());
     std::string signature = sign_result.value();
-    std::cout << "Signature length: " << signature.size() << std::endl;
 
     // Verify the signature
     bool verify_result = dsa.Verify(message, signature);

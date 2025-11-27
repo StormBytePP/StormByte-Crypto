@@ -57,13 +57,31 @@ ExpectedKeyPair DSA::GenerateKeyPair(const int& keyStrength) noexcept {
 	try {
 		CryptoPP::AutoSeededRandomPool rng;
 
-		// Generate the private key
+		// Generate DSA domain parameters
+		CryptoPP::DL_GroupParameters_DSA params;
+		params.GenerateRandomWithKeySize(rng, keyStrength);
+		
+		// Extract domain parameters
+		const CryptoPP::Integer& p = params.GetModulus();
+		const CryptoPP::Integer& q = params.GetSubgroupOrder();
+		const CryptoPP::Integer& g = params.GetSubgroupGenerator();
+		
+		// Generate random private exponent
+		CryptoPP::Integer x(rng, CryptoPP::Integer::One(), q - CryptoPP::Integer::One());
+		
+		// Initialize private key with domain parameters and exponent
+		// Note: We avoid using Initialize(params, x) or GenerateRandomWithKeySize
+		// because they use NameValuePairs internally, which has a bug in Crypto++ 8.9.0
+		// when built with clang/libc++ that causes RTTI pointer type mismatches.
 		CryptoPP::DSA::PrivateKey privateKey;
-		privateKey.GenerateRandomWithKeySize(rng, keyStrength);
+		privateKey.AccessGroupParameters().Initialize(p, q, g);
+		privateKey.SetPrivateExponent(x);
 
 		// Generate the public key
+		// Note: We use MakePublicKey instead of AssignFrom to avoid the same
+		// NameValuePairs bug in Crypto++ 8.9.0 + clang/libc++
 		CryptoPP::DSA::PublicKey publicKey;
-		publicKey.AssignFrom(privateKey);
+		privateKey.MakePublicKey(publicKey);
 
 		// Validate the keys
 		if (!privateKey.Validate(rng, 3)) {
