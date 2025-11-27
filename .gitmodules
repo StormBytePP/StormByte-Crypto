@@ -7,3 +7,6 @@
 [submodule "thirdparty/Bzip2/src"]
 	path = thirdparty/Bzip2/src
 	url = https://github.com/libarchive/bzip2.git
+[submodule "thirdparty/StormByte/buffer"]
+	path = thirdparty/StormByte/buffer
+	url = https://github.com/StormBytePP/StormByte-Buffer.git
