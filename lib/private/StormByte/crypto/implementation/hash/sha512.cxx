@@ -1,5 +1,6 @@
 #include <StormByte/crypto/implementation/hash/sha512.hxx>
 
+#include <algorithm>
 #include <hex.h>
 #include <format>
 #include <sha.h>

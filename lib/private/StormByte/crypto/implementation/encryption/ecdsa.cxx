@@ -1,5 +1,6 @@
 #include <StormByte/crypto/implementation/encryption/ecdsa.hxx>
 
+#include <algorithm>
 #include <cryptlib.h>
 #include <base64.h>
 #include <eccrypto.h>

@@ -1,5 +1,6 @@
 #include <StormByte/crypto/implementation/encryption/rsa.hxx>
 
+#include <algorithm>
 #include <cryptlib.h>
 #include <base64.h>
 #include <filters.h>

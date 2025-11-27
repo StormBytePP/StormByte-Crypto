@@ -1,5 +1,6 @@
 #include <StormByte/crypto/implementation/encryption/aes.hxx>
 
+#include <algorithm>
 #include <aes.h>
 #include <cryptlib.h>
 #include <hex.h>

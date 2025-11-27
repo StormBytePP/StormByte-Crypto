@@ -1,5 +1,6 @@
 #include <StormByte/crypto/implementation/compressor/bzip2.hxx>
 
+#include <algorithm>
 #include <bzlib.h>
 #include <cmath>
 #include <cstring>

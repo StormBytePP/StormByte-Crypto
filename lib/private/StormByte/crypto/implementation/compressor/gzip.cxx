@@ -1,5 +1,6 @@
 #include <StormByte/crypto/implementation/compressor/gzip.hxx>
 
+#include <algorithm>
 #include <gzip.h>
 #include <cryptlib.h>
 #include <filters.h>

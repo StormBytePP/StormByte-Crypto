@@ -1,5 +1,6 @@
 #include <StormByte/crypto/implementation/encryption/dsa.hxx>
 
+#include <algorithm>
 #include <cryptlib.h>
 #include <base64.h>
 #include <dsa.h>

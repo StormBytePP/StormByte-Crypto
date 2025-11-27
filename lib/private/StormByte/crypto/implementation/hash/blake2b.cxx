@@ -1,4 +1,6 @@
 #include <StormByte/crypto/implementation/hash/blake2b.hxx>
+
+#include <algorithm>
 #include <blake2.h>
 #include <hex.h>
 #include <vector>

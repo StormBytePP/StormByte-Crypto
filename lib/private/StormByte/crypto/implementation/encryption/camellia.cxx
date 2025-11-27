@@ -1,5 +1,6 @@
 #include <StormByte/crypto/implementation/encryption/camellia.hxx>
 
+#include <algorithm>
 #include <camellia.h>
 #include <cryptlib.h>
 #include <hex.h>

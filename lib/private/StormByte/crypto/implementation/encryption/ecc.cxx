@@ -1,5 +1,6 @@
 #include <StormByte/crypto/implementation/encryption/ecc.hxx>
 
+#include <algorithm>
 #include <base64.h>
 #include <cryptlib.h>
 #include <eccrypto.h>
