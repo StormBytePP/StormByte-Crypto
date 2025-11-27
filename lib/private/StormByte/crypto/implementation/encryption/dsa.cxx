@@ -83,7 +83,7 @@ ExpectedKeyPair DSA::GenerateKeyPair(const int& keyStrength) noexcept {
 }
 
 // Signing with std::string
-ExpectedCryptoFutureString DSA::Sign(const std::string& message, const std::string& privateKey) noexcept {
+ExpectedCryptoString DSA::Sign(const std::string& message, const std::string& privateKey) noexcept {
 	try {
 		CryptoPP::AutoSeededRandomPool rng;
 
@@ -112,8 +112,8 @@ ExpectedCryptoFutureString DSA::Sign(const std::string& message, const std::stri
 	}
 }
 
-// Signing with Buffer::Simple
-ExpectedCryptoFutureBuffer DSA::Sign(const Buffer::Simple& message, const std::string& privateKey) noexcept {
+// Signing with Buffer::FIFO
+ExpectedCryptoBuffer DSA::Sign(const Buffer::FIFO& message, const std::string& privateKey) noexcept {
 	try {
 		CryptoPP::AutoSeededRandomPool rng;
 
@@ -127,9 +127,13 @@ ExpectedCryptoFutureBuffer DSA::Sign(const Buffer::Simple& message, const std::s
 		CryptoPP::DSA::Signer signer(key);
 
 		// Sign the message
+		auto data = const_cast<StormByte::Buffer::FIFO&>(message).Extract(0);
+		if (!data.has_value()) {
+			return StormByte::Unexpected<Exception>("Failed to extract data from message buffer");
+		}
 		std::string signature;
 		CryptoPP::StringSource ss(
-			reinterpret_cast<const CryptoPP::byte*>(message.Data().data()), message.Size(), true,
+			reinterpret_cast<const CryptoPP::byte*>(data.value().data()), data.value().size(), true,
 			new CryptoPP::SignerFilter(rng, signer, new CryptoPP::StringSink(signature))
 		);
 
@@ -138,26 +142,26 @@ ExpectedCryptoFutureBuffer DSA::Sign(const Buffer::Simple& message, const std::s
 		std::transform(signature.begin(), signature.end(), signatureBuffer.begin(),
 					[](char c) { return static_cast<std::byte>(c); });
 
-		std::promise<StormByte::Buffer::Simple> promise;
-		promise.set_value(StormByte::Buffer::Simple(std::move(signatureBuffer)));
-		return promise.get_future();
+		StormByte::Buffer::FIFO buffer;
+		buffer.Write(signatureBuffer);
+		return buffer;
 	} catch (const std::exception& e) {
 		return StormByte::Unexpected<Exception>("DSA signing failed: " + std::string(e.what()));
 	}
 }
 
 // Signing with Buffer::Consumer
-StormByte::Buffer::Consumer DSA::Sign(const Buffer::Consumer consumer, const std::string& privateKey) noexcept {
+StormByte::Buffer::Consumer DSA::Sign(Buffer::Consumer consumer, const std::string& privateKey) noexcept {
 	auto producer = std::make_shared<StormByte::Buffer::Producer>();
 
-	std::thread([consumer, producer, privateKey]() {
+	std::thread([consumer, producer, privateKey]() mutable {
 		try {
 			CryptoPP::AutoSeededRandomPool rng;
 
 			// Deserialize and validate the private key
 			CryptoPP::DSA::PrivateKey key = DeserializePrivateKey(privateKey);
 			if (!key.Validate(rng, 3)) {
-				*producer << StormByte::Buffer::Status::Error;
+				producer->Close();
 				return;
 			}
 
@@ -167,9 +171,12 @@ StormByte::Buffer::Consumer DSA::Sign(const Buffer::Consumer consumer, const std
 			constexpr size_t chunkSize = 4096;
 			std::string signatureChunk;
 
-			while (consumer.IsReadable() && !consumer.IsEoF()) {
+			while (!consumer.IsClosed() || !consumer.Empty()) {
 				size_t availableBytes = consumer.AvailableBytes();
 				if (availableBytes == 0) {
+					if (consumer.IsClosed()) {
+						break;
+					}
 					std::this_thread::sleep_for(std::chrono::milliseconds(10));
 					continue;
 				}
@@ -177,7 +184,7 @@ StormByte::Buffer::Consumer DSA::Sign(const Buffer::Consumer consumer, const std
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
 				auto readResult = consumer.Read(bytesToRead);
 				if (!readResult.has_value()) {
-					*producer << StormByte::Buffer::Status::Error;
+					producer->Close();
 					return;
 				}
 
@@ -193,11 +200,16 @@ StormByte::Buffer::Consumer DSA::Sign(const Buffer::Consumer consumer, const std
 					)
 				);
 
-				*producer << StormByte::Buffer::Simple(signatureChunk.data(), signatureChunk.size());
+				std::vector<std::byte> byteData;
+				byteData.reserve(signatureChunk.size());
+				for (size_t i = 0; i < signatureChunk.size(); ++i) {
+					byteData.push_back(static_cast<std::byte>(signatureChunk[i]));
+				}
+				producer->Write(byteData);
 			}
-			*producer << consumer.Status(); // Update status (EOF or Error)
+			producer->Close(); // Mark processing complete // Update status (EOF or Error)
 		} catch (...) {
-			*producer << StormByte::Buffer::Status::Error;
+			producer->Close();
 		}
 	}).detach();
 
@@ -237,8 +249,8 @@ bool DSA::Verify(const std::string& message, const std::string& signature, const
 	}
 }
 
-// Verification with Buffer::Simple
-bool DSA::Verify(const Buffer::Simple& message, const std::string& signature, const std::string& publicKey) noexcept {
+// Verification with Buffer::FIFO
+bool DSA::Verify(const Buffer::FIFO& message, const std::string& signature, const std::string& publicKey) noexcept {
 	try {
 		CryptoPP::AutoSeededRandomPool rng;
 
@@ -252,9 +264,13 @@ bool DSA::Verify(const Buffer::Simple& message, const std::string& signature, co
 		CryptoPP::DSA::Verifier verifier(key);
 
 		// Verify the signature
+		auto data = const_cast<StormByte::Buffer::FIFO&>(message).Extract(0);
+		if (!data.has_value()) {
+			return false;
+		}
 		bool result = false;
 		CryptoPP::StringSource ss(
-			signature + std::string(reinterpret_cast<const char*>(message.Data().data()), message.Size()), true,
+			signature + std::string(reinterpret_cast<const char*>(data.value().data()), data.value().size()), true,
 			new CryptoPP::SignatureVerificationFilter(
 				verifier,
 				new CryptoPP::ArraySink((CryptoPP::byte*)&result, sizeof(result)),
@@ -271,7 +287,7 @@ bool DSA::Verify(const Buffer::Simple& message, const std::string& signature, co
 }
 
 // Verification with Buffer::Consumer
-bool DSA::Verify(const Buffer::Consumer consumer, const std::string& signature, const std::string& publicKey) noexcept {
+bool DSA::Verify(Buffer::Consumer consumer, const std::string& signature, const std::string& publicKey) noexcept {
 	try {
 		CryptoPP::AutoSeededRandomPool rng;
 
@@ -287,9 +303,12 @@ bool DSA::Verify(const Buffer::Consumer consumer, const std::string& signature, 
 		constexpr size_t chunkSize = 4096;
 		bool verificationResult = false;
 
-		while (consumer.IsReadable() && !consumer.IsEoF()) {
+		while (!consumer.IsClosed() || !consumer.Empty()) {
 			size_t availableBytes = consumer.AvailableBytes();
 			if (availableBytes == 0) {
+				if (consumer.IsClosed()) {
+					break;
+				}
 				std::this_thread::sleep_for(std::chrono::milliseconds(10));
 				continue;
 			}

@@ -8,7 +8,7 @@ Compressor::Compressor(const Algorithm::Compress& algorithm) noexcept
 :m_algorithm(algorithm) {}
 
 StormByte::Expected<std::string, Exception> Compressor::Compress(const std::string& input) const noexcept {
-	Implementation::Compressor::ExpectedCompressorFutureBuffer outbuff;
+	Implementation::Compressor::ExpectedCompressorBuffer outbuff;
 	switch(m_algorithm) {
 		case Algorithm::Compress::Bzip2:
 			outbuff = Implementation::Compressor::BZip2::Compress(input);
@@ -21,20 +21,19 @@ StormByte::Expected<std::string, Exception> Compressor::Compress(const std::stri
 	}
 
 	if (outbuff.has_value()) {
-		auto value = outbuff.value().get();
-		const auto span = value.Span();
-
-		// Serialize the compressed data into a string
-		std::string result(reinterpret_cast<const char*>(span.data()), span.size());
-
+		auto data = outbuff.value().Extract(0);
+		if (!data.has_value()) {
+			return StormByte::Unexpected<Exception>("Failed to extract data from buffer");
+		}
+		std::string result(reinterpret_cast<const char*>(data.value().data()), data.value().size());
 		return result;
 	} else {
 		return StormByte::Unexpected<Exception>(outbuff.error());
 	}
 }
 
-StormByte::Expected<StormByte::Buffer::Simple, StormByte::Crypto::Exception> Compressor::Compress(const Buffer::Simple& buffer) const noexcept {
-	Implementation::Compressor::ExpectedCompressorFutureBuffer outbuff;
+StormByte::Expected<StormByte::Buffer::FIFO, StormByte::Crypto::Exception> Compressor::Compress(const Buffer::FIFO& buffer) const noexcept {
+	Implementation::Compressor::ExpectedCompressorBuffer outbuff;
 	switch(m_algorithm) {
 		case Algorithm::Compress::Bzip2:
 			outbuff = Implementation::Compressor::BZip2::Compress(buffer);
@@ -43,18 +42,11 @@ StormByte::Expected<StormByte::Buffer::Simple, StormByte::Crypto::Exception> Com
 			outbuff = Implementation::Compressor::Gzip::Compress(buffer);
 			break;
 		default:
-			auto span = buffer.Span(); // Get the span of bytes
-			return std::string(reinterpret_cast<const char*>(span.data()), span.size());
+			return buffer;
 	}
 
 	if (outbuff.has_value()) {
-		auto value = outbuff.value().get();
-		const auto span = value.Span();
-
-		// Serialize the compressed data into a string
-		std::string result(reinterpret_cast<const char*>(span.data()), span.size());
-
-		return result;
+		return outbuff.value();
 	} else {
 		return StormByte::Unexpected<Exception>(outbuff.error());
 	}
@@ -72,7 +64,7 @@ StormByte::Buffer::Consumer Compressor::Compress(const Buffer::Consumer consumer
 }
 
 StormByte::Expected<std::string, Exception> Compressor::Decompress(const std::string& input) const noexcept {
-	Implementation::Compressor::ExpectedCompressorFutureBuffer outbuff;
+	Implementation::Compressor::ExpectedCompressorBuffer outbuff;
 	switch(m_algorithm) {
 		case Algorithm::Compress::Bzip2:
 			outbuff = Implementation::Compressor::BZip2::Decompress(input);
@@ -85,20 +77,19 @@ StormByte::Expected<std::string, Exception> Compressor::Decompress(const std::st
 	}
 
 	if (outbuff.has_value()) {
-		auto value = outbuff.value().get();
-		const auto span = value.Span();
-
-		// Serialize the decompressed data into a string
-		std::string result(reinterpret_cast<const char*>(span.data()), span.size());
-
+		auto data = outbuff.value().Extract(0);
+		if (!data.has_value()) {
+			return StormByte::Unexpected<Exception>("Failed to extract data from buffer");
+		}
+		std::string result(reinterpret_cast<const char*>(data.value().data()), data.value().size());
 		return result;
 	} else {
 		return StormByte::Unexpected<Exception>(outbuff.error());
 	}
 }
 
-StormByte::Expected<StormByte::Buffer::Simple, StormByte::Crypto::Exception> Compressor::Decompress(const Buffer::Simple& buffer) const noexcept {
-	Implementation::Compressor::ExpectedCompressorFutureBuffer outbuff;
+StormByte::Expected<StormByte::Buffer::FIFO, StormByte::Crypto::Exception> Compressor::Decompress(const Buffer::FIFO& buffer) const noexcept {
+	Implementation::Compressor::ExpectedCompressorBuffer outbuff;
 	switch(m_algorithm) {
 		case Algorithm::Compress::Bzip2:
 			outbuff = Implementation::Compressor::BZip2::Decompress(buffer);
@@ -107,18 +98,11 @@ StormByte::Expected<StormByte::Buffer::Simple, StormByte::Crypto::Exception> Com
 			outbuff = Implementation::Compressor::Gzip::Decompress(buffer);
 			break;
 		default:
-			auto span = buffer.Span(); // Get the span of bytes
-			return std::string(reinterpret_cast<const char*>(span.data()), span.size());
+			return buffer;
 	}
 
 	if (outbuff.has_value()) {
-		auto value = outbuff.value().get();
-		const auto span = value.Span();
-
-		// Serialize the decompressed data into a string
-		std::string result(reinterpret_cast<const char*>(span.data()), span.size());
-
-		return result;
+		return outbuff.value();
 	} else {
 		return StormByte::Unexpected<Exception>(outbuff.error());
 	}

@@ -71,7 +71,7 @@ namespace StormByte::Crypto {
 			 * @return An Expected containing the hashed string or an error.
 			 */
 			[[nodiscard]]
-			Expected<std::string, Exception>				Hash(const Buffer::Simple& buffer) const noexcept;
+			Expected<std::string, Exception>				Hash(const Buffer::FIFO& buffer) const noexcept;
 
 			/**
 			 * @brief Hashes data asynchronously using a Consumer/Producer model.

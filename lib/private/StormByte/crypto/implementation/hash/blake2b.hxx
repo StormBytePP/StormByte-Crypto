@@ -12,14 +12,14 @@ namespace StormByte::Crypto::Implementation::Hash::Blake2b {
 	 * @param input The input string to hash.
 	 * @return Expected<std::string, CryptoException> containing the hash or an error.
 	 */
-	STORMBYTE_CRYPTO_PRIVATE ExpectedHashFutureString 		Hash(const std::string& input) noexcept;
+	STORMBYTE_CRYPTO_PRIVATE ExpectedHashString 		Hash(const std::string& input) noexcept;
 
 	/**
 	 * @brief Hashes the input data using Blake2b.
 	 * @param buffer The input buffer to hash.
 	 * @return Expected<std::string, CryptoException> containing the hash or an error.
 	 */
-	STORMBYTE_CRYPTO_PRIVATE ExpectedHashFutureString 		Hash(const Buffer::Simple& buffer) noexcept;
+	STORMBYTE_CRYPTO_PRIVATE ExpectedHashString 		Hash(const Buffer::FIFO& buffer) noexcept;
 
 	/**
 	 * @brief Hashes data asynchronously using the Consumer/Producer model.
@@ -27,5 +27,5 @@ namespace StormByte::Crypto::Implementation::Hash::Blake2b {
 	 * @param consumer The Consumer buffer containing the input data.
 	 * @return A Consumer buffer containing the hash result.
 	 */
-	STORMBYTE_CRYPTO_PRIVATE StormByte::Buffer::Consumer 	Hash(const Buffer::Consumer consumer) noexcept;
+	STORMBYTE_CRYPTO_PRIVATE StormByte::Buffer::Consumer 	Hash(Buffer::Consumer consumer) noexcept;
 }

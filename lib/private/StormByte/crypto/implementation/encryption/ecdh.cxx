@@ -67,7 +67,7 @@ ExpectedKeyPair ECDH::GenerateKeyPair(const std::string& curveName) noexcept {
 	}
 }
 
-ExpectedCryptoFutureString ECDH::DeriveSharedSecret(const std::string& privateKey, const std::string& peerPublicKey) noexcept {
+ExpectedCryptoString ECDH::DeriveSharedSecret(const std::string& privateKey, const std::string& peerPublicKey) noexcept {
 	try {
 		CryptoPP::AutoSeededRandomPool rng;
 

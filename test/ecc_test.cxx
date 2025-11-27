@@ -21,13 +21,12 @@ int TestECCEncryptDecrypt() {
 	auto encrypt_result = ecc.Encrypt(message);
 	ASSERT_TRUE(fn_name, encrypt_result.has_value());
 
-	auto encrypted_future = std::move(encrypt_result.value());
-	StormByte::Buffer::Simple encrypted_buffer = encrypted_future;
+	auto encrypted_string = encrypt_result.value();
 
-	auto decrypt_result = ecc.Decrypt(encrypted_buffer);
+	auto decrypt_result = ecc.Decrypt(encrypted_string);
 	ASSERT_TRUE(fn_name, decrypt_result.has_value());
 
-	std::string decrypted_message = reinterpret_cast<const char*>(decrypt_result.value().Data().data());
+	std::string decrypted_message = decrypt_result.value();
 
 	ASSERT_EQUAL(fn_name, message, decrypted_message);
 	RETURN_TEST(fn_name, 0);
@@ -45,18 +44,18 @@ int TestECCDecryptionWithCorruptedData() {
 	auto encrypt_result = ecc.Encrypt(message);
 	ASSERT_TRUE(fn_name, encrypt_result.has_value());
 
-	auto encrypted_future = std::move(encrypt_result.value());
-	StormByte::Buffer::Simple encrypted_buffer = encrypted_future;
+	auto encrypted_string = encrypt_result.value();
 
-	auto corrupted_buffer = encrypted_buffer;
-	auto corrupted_span = corrupted_buffer.Span();
-	if (!corrupted_span.empty()) {
-		corrupted_span[0] = std::byte(static_cast<uint8_t>(~std::to_integer<uint8_t>(corrupted_span[0])));
-	} else {
+	auto corrupted_string = encrypted_string;
+	if (!corrupted_string.empty()) {
+		corrupted_string[0] = ~corrupted_string[0];
+	}
+
+	else {
 		RETURN_TEST(fn_name, 1);
 	}
 
-	auto decrypt_result = ecc.Decrypt(corrupted_buffer);
+	auto decrypt_result = ecc.Decrypt(corrupted_string);
 	ASSERT_FALSE(fn_name, decrypt_result.has_value());
 
 	RETURN_TEST(fn_name, 0);
@@ -79,10 +78,9 @@ int TestECCDecryptWithMismatchedKey() {
 	auto encrypt_result = ecc.Encrypt(message);
 	ASSERT_TRUE(fn_name, encrypt_result.has_value());
 
-	auto encrypted_future = std::move(encrypt_result.value());
-	StormByte::Buffer::Simple encrypted_buffer = encrypted_future;
+	auto encrypted_string = encrypt_result.value();
 
-	auto decrypt_result = ecc2.Decrypt(encrypted_buffer);
+	auto decrypt_result = ecc2.Decrypt(encrypted_string);
 	ASSERT_FALSE(fn_name, decrypt_result.has_value());
 
 	RETURN_TEST(fn_name, 0);
@@ -129,11 +127,11 @@ int TestECCEncryptionProducesDifferentContent() {
 	// Encrypt the data
 	auto encrypt_result = ecc.Encrypt(original_data);
 	ASSERT_TRUE(fn_name, encrypt_result.has_value());
-	auto encrypted_future = std::move(encrypt_result.value());
-	StormByte::Buffer::Simple encrypted_buffer = encrypted_future;
+
+	auto encrypted_string = encrypt_result.value();
 
 	// Verify encrypted content is different from original
-	ASSERT_NOT_EQUAL(fn_name, original_data, std::string(reinterpret_cast<const char*>(encrypted_buffer.Data().data()), encrypted_buffer.Size()));
+	ASSERT_NOT_EQUAL(fn_name, original_data, encrypted_string);
 
 	RETURN_TEST(fn_name, 0);
 }
@@ -150,25 +148,25 @@ int TestECCEncryptDecryptUsingConsumerProducer() {
 
 	// Create a producer buffer and write the input data
 	StormByte::Buffer::Producer producer;
-	producer << input_data;
-	producer << StormByte::Buffer::Status::ReadOnly; // Mark the producer as EOF
+	producer.Write(input_data);
+	producer.Close();
 
 	// Create a consumer buffer from the producer
 	StormByte::Buffer::Consumer consumer(producer.Consumer());
 
 	// Encrypt the data asynchronously
 	auto encrypted_consumer = ecc.Encrypt(consumer);
-	ASSERT_TRUE(fn_name, encrypted_consumer.IsReadable());
+	ASSERT_TRUE(fn_name, !encrypted_consumer.IsClosed() || !encrypted_consumer.Empty());
 
 	// Decrypt the data asynchronously
 	auto decrypted_consumer = ecc.Decrypt(encrypted_consumer);
-	ASSERT_TRUE(fn_name, decrypted_consumer.IsReadable());
+	ASSERT_TRUE(fn_name, !decrypted_consumer.IsClosed() || !decrypted_consumer.Empty());
 
 	// Read the encrypted data from the encrypted_consumer
-	StormByte::Buffer::Simple decrypted_data = ReadAllFromConsumer(decrypted_consumer);
+	StormByte::Buffer::FIFO decrypted_data = ReadAllFromConsumer(decrypted_consumer);
 	ASSERT_FALSE(fn_name, decrypted_data.Empty()); // Ensure decrypted data is not empty
-	std::string decrypted_result = DeserializeString(decrypted_data);
-	ASSERT_EQUAL(fn_name, input_data, decrypted_result); // Ensure decrypted data matches original input data
+	std::string decrypt_result = DeserializeString(decrypted_data);
+	ASSERT_EQUAL(fn_name, input_data, decrypt_result); // Ensure decrypted data matches original input data
 
 	RETURN_TEST(fn_name, 0);
 }

@@ -15,7 +15,7 @@ StormByte::Expected<std::string, Exception> Signer::Sign(const std::string& inpu
 	if (!m_keys.PrivateKey().has_value()) {
 		return StormByte::Unexpected<Exception>("Private key is not available for signing.");
 	}
-	Implementation::Encryption::ExpectedCryptoFutureString outstr;
+	Implementation::Encryption::ExpectedCryptoString outstr;
 	switch(m_algorithm) {
 		case Algorithm::Sign::DSA:
 			outstr = Implementation::Encryption::DSA::Sign(input, m_keys.PrivateKey().value());
@@ -37,11 +37,11 @@ StormByte::Expected<std::string, Exception> Signer::Sign(const std::string& inpu
 	}
 }
 
-StormByte::Expected<std::string, Exception> Signer::Sign(const Buffer::Simple& buffer) const noexcept {
+StormByte::Expected<std::string, Exception> Signer::Sign(const Buffer::FIFO& buffer) const noexcept {
 	if (!m_keys.PrivateKey().has_value()) {
 		return StormByte::Unexpected<Exception>("Private key is not available for signing.");
 	}
-	Implementation::Encryption::ExpectedCryptoFutureBuffer outbuff;
+	Implementation::Encryption::ExpectedCryptoBuffer outbuff;
 	switch(m_algorithm) {
 		case Algorithm::Sign::DSA:
 			outbuff = Implementation::Encryption::DSA::Sign(buffer, m_keys.PrivateKey().value());
@@ -57,12 +57,11 @@ StormByte::Expected<std::string, Exception> Signer::Sign(const Buffer::Simple& b
 	}
 
 	if (outbuff.has_value()) {
-		auto value = outbuff.value().get();
-		const auto span = value.Span();
-
-		// Serialize the encrypted data into a string
-		std::string result(reinterpret_cast<const char*>(span.data()), span.size());
-
+		auto data = outbuff.value().Extract(0);
+		if (!data.has_value()) {
+			return StormByte::Unexpected<Exception>("Failed to extract data from buffer");
+		}
+		std::string result(reinterpret_cast<const char*>(data.value().data()), data.value().size());
 		return result;
 	} else {
 		return StormByte::Unexpected<Exception>(outbuff.error());
@@ -71,9 +70,9 @@ StormByte::Expected<std::string, Exception> Signer::Sign(const Buffer::Simple& b
 
 StormByte::Buffer::Consumer Signer::Sign(const Buffer::Consumer consumer) const noexcept {
 	if (!m_keys.PrivateKey().has_value()) {
-		Buffer::Producer producer;
-		producer << StormByte::Buffer::Status::Error;
-		return producer.Consumer();
+		auto producer = std::make_shared<Buffer::Producer>();
+		producer->Close();
+		return producer->Consumer();
 	}
 	switch(m_algorithm) {
 		case Algorithm::Sign::DSA:
@@ -100,7 +99,7 @@ bool Signer::Verify(const std::string& message, const std::string& signature) co
 	}
 }
 
-bool Signer::Verify(const Buffer::Simple& buffer, const std::string& signature) const noexcept {
+bool Signer::Verify(const Buffer::FIFO& buffer, const std::string& signature) const noexcept {
 	switch(m_algorithm) {
 		case Algorithm::Sign::DSA:
 			return Implementation::Encryption::DSA::Verify(buffer, signature, m_keys.PublicKey());

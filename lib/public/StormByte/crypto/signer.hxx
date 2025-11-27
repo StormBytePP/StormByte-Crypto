@@ -108,7 +108,7 @@ namespace StormByte::Crypto {
 			 * @return An Expected containing the digital signature or an error.
 			 */
 			[[nodiscard]]
-			Expected<std::string, Exception>				Sign(const Buffer::Simple& buffer) const noexcept;
+			Expected<std::string, Exception>				Sign(const Buffer::FIFO& buffer) const noexcept;
 
 			/**
 			 * @brief Signs data asynchronously using a Consumer/Producer model.
@@ -141,7 +141,7 @@ namespace StormByte::Crypto {
 			 * @param signature The digital signature to verify.
 			 * @return `true` if the signature is valid, `false` otherwise.
 			 */
-			bool 											Verify(const Buffer::Simple& buffer, const std::string& signature) const noexcept;
+			bool 											Verify(const Buffer::FIFO& buffer, const std::string& signature) const noexcept;
 
 			/**
 			 * @brief Verifies a digital signature for data provided by a Consumer buffer.

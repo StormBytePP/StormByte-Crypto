@@ -18,17 +18,17 @@ namespace StormByte::Crypto::Implementation::Encryption::ECC {
 	 * @brief Encrypts a message using the ECC public key.
 	 * @param message The message to encrypt.
 	 * @param publicKey The ECC public key to use for encryption.
-	 * @return ExpectedCryptoFutureBuffer containing the encrypted Buffer or an error.
+	 * @return ExpectedCryptoBuffer containing the encrypted Buffer or an error.
 	 */
-	STORMBYTE_CRYPTO_PRIVATE ExpectedCryptoFutureString Encrypt(const std::string& message, const std::string& publicKey) noexcept;
+	STORMBYTE_CRYPTO_PRIVATE ExpectedCryptoString Encrypt(const std::string& message, const std::string& publicKey) noexcept;
 
 	/**
 	 * @brief Encrypts a message using the ECC public key.
 	 * @param message The message to encrypt.
 	 * @param publicKey The ECC public key to use for encryption.
-	 * @return ExpectedCryptoFutureBuffer containing the encrypted Buffer or an error.
+	 * @return ExpectedCryptoBuffer containing the encrypted Buffer or an error.
 	 */
-	STORMBYTE_CRYPTO_PRIVATE ExpectedCryptoFutureBuffer Encrypt(const Buffer::Simple& message, const std::string& publicKey) noexcept;
+	STORMBYTE_CRYPTO_PRIVATE ExpectedCryptoBuffer Encrypt(const Buffer::FIFO& message, const std::string& publicKey) noexcept;
 
 	/**
 	 * @brief Encrypts data asynchronously using the Consumer/Producer model.
@@ -43,17 +43,17 @@ namespace StormByte::Crypto::Implementation::Encryption::ECC {
 	 * @brief Encrypts a message using the ECC public key.
 	 * @param message The message to encrypt.
 	 * @param publicKey The ECC public key to use for encryption.
-	 * @return ExpectedCryptoFutureBuffer containing the encrypted Buffer or an error.
+	 * @return ExpectedCryptoBuffer containing the encrypted Buffer or an error.
 	 */
-	STORMBYTE_CRYPTO_PRIVATE ExpectedCryptoFutureString Decrypt(const std::string& message, const std::string& publicKey) noexcept;
+	STORMBYTE_CRYPTO_PRIVATE ExpectedCryptoString Decrypt(const std::string& message, const std::string& publicKey) noexcept;
 
 	/**
 	 * @brief Decrypts a message using the ECC private key.
 	 * @param encryptedBuffer The buffer containing the encrypted data.
 	 * @param privateKey The ECC private key to use for decryption.
-	 * @return ExpectedCryptoFutureString containing the decrypted message or an error.
+	 * @return ExpectedCryptoString containing the decrypted message or an error.
 	 */
-	STORMBYTE_CRYPTO_PRIVATE ExpectedCryptoFutureBuffer Decrypt(const StormByte::Buffer::Simple& encryptedBuffer, const std::string& privateKey) noexcept;
+	STORMBYTE_CRYPTO_PRIVATE ExpectedCryptoBuffer Decrypt(const StormByte::Buffer::FIFO& encryptedBuffer, const std::string& privateKey) noexcept;
 
 	/**
 	 * @brief Decrypts data asynchronously using the Consumer/Producer model.

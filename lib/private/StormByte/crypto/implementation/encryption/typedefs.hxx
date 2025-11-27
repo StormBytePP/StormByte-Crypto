@@ -17,7 +17,7 @@ namespace StormByte::Crypto::Implementation::Encryption {
 		std::string Public;																		///< The public key.
 	};
 
-	using ExpectedCryptoFutureBuffer = StormByte::Expected<FutureBuffer, Exception>;			///< The expected crypto buffer type.
-	using ExpectedCryptoFutureString = StormByte::Expected<std::string, Exception>;				///< The expected crypto string type.
+	using ExpectedCryptoBuffer = StormByte::Expected<Buffer::FIFO, Exception>;				///< The expected crypto buffer type.
+	using ExpectedCryptoString = StormByte::Expected<std::string, Exception>;				///< The expected crypto string type.
 	using ExpectedKeyPair = StormByte::Expected<KeyPair, Exception>;							///< The expected key pair type.
 }

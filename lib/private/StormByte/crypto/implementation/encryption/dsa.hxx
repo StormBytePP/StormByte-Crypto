@@ -18,17 +18,17 @@ namespace StormByte::Crypto::Implementation::Encryption::DSA {
 	 * @brief Signs a message using the DSA private key.
 	 * @param message The message to sign.
 	 * @param privateKey The DSA private key to use for signing.
-	 * @return ExpectedCryptoFutureString containing the signature or an error.
+	 * @return ExpectedCryptoString containing the signature or an error.
 	 */
-	STORMBYTE_CRYPTO_PRIVATE ExpectedCryptoFutureString Sign(const std::string& message, const std::string& privateKey) noexcept;
+	STORMBYTE_CRYPTO_PRIVATE ExpectedCryptoString Sign(const std::string& message, const std::string& privateKey) noexcept;
 
 	/**
 	 * @brief Signs a buffer using the DSA private key.
 	 * @param message The buffer to sign.
 	 * @param privateKey The DSA private key to use for signing.
-	 * @return ExpectedCryptoFutureBuffer containing the signature or an error.
+	 * @return ExpectedCryptoBuffer containing the signature or an error.
 	 */
-	STORMBYTE_CRYPTO_PRIVATE ExpectedCryptoFutureBuffer Sign(const Buffer::Simple& message, const std::string& privateKey) noexcept;
+	STORMBYTE_CRYPTO_PRIVATE ExpectedCryptoBuffer Sign(const Buffer::FIFO& message, const std::string& privateKey) noexcept;
 
 	/**
 	 * @brief Signs data asynchronously using the Consumer/Producer model.
@@ -54,7 +54,7 @@ namespace StormByte::Crypto::Implementation::Encryption::DSA {
 	 * @param publicKey The DSA public key to use for verification.
 	 * @return True if the signature is valid, false otherwise.
 	 */
-	STORMBYTE_CRYPTO_PRIVATE bool Verify(const Buffer::Simple& message, const std::string& signature, const std::string& publicKey) noexcept;
+	STORMBYTE_CRYPTO_PRIVATE bool Verify(const Buffer::FIFO& message, const std::string& signature, const std::string& publicKey) noexcept;
 
 	/**
 	 * @brief Verifies a signature asynchronously using the Consumer/Producer model.

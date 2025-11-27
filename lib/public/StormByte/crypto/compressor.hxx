@@ -71,7 +71,7 @@ namespace StormByte::Crypto {
 			 * @return An Expected containing the compressed buffer or an error.
 			 */
 			[[nodiscard]]
-			Expected<Buffer::Simple, Exception> 						Compress(const Buffer::Simple& buffer) const noexcept;
+			Expected<Buffer::FIFO, Exception> 						Compress(const Buffer::FIFO& buffer) const noexcept;
 
 			/**
 			 * @brief Compresses data asynchronously using a Consumer/Producer model.
@@ -95,7 +95,7 @@ namespace StormByte::Crypto {
 			 * @return An Expected containing the decompressed buffer or an error.
 			 */
 			[[nodiscard]]
-			Expected<Buffer::Simple, Exception> 						Decompress(const Buffer::Simple& buffer) const noexcept;
+			Expected<Buffer::FIFO, Exception> 						Decompress(const Buffer::FIFO& buffer) const noexcept;
 
 			/**
 			 * @brief Decompresses data asynchronously using a Consumer/Producer model.

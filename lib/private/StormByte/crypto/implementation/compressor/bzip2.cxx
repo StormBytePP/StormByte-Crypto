@@ -10,7 +10,7 @@
 using namespace StormByte::Crypto::Implementation::Compressor;
 
 namespace {
-	ExpectedCompressorFutureBuffer CompressHelper(std::span<const std::byte> inputData, int blockSize = 9) noexcept {
+	ExpectedCompressorBuffer CompressHelper(std::span<const std::byte> inputData, int blockSize = 9) noexcept {
 		try {
 			unsigned int compressedSize = static_cast<unsigned int>(std::ceil(inputData.size_bytes() * 1.01 + 600));
 			std::vector<uint8_t> compressedData(compressedSize);
@@ -21,19 +21,23 @@ namespace {
 				return StormByte::Unexpected<StormByte::Crypto::Exception>("BZip2 compression failed");
 			}
 
-			compressedData.resize(compressedSize);
-			StormByte::Buffer::Simple buffer(reinterpret_cast<const char*>(compressedData.data()), compressedSize);
-
-			std::promise<StormByte::Buffer::Simple> promise;
-			promise.set_value(std::move(buffer));
-			return promise.get_future();
+		compressedData.resize(compressedSize);
+		
+		// Convert to std::byte vector and create FIFO
+		std::vector<std::byte> byteData(compressedSize);
+		std::transform(compressedData.begin(), compressedData.end(), byteData.begin(),
+			[](uint8_t b) { return static_cast<std::byte>(b); });
+		
+		StormByte::Buffer::FIFO buffer;
+		buffer.Write(byteData);
+		return buffer;
 		}
 		catch (const std::exception& e) {
 			return StormByte::Unexpected<StormByte::Crypto::Exception>(e.what());
 		}
 	}
 
-	ExpectedCompressorFutureBuffer DecompressHelper(std::span<const std::byte> compressedData) noexcept {
+	ExpectedCompressorBuffer DecompressHelper(std::span<const std::byte> compressedData) noexcept {
 		try {
 			// Allocate a buffer with an initial size
 			std::vector<uint8_t> decompressedData(4096); // Start with a reasonable size
@@ -60,13 +64,17 @@ namespace {
 				return StormByte::Unexpected<StormByte::Crypto::Exception>("BZip2 decompression failed");
 			}
 
-			// Resize the buffer to the actual decompressed size
-			decompressedData.resize(decompressedSize);
-			StormByte::Buffer::Simple buffer(reinterpret_cast<const char*>(decompressedData.data()), decompressedSize);
-
-			std::promise<StormByte::Buffer::Simple> promise;
-			promise.set_value(std::move(buffer));
-			return promise.get_future();
+		// Resize the buffer to the actual decompressed size
+		decompressedData.resize(decompressedSize);
+		
+		// Convert to std::byte vector and create FIFO
+		std::vector<std::byte> byteData(decompressedSize);
+		std::transform(decompressedData.begin(), decompressedData.end(), byteData.begin(),
+			[](uint8_t b) { return static_cast<std::byte>(b); });
+		
+		StormByte::Buffer::FIFO buffer;
+		buffer.Write(byteData);
+		return buffer;
 		} catch (const std::exception& e) {
 			return StormByte::Unexpected<StormByte::Crypto::Exception>(e.what());
 		}
@@ -74,31 +82,39 @@ namespace {
 }
 
 // Public Compress Methods
-ExpectedCompressorFutureBuffer BZip2::Compress(const std::string& input) noexcept {
+ExpectedCompressorBuffer BZip2::Compress(const std::string& input) noexcept {
 	std::span<const std::byte> dataSpan(reinterpret_cast<const std::byte*>(input.data()), input.size());
 	return CompressHelper(dataSpan);
 }
 
-ExpectedCompressorFutureBuffer BZip2::Compress(const StormByte::Buffer::Simple& input) noexcept {
-	return CompressHelper(input.Data());
+ExpectedCompressorBuffer BZip2::Compress(const StormByte::Buffer::FIFO& input) noexcept {
+	// Extract all data from FIFO to a span
+	auto data = const_cast<StormByte::Buffer::FIFO&>(input).Extract(0);
+	if (!data.has_value()) {
+		return StormByte::Unexpected<StormByte::Crypto::Exception>("Failed to extract data from input buffer");
+	}
+	std::span<const std::byte> dataSpan(data.value().data(), data.value().size());
+	return CompressHelper(dataSpan);
 }
 
-StormByte::Buffer::Consumer BZip2::Compress(const Buffer::Consumer consumer) noexcept {
+StormByte::Buffer::Consumer BZip2::Compress(Buffer::Consumer consumer) noexcept {
 	// Create a producer buffer to store the compressed data
 	SharedProducerBuffer producer = std::make_shared<StormByte::Buffer::Producer>();
 
 	// Launch a detached thread to handle compression
-	std::thread([consumer, producer]() {
+	std::thread([consumer, producer]() mutable {
 		try {
 			constexpr size_t chunkSize = 4096; // Define the chunk size for reading from the consumer
-			std::vector<uint8_t> inputBuffer(chunkSize);
 			std::vector<uint8_t> compressedBuffer(chunkSize * 2); // Allocate a larger buffer for compressed data
 
-			while (consumer.IsReadable() && !consumer.IsEoF()) {
+			while (!consumer.IsClosed() || !consumer.Empty()) {
 				// Check how many bytes are available in the consumer
 				size_t availableBytes = consumer.AvailableBytes();
 
 				if (availableBytes == 0) {
+					if (consumer.IsClosed()) {
+						break; // No more data will arrive
+					}
 					// Wait for more data to become available
 					std::this_thread::sleep_for(std::chrono::milliseconds(10));
 					continue;
@@ -108,17 +124,15 @@ StormByte::Buffer::Consumer BZip2::Compress(const Buffer::Consumer consumer) noe
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
 				auto readResult = consumer.Read(bytesToRead);
 				if (!readResult.has_value()) {
-					// If reading fails, mark the producer as Error
-					*producer << StormByte::Buffer::Status::Error;
+					// If reading fails, close the producer
+					producer->Close();
 					break;
 				}
 
 				const auto& inputData = readResult.value();
 
 				if (inputData.empty()) {
-					// No more data to read, mark the producer as EOF
-					*producer << StormByte::Buffer::Status::ReadOnly;
-					break;
+					continue; // Try again
 				}
 
 				// Compress the chunk
@@ -131,8 +145,8 @@ StormByte::Buffer::Consumer BZip2::Compress(const Buffer::Consumer consumer) noe
 					static_cast<unsigned int>(inputData.size()), 9, 0, 30);
 
 				if (result != BZ_OK) {
-					// Compression failed, mark the producer as Error
-					*producer << StormByte::Buffer::Status::Error;
+					// Compression failed, close the producer
+					producer->Close();
 					return;
 				}
 
@@ -140,12 +154,15 @@ StormByte::Buffer::Consumer BZip2::Compress(const Buffer::Consumer consumer) noe
 				compressedBuffer.resize(compressedSize);
 
 				// Write the compressed data to the producer
-				*producer << StormByte::Buffer::Simple(reinterpret_cast<const char*>(compressedBuffer.data()), compressedSize);
+				std::vector<std::byte> byteData(compressedSize);
+				std::transform(compressedBuffer.begin(), compressedBuffer.end(), byteData.begin(),
+					[](uint8_t b) { return static_cast<std::byte>(b); });
+				producer->Write(byteData);
 			}
-			*producer << consumer.Status(); // Update status (EOF or Error)
+			producer->Close(); // Mark compression complete
 		} catch (...) {
-			// Handle any unexpected exceptions and mark the producer as Error
-			*producer << StormByte::Buffer::Status::Error;
+			// Handle any unexpected exceptions and close the producer
+			producer->Close();
 		}
 	}).detach();
 
@@ -154,31 +171,39 @@ StormByte::Buffer::Consumer BZip2::Compress(const Buffer::Consumer consumer) noe
 }
 
 // Public Decompress Methods
-ExpectedCompressorFutureBuffer BZip2::Decompress(const std::string& input) noexcept {
+ExpectedCompressorBuffer BZip2::Decompress(const std::string& input) noexcept {
 	std::span<const std::byte> dataSpan(reinterpret_cast<const std::byte*>(input.data()), input.size());
 	return DecompressHelper(dataSpan);
 }
 
-ExpectedCompressorFutureBuffer BZip2::Decompress(const StormByte::Buffer::Simple& input) noexcept {
-	return DecompressHelper(input.Data());
+ExpectedCompressorBuffer BZip2::Decompress(const StormByte::Buffer::FIFO& input) noexcept {
+	// Extract all data from FIFO to a span
+	auto data = const_cast<StormByte::Buffer::FIFO&>(input).Extract(0);
+	if (!data.has_value()) {
+		return StormByte::Unexpected<StormByte::Crypto::Exception>("Failed to extract data from input buffer");
+	}
+	std::span<const std::byte> dataSpan(data.value().data(), data.value().size());
+	return DecompressHelper(dataSpan);
 }
 
-StormByte::Buffer::Consumer BZip2::Decompress(const Buffer::Consumer& consumer) noexcept {
+StormByte::Buffer::Consumer BZip2::Decompress(Buffer::Consumer consumer) noexcept {
 	// Create a producer buffer to store the decompressed data
 	SharedProducerBuffer producer = std::make_shared<StormByte::Buffer::Producer>();
 
 	// Launch a detached thread to handle decompression
-	std::thread([consumer, producer]() {
+	std::thread([consumer, producer]() mutable {
 		try {
 			constexpr size_t chunkSize = 4096; // Define the chunk size for reading from the consumer
-			std::vector<uint8_t> compressedBuffer(chunkSize);
 			std::vector<uint8_t> decompressedBuffer(chunkSize * 2); // Start with a larger buffer for decompressed data
 
-			while (consumer.IsReadable() && !consumer.IsEoF()) {
+			while (!consumer.IsClosed() || !consumer.Empty()) {
 				// Check how many bytes are available in the consumer
 				size_t availableBytes = consumer.AvailableBytes();
 
 				if (availableBytes == 0) {
+					if (consumer.IsClosed()) {
+						break; // No more data will arrive
+					}
 					// Wait for more data to become available
 					std::this_thread::sleep_for(std::chrono::milliseconds(10));
 					continue;
@@ -188,12 +213,15 @@ StormByte::Buffer::Consumer BZip2::Decompress(const Buffer::Consumer& consumer) 
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
 				auto readResult = consumer.Read(bytesToRead);
 				if (!readResult.has_value()) {
-					// If reading fails, mark the producer as Error
-					*producer << StormByte::Buffer::Status::Error;
+					// If reading fails, close the producer
+					producer->Close();
 					return;
 				}
 
 				const auto& compressedData = readResult.value();
+				if (compressedData.empty()) {
+					continue; // Try again
+				}
 
 				// Decompress the chunk
 				unsigned int decompressedSize = static_cast<unsigned int>(decompressedBuffer.size());
@@ -214,8 +242,8 @@ StormByte::Buffer::Consumer BZip2::Decompress(const Buffer::Consumer& consumer) 
 				}
 
 				if (result != BZ_OK) {
-					// Decompression failed, mark the producer as Error
-					*producer << StormByte::Buffer::Status::Error;
+					// Decompression failed, close the producer
+					producer->Close();
 					return;
 				}
 
@@ -223,12 +251,15 @@ StormByte::Buffer::Consumer BZip2::Decompress(const Buffer::Consumer& consumer) 
 				decompressedBuffer.resize(decompressedSize);
 
 				// Write the decompressed data to the producer
-				*producer << StormByte::Buffer::Simple(reinterpret_cast<const char*>(decompressedBuffer.data()), decompressedSize);
+				std::vector<std::byte> byteData(decompressedSize);
+				std::transform(decompressedBuffer.begin(), decompressedBuffer.end(), byteData.begin(),
+					[](uint8_t b) { return static_cast<std::byte>(b); });
+				producer->Write(byteData);
 			}
-			*producer << consumer.Status(); // Update status (EOF or Error)
+			producer->Close(); // Mark decompression complete
 		} catch (...) {
-			// Handle any unexpected exceptions and mark the producer as Error
-			*producer << StormByte::Buffer::Status::Error;
+			// Handle any unexpected exceptions and close the producer
+			producer->Close();
 		}
 	}).detach();
 

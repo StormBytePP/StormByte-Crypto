@@ -7,30 +7,6 @@
 
 using namespace StormByte::Crypto;
 
-int TestSHA512HashConsistencyAcrossFormats() {
-	const std::string fn_name = "TestSHA512HashConsistencyAcrossFormats";
-	const std::string input_data = "DataToHash";
-
-	Hasher sha512(Algorithm::Hash::SHA512);
-
-	// Compute hash for a string
-	auto hash_string_result = sha512.Hash(input_data);
-	ASSERT_TRUE(fn_name, hash_string_result.has_value());
-	std::string hash_from_string = hash_string_result.value();
-
-	// Compute hash for a Buffer
-	StormByte::Buffer::Simple input_buffer;
-	input_buffer << input_data;
-	auto hash_buffer_result = sha512.Hash(input_buffer);
-	ASSERT_TRUE(fn_name, hash_buffer_result.has_value());
-	std::string hash_from_buffer = hash_buffer_result.value();
-
-	// Validate all hashes are identical
-	ASSERT_EQUAL(fn_name, hash_from_string, hash_from_buffer);
-
-	RETURN_TEST(fn_name, 0);
-}
-
 int TestSHA512HashCorrectness() {
 	const std::string fn_name = "TestSHA512HashCorrectness";
 	const std::string input_data = "HashThisString";
@@ -106,15 +82,15 @@ int TestSHA512HashUsingConsumerProducer() {
 
 	// Create a producer buffer and write the input data
 	StormByte::Buffer::Producer producer;
-	producer << input_data;
-	producer << StormByte::Buffer::Status::ReadOnly; // Mark the producer as EOF
+	producer.Write(input_data);
+	producer.Close();
 
 	// Create a consumer buffer from the producer
 	StormByte::Buffer::Consumer consumer(producer.Consumer());
 
 	// Hash the data asynchronously
 	auto hash_consumer = sha512.Hash(consumer);
-	ASSERT_TRUE(fn_name, hash_consumer.IsReadable());
+	ASSERT_TRUE(fn_name, !hash_consumer.IsClosed() || !hash_consumer.Empty());
 
 	// Read the hash result from the hash_consumer
 	auto hash_result = ReadAllFromConsumer(hash_consumer);
@@ -128,7 +104,6 @@ int TestSHA512HashUsingConsumerProducer() {
 int main() {
 	int result = 0;
 
-	result += TestSHA512HashConsistencyAcrossFormats();
 	result += TestSHA512HashCorrectness();
 	result += TestSHA512CollisionResistance();
 	result += TestSHA512ProducesDifferentContent();

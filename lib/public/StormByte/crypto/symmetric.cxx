@@ -23,33 +23,30 @@ Symmetric::Symmetric(const Algorithm::Symmetric& algorithm, const std::string& p
 :Crypter(), m_algorithm(algorithm), m_password(password) {}
 
 StormByte::Expected<std::string, Exception> Symmetric::Encrypt(const std::string& input) const noexcept {
-	Implementation::Encryption::ExpectedCryptoFutureBuffer outbuff;
+	Implementation::Encryption::ExpectedCryptoBuffer outbuff;
 	switch(m_algorithm) {
-		case Algorithm::Symmetric::AES:
-			outbuff = Implementation::Encryption::AES::Encrypt(input, m_password);
-			break;
-		case Algorithm::Symmetric::Camellia:
-			outbuff = Implementation::Encryption::Camellia::Encrypt(input, m_password);
-			break;
-		default:
-			return StormByte::Unexpected<Exception>("Invalid algorithm for encryption.");
+	case Algorithm::Symmetric::AES:
+		outbuff = Implementation::Encryption::AES::Encrypt(input, m_password);
+		break;
+	case Algorithm::Symmetric::Camellia:
+		outbuff = Implementation::Encryption::Camellia::Encrypt(input, m_password);
+		break;
+	default:
+		return StormByte::Unexpected<Exception>("Invalid algorithm for encryption.");
 	}
 
 	if (outbuff.has_value()) {
-		auto value = outbuff.value().get();
-		const auto span = value.Span();
-
-		// Serialize the encrypted data into a string
-		std::string result(reinterpret_cast<const char*>(span.data()), span.size());
-
+		auto data = outbuff.value().Extract(0);
+		if (!data.has_value()) {
+			return StormByte::Unexpected<Exception>("Failed to extract data from buffer");
+		}
+		std::string result(reinterpret_cast<const char*>(data.value().data()), data.value().size());
 		return result;
 	} else {
 		return StormByte::Unexpected<Exception>(outbuff.error());
 	}
-}
-
-StormByte::Expected<StormByte::Buffer::Simple, StormByte::Crypto::Exception> Symmetric::Encrypt(const Buffer::Simple& buffer) const noexcept {
-	Implementation::Encryption::ExpectedCryptoFutureBuffer outbuff;
+}StormByte::Expected<StormByte::Buffer::FIFO, StormByte::Crypto::Exception> Symmetric::Encrypt(const Buffer::FIFO& buffer) const noexcept {
+	Implementation::Encryption::ExpectedCryptoBuffer outbuff;
 	switch(m_algorithm) {
 		case Algorithm::Symmetric::AES:
 			outbuff = Implementation::Encryption::AES::Encrypt(buffer, m_password);
@@ -62,13 +59,7 @@ StormByte::Expected<StormByte::Buffer::Simple, StormByte::Crypto::Exception> Sym
 	}
 
 	if (outbuff.has_value()) {
-		auto value = outbuff.value().get();
-		const auto span = value.Span();
-
-		// Serialize the encrypted data into a string
-		std::string result(reinterpret_cast<const char*>(span.data()), span.size());
-
-		return result;
+		return outbuff.value();
 	} else {
 		return StormByte::Unexpected<Exception>(outbuff.error());
 	}
@@ -86,33 +77,30 @@ StormByte::Buffer::Consumer Symmetric::Encrypt(const Buffer::Consumer consumer) 
 }
 
 StormByte::Expected<std::string, Exception> Symmetric::Decrypt(const std::string& input) const noexcept {
-	Implementation::Encryption::ExpectedCryptoFutureBuffer outbuff;
+	Implementation::Encryption::ExpectedCryptoBuffer outbuff;
 	switch(m_algorithm) {
-		case Algorithm::Symmetric::AES:
-			outbuff = Implementation::Encryption::AES::Decrypt(input, m_password);
-			break;
-		case Algorithm::Symmetric::Camellia:
-			outbuff = Implementation::Encryption::Camellia::Decrypt(input, m_password);
-			break;
-		default:
-			return StormByte::Unexpected<Exception>("Invalid algorithm for decryption.");
+	case Algorithm::Symmetric::AES:
+		outbuff = Implementation::Encryption::AES::Decrypt(input, m_password);
+		break;
+	case Algorithm::Symmetric::Camellia:
+		outbuff = Implementation::Encryption::Camellia::Decrypt(input, m_password);
+		break;
+	default:
+		return StormByte::Unexpected<Exception>("Invalid algorithm for decryption.");
 	}
 
 	if (outbuff.has_value()) {
-		auto value = outbuff.value().get();
-		const auto span = value.Span();
-
-		// Serialize the decrypted data into a string
-		std::string result(reinterpret_cast<const char*>(span.data()), span.size());
-
+		auto data = outbuff.value().Extract(0);
+		if (!data.has_value()) {
+			return StormByte::Unexpected<Exception>("Failed to extract data from buffer");
+		}
+		std::string result(reinterpret_cast<const char*>(data.value().data()), data.value().size());
 		return result;
 	} else {
 		return StormByte::Unexpected<Exception>(outbuff.error());
 	}
-}
-
-StormByte::Expected<StormByte::Buffer::Simple, StormByte::Crypto::Exception> Symmetric::Decrypt(const Buffer::Simple& buffer) const noexcept {
-	Implementation::Encryption::ExpectedCryptoFutureBuffer outbuff;
+}StormByte::Expected<StormByte::Buffer::FIFO, StormByte::Crypto::Exception> Symmetric::Decrypt(const Buffer::FIFO& buffer) const noexcept {
+	Implementation::Encryption::ExpectedCryptoBuffer outbuff;
 	switch(m_algorithm) {
 		case Algorithm::Symmetric::AES:
 			outbuff = Implementation::Encryption::AES::Decrypt(buffer, m_password);
@@ -125,13 +113,7 @@ StormByte::Expected<StormByte::Buffer::Simple, StormByte::Crypto::Exception> Sym
 	}
 
 	if (outbuff.has_value()) {
-		auto value = outbuff.value().get();
-		const auto span = value.Span();
-
-		// Serialize the decrypted data into a string
-		std::string result(reinterpret_cast<const char*>(span.data()), span.size());
-
-		return result;
+		return outbuff.value();
 	} else {
 		return StormByte::Unexpected<Exception>(outbuff.error());
 	}

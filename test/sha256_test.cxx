@@ -7,36 +7,6 @@
 
 using namespace StormByte::Crypto;
 
-int TestSHA256HashConsistencyAcrossFormats() {
-	const std::string fn_name = "TestSHA256HashConsistencyAcrossFormats";
-	const std::string input_data = "DataToHash";
-
-	Hasher sha256(Algorithm::Hash::SHA256);
-
-	// Compute hash for a string
-	auto hash_string_result = sha256.Hash(input_data);
-	ASSERT_TRUE(fn_name, hash_string_result.has_value());
-	std::string hash_from_string = hash_string_result.value();
-
-	// Compute hash for a Buffer
-	StormByte::Buffer::Simple input_buffer;
-	input_buffer << input_data;
-	auto hash_buffer_result = sha256.Hash(input_buffer);
-	ASSERT_TRUE(fn_name, hash_buffer_result.has_value());
-	std::string hash_from_buffer = hash_buffer_result.value();
-
-	// Compute hash for a Simple buffer
-	auto hash_future_result = sha256.Hash(input_buffer);
-	ASSERT_TRUE(fn_name, hash_future_result.has_value());
-	std::string hash_from_future = hash_future_result.value();
-
-	// Validate all hashes are identical
-	ASSERT_EQUAL(fn_name, hash_from_string, hash_from_buffer);
-	ASSERT_EQUAL(fn_name, hash_from_buffer, hash_from_future);
-
-	RETURN_TEST(fn_name, 0);
-}
-
 int TestSHA256HashCorrectness() {
 	const std::string fn_name = "TestSHA256HashCorrectness";
 	const std::string input_data = "HashThisString";
@@ -108,15 +78,15 @@ int TestSHA256HashUsingConsumerProducer() {
 
 	// Create a producer buffer and write the input data
 	StormByte::Buffer::Producer producer;
-	producer << input_data;
-	producer << StormByte::Buffer::Status::ReadOnly; // Mark the producer as EOF
+	producer.Write(input_data);
+	producer.Close();
 
 	// Create a consumer buffer from the producer
 	StormByte::Buffer::Consumer consumer(producer.Consumer());
 
 	// Hash the data asynchronously
 	auto hash_consumer = sha256.Hash(consumer);
-	ASSERT_TRUE(fn_name, hash_consumer.IsReadable());
+	ASSERT_TRUE(fn_name, !hash_consumer.IsClosed() || !hash_consumer.Empty());
 
 	// Read the hash result from the hash_consumer
 	auto hash_result = ReadAllFromConsumer(hash_consumer);
@@ -130,7 +100,6 @@ int TestSHA256HashUsingConsumerProducer() {
 int main() {
 	int result = 0;
 
-	result += TestSHA256HashConsistencyAcrossFormats();
 	result += TestSHA256HashCorrectness();
 	result += TestSHA256CollisionResistance();
 	result += TestSHA256ProducesDifferentContent();

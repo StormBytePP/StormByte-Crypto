@@ -70,7 +70,7 @@ namespace StormByte::Crypto {
 			 * @return An Expected containing the encrypted buffer or an error.
 			 */
 			[[nodiscard]]
-			virtual Expected<Buffer::Simple, Exception>		Encrypt(const Buffer::Simple& buffer) const noexcept = 0;
+			virtual Expected<Buffer::FIFO, Exception>		Encrypt(const Buffer::FIFO& buffer) const noexcept = 0;
 
 			/**
 			 * @brief Encrypts data asynchronously using a Consumer/Producer model.
@@ -94,7 +94,7 @@ namespace StormByte::Crypto {
 			 * @return An Expected containing the decrypted buffer or an error.
 			 */
 			[[nodiscard]]
-			virtual Expected<Buffer::Simple, Exception>		Decrypt(const Buffer::Simple& buffer) const noexcept = 0;
+			virtual Expected<Buffer::FIFO, Exception>		Decrypt(const Buffer::FIFO& buffer) const noexcept = 0;
 
 			/**
 			 * @brief Decrypts data asynchronously using a Consumer/Producer model.

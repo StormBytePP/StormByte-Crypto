@@ -11,7 +11,7 @@ Asymmetric::Asymmetric(const Algorithm::Asymmetric& algorithm, class KeyPair&& k
 :Crypter(), m_algorithm(algorithm), m_keys(std::move(key_pair)) {}
 
 StormByte::Expected<std::string, Exception> Asymmetric::Encrypt(const std::string& input) const noexcept {
-	Implementation::Encryption::ExpectedCryptoFutureString outstr;
+	Implementation::Encryption::ExpectedCryptoString outstr;
 	switch(m_algorithm) {
 		case Algorithm::Asymmetric::ECC:
 			outstr = Implementation::Encryption::ECC::Encrypt(input, m_keys.PublicKey());
@@ -30,8 +30,8 @@ StormByte::Expected<std::string, Exception> Asymmetric::Encrypt(const std::strin
 	}
 }
 
-StormByte::Expected<StormByte::Buffer::Simple, StormByte::Crypto::Exception> Asymmetric::Encrypt(const Buffer::Simple& buffer) const noexcept {
-	Implementation::Encryption::ExpectedCryptoFutureBuffer outbuff;
+StormByte::Expected<StormByte::Buffer::FIFO, StormByte::Crypto::Exception> Asymmetric::Encrypt(const Buffer::FIFO& buffer) const noexcept {
+	Implementation::Encryption::ExpectedCryptoBuffer outbuff;
 	switch(m_algorithm) {
 		case Algorithm::Asymmetric::ECC:
 			outbuff = Implementation::Encryption::ECC::Encrypt(buffer, m_keys.PublicKey());
@@ -44,13 +44,7 @@ StormByte::Expected<StormByte::Buffer::Simple, StormByte::Crypto::Exception> Asy
 	}
 
 	if (outbuff.has_value()) {
-		auto value = outbuff.value().get();
-		const auto span = value.Span();
-
-		// Serialize the encrypted data into a string
-		std::string result(reinterpret_cast<const char*>(span.data()), span.size());
-
-		return result;
+		return outbuff.value();
 	} else {
 		return StormByte::Unexpected<Exception>(outbuff.error());
 	}
@@ -71,7 +65,7 @@ StormByte::Expected<std::string, Exception> Asymmetric::Decrypt(const std::strin
 	if (!m_keys.PrivateKey().has_value()) {
 		return StormByte::Unexpected<Exception>("Private key is not available for decryption.");
 	}
-	Implementation::Encryption::ExpectedCryptoFutureString outstr;
+	Implementation::Encryption::ExpectedCryptoString outstr;
 	switch(m_algorithm) {
 		case Algorithm::Asymmetric::ECC:
 			outstr = Implementation::Encryption::ECC::Decrypt(input, m_keys.PrivateKey().value());
@@ -90,11 +84,11 @@ StormByte::Expected<std::string, Exception> Asymmetric::Decrypt(const std::strin
 	}
 }
 
-StormByte::Expected<StormByte::Buffer::Simple, StormByte::Crypto::Exception> Asymmetric::Decrypt(const Buffer::Simple& buffer) const noexcept {
+StormByte::Expected<StormByte::Buffer::FIFO, StormByte::Crypto::Exception> Asymmetric::Decrypt(const Buffer::FIFO& buffer) const noexcept {
 	if (!m_keys.PrivateKey().has_value()) {
 		return StormByte::Unexpected<Exception>("Private key is not available for decryption.");
 	}
-	Implementation::Encryption::ExpectedCryptoFutureBuffer outbuff;
+	Implementation::Encryption::ExpectedCryptoBuffer outbuff;
 	switch(m_algorithm) {
 		case Algorithm::Asymmetric::ECC:
 			outbuff = Implementation::Encryption::ECC::Decrypt(buffer, m_keys.PrivateKey().value());
@@ -107,13 +101,7 @@ StormByte::Expected<StormByte::Buffer::Simple, StormByte::Crypto::Exception> Asy
 	}
 
 	if (outbuff.has_value()) {
-		auto value = outbuff.value().get();
-		const auto span = value.Span();
-
-		// Serialize the decrypted data into a string
-		std::string result(reinterpret_cast<const char*>(span.data()), span.size());
-
-		return result;
+		return outbuff.value();
 	} else {
 		return StormByte::Unexpected<Exception>(outbuff.error());
 	}
@@ -121,9 +109,9 @@ StormByte::Expected<StormByte::Buffer::Simple, StormByte::Crypto::Exception> Asy
 
 StormByte::Buffer::Consumer Asymmetric::Decrypt(const Buffer::Consumer consumer) const noexcept {
 	if (!m_keys.PrivateKey().has_value()) {
-		Buffer::Producer producer;
-		producer << StormByte::Buffer::Status::Error;
-		return producer.Consumer();
+		auto producer = std::make_shared<Buffer::Producer>();
+		producer->Close();
+		return producer->Consumer();
 	}
 	switch(m_algorithm) {
 		case Algorithm::Asymmetric::ECC:

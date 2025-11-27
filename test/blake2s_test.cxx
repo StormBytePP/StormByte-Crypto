@@ -79,15 +79,15 @@ int TestBlake2sHashUsingConsumerProducer() {
 
 	// Create a producer buffer and write the input data
 	StormByte::Buffer::Producer producer;
-	producer << input_data;
-	producer << StormByte::Buffer::Status::ReadOnly; // Mark the producer as EOF
+	producer.Write(input_data);
+	producer.Close();
 
 	// Create a consumer buffer from the producer
 	StormByte::Buffer::Consumer consumer(producer.Consumer());
 
 	// Hash the data asynchronously
 	auto hash_consumer = blake2s.Hash(consumer);
-	ASSERT_TRUE(fn_name, hash_consumer.IsReadable());
+	ASSERT_TRUE(fn_name, !hash_consumer.IsClosed() || !hash_consumer.Empty());
 
 	// Read the hash result from the hash_consumer
 	auto hash_result = ReadAllFromConsumer(hash_consumer);

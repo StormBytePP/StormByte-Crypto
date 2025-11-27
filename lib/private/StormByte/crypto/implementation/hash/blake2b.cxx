@@ -1,14 +1,13 @@
 #include <StormByte/crypto/implementation/hash/blake2b.hxx>
 #include <blake2.h>
 #include <hex.h>
-#include <future>
 #include <vector>
 #include <thread>
 
 using namespace StormByte::Crypto::Implementation::Hash;
 
 namespace {
-	ExpectedHashFutureString ComputeBlake2b(std::span<const std::byte> dataSpan) noexcept {
+	ExpectedHashString ComputeBlake2b(std::span<const std::byte> dataSpan) noexcept {
 		try {
 			std::vector<uint8_t> data(dataSpan.size());
 			std::transform(dataSpan.begin(), dataSpan.end(), data.begin(),
@@ -29,30 +28,38 @@ namespace {
 	}
 }
 
-ExpectedHashFutureString Blake2b::Hash(const std::string& input) noexcept {
+ExpectedHashString Blake2b::Hash(const std::string& input) noexcept {
 	std::span<const std::byte> dataSpan(reinterpret_cast<const std::byte*>(input.data()), input.size());
 	return ComputeBlake2b(dataSpan);
 }
 
-ExpectedHashFutureString Blake2b::Hash(const Buffer::Simple& buffer) noexcept {
-	return ComputeBlake2b(buffer.Data());
+ExpectedHashString Blake2b::Hash(const Buffer::FIFO& buffer) noexcept {
+	auto data = const_cast<StormByte::Buffer::FIFO&>(buffer).Extract(0);
+	if (!data.has_value()) {
+		return StormByte::Unexpected<StormByte::Crypto::Exception>("Failed to extract data from buffer");
+	}
+	std::span<const std::byte> dataSpan(data.value().data(), data.value().size());
+	return ComputeBlake2b(dataSpan);
 }
 
-StormByte::Buffer::Consumer Blake2b::Hash(const Buffer::Consumer consumer) noexcept {
+StormByte::Buffer::Consumer Blake2b::Hash(Buffer::Consumer consumer) noexcept {
 	SharedProducerBuffer producer = std::make_shared<StormByte::Buffer::Producer>();
 
-	std::thread([consumer, producer]() {
+	std::thread([consumer, producer]() mutable {
 		try {
 			CryptoPP::BLAKE2b hash;
-			std::string hashOutput; // Create a string to hold the hash output
-			CryptoPP::HexEncoder encoder(new CryptoPP::StringSink(hashOutput)); // Pass the string to StringSink
+			std::string hashOutput;
+			CryptoPP::HexEncoder encoder(new CryptoPP::StringSink(hashOutput));
 
 			constexpr size_t chunkSize = 4096;
 			std::vector<uint8_t> chunkBuffer(chunkSize);
 
-			while (consumer.IsReadable() && !consumer.IsEoF()) {
+			while (!consumer.IsClosed() || !consumer.Empty()) {
 				size_t availableBytes = consumer.AvailableBytes();
 				if (availableBytes == 0) {
+					if (consumer.IsClosed()) {
+						break;
+					}
 					std::this_thread::sleep_for(std::chrono::milliseconds(10));
 					continue;
 				}
@@ -60,24 +67,27 @@ StormByte::Buffer::Consumer Blake2b::Hash(const Buffer::Consumer consumer) noexc
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
 				auto readResult = consumer.Read(bytesToRead);
 				if (!readResult.has_value()) {
-					*producer << StormByte::Buffer::Status::Error;
-					break;
+					producer->Close();
+					return;
 				}
 
 				const auto& inputData = readResult.value();
 				hash.Update(reinterpret_cast<const CryptoPP::byte*>(inputData.data()), inputData.size());
 			}
-			if (consumer.IsReadable()) {
-				// Finalize the hash
-				hash.Final(reinterpret_cast<CryptoPP::byte*>(chunkBuffer.data()));
-				encoder.Put(chunkBuffer.data(), hash.DigestSize());
-				encoder.MessageEnd();
+			// Finalize the hash
+			hash.Final(reinterpret_cast<CryptoPP::byte*>(chunkBuffer.data()));
+			encoder.Put(chunkBuffer.data(), hash.DigestSize());
+			encoder.MessageEnd();
 
-				*producer << StormByte::Buffer::Simple(hashOutput.data(), hashOutput.size());
+			std::vector<std::byte> byteData;
+			byteData.reserve(hashOutput.size());
+			for (size_t i = 0; i < hashOutput.size(); ++i) {
+				byteData.push_back(static_cast<std::byte>(hashOutput[i]));
 			}
-			*producer << consumer.Status(); // Update status (EOF or Error)
+			producer->Write(byteData);
+			producer->Close();
 		} catch (...) {
-			*producer << StormByte::Buffer::Status::Error;
+			producer->Close();
 		}
 	}).detach();
 

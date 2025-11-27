@@ -25,7 +25,7 @@ StormByte::Expected<std::string, Exception> Hasher::Hash(const std::string& inpu
 	}
 }
 
-StormByte::Expected<std::string, Exception> Hasher::Hash(const Buffer::Simple& buffer) const noexcept {
+StormByte::Expected<std::string, Exception> Hasher::Hash(const Buffer::FIFO& buffer) const noexcept {
 	switch(m_algorithm) {
 		case Algorithm::Hash::Blake2b:
 			return Implementation::Hash::Blake2b::Hash(buffer);
@@ -36,8 +36,11 @@ StormByte::Expected<std::string, Exception> Hasher::Hash(const Buffer::Simple& b
 		case Algorithm::Hash::SHA512:
 			return Implementation::Hash::SHA512::Hash(buffer);
 		default: {
-			auto span = buffer.Span(); // Get the span of bytes
-			return std::string(reinterpret_cast<const char*>(span.data()), span.size());
+			auto data = const_cast<Buffer::FIFO&>(buffer).Extract(0);
+			if (!data.has_value()) {
+				return StormByte::Unexpected<Exception>("Failed to extract data from buffer");
+			}
+			return std::string(reinterpret_cast<const char*>(data.value().data()), data.value().size());
 		}
 	}
 }

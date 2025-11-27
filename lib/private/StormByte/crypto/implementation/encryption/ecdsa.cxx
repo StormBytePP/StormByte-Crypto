@@ -96,7 +96,7 @@ ExpectedKeyPair ECDSA::GenerateKeyPair(const std::string& curveName) noexcept {
 }
 
 // Signing
-ExpectedCryptoFutureString ECDSA::Sign(const std::string& message, const std::string& privateKey) noexcept {
+ExpectedCryptoString ECDSA::Sign(const std::string& message, const std::string& privateKey) noexcept {
 	try {
 		CryptoPP::AutoSeededRandomPool rng;
 
@@ -125,7 +125,7 @@ ExpectedCryptoFutureString ECDSA::Sign(const std::string& message, const std::st
 	}
 }
 
-ExpectedCryptoFutureBuffer ECDSA::Sign(const Buffer::Simple& message, const std::string& privateKey) noexcept {
+ExpectedCryptoBuffer ECDSA::Sign(const Buffer::FIFO& message, const std::string& privateKey) noexcept {
 	try {
 		CryptoPP::AutoSeededRandomPool rng;
 
@@ -135,41 +135,43 @@ ExpectedCryptoFutureBuffer ECDSA::Sign(const Buffer::Simple& message, const std:
 			return StormByte::Unexpected<Exception>("Private key validation failed");
 		}
 
-		// Initialize the signer
-		CryptoECDSA::Signer signer(key);
+	// Initialize the signer
+	CryptoECDSA::Signer signer(key);
 
-		// Sign the message
-		std::string signature;
-		CryptoPP::StringSource ss(
-			reinterpret_cast<const CryptoPP::byte*>(message.Data().data()), message.Size(), true,
-			new CryptoPP::SignerFilter(rng, signer, new CryptoPP::StringSink(signature))
-		);
-
-		// Convert the signature to a buffer
+	// Sign the message
+	auto data = const_cast<StormByte::Buffer::FIFO&>(message).Extract(0);
+	if (!data.has_value()) {
+		return StormByte::Unexpected<Exception>("Failed to extract data from message buffer");
+	}
+	std::string signature;
+	CryptoPP::StringSource ss(
+		reinterpret_cast<const CryptoPP::byte*>(data.value().data()), data.value().size(), true,
+		new CryptoPP::SignerFilter(rng, signer, new CryptoPP::StringSink(signature))
+	);		// Convert the signature to a buffer
 		std::vector<std::byte> signatureBuffer(signature.size());
 		std::transform(signature.begin(), signature.end(), signatureBuffer.begin(),
 					[](char c) { return static_cast<std::byte>(c); });
 
-		std::promise<StormByte::Buffer::Simple> promise;
-		promise.set_value(StormByte::Buffer::Simple(std::move(signatureBuffer)));
-		return promise.get_future();
+		StormByte::Buffer::FIFO buffer;
+		buffer.Write(signatureBuffer);
+		return buffer;
 	} catch (const std::exception& e) {
 		return StormByte::Unexpected<Exception>("ECDSA signing failed: " + std::string(e.what()));
 	}
 }
 
 // Signing with Buffer::Consumer
-StormByte::Buffer::Consumer ECDSA::Sign(const Buffer::Consumer consumer, const std::string& privateKey) noexcept {
+StormByte::Buffer::Consumer ECDSA::Sign(Buffer::Consumer consumer, const std::string& privateKey) noexcept {
 	auto producer = std::make_shared<StormByte::Buffer::Producer>();
 
-	std::thread([consumer, producer, privateKey]() {
+	std::thread([consumer, producer, privateKey]() mutable {
 		try {
 			CryptoPP::AutoSeededRandomPool rng;
 
 			// Deserialize and validate the private key
 			CryptoECDSA::PrivateKey key = DeserializePrivateKey(privateKey);
 			if (!key.Validate(rng, 3)) {
-				*producer << StormByte::Buffer::Status::Error;
+				producer->Close();
 				return;
 			}
 
@@ -179,9 +181,12 @@ StormByte::Buffer::Consumer ECDSA::Sign(const Buffer::Consumer consumer, const s
 			constexpr size_t chunkSize = 4096;
 			std::string signatureChunk;
 
-			while (consumer.IsReadable() && !consumer.IsEoF()) {
+			while (!consumer.IsClosed() || !consumer.Empty()) {
 				size_t availableBytes = consumer.AvailableBytes();
 				if (availableBytes == 0) {
+					if (consumer.IsClosed()) {
+						break;
+					}
 					std::this_thread::sleep_for(std::chrono::milliseconds(10));
 					continue;
 				}
@@ -189,7 +194,7 @@ StormByte::Buffer::Consumer ECDSA::Sign(const Buffer::Consumer consumer, const s
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
 				auto readResult = consumer.Read(bytesToRead);
 				if (!readResult.has_value()) {
-					*producer << StormByte::Buffer::Status::Error;
+					producer->Close();
 					return;
 				}
 
@@ -205,11 +210,16 @@ StormByte::Buffer::Consumer ECDSA::Sign(const Buffer::Consumer consumer, const s
 					)
 				);
 
-				*producer << StormByte::Buffer::Simple(signatureChunk.data(), signatureChunk.size());
+								std::vector<std::byte> byteData;
+				byteData.reserve(signatureChunk.size());
+				for (size_t i = 0; i < signatureChunk.size(); ++i) {
+					byteData.push_back(static_cast<std::byte>(signatureChunk[i]));
+				}
+				producer->Write(byteData);
 			}
-			*producer << consumer.Status(); // Update status (EOF or Error)
+			producer->Close(); // Mark processing complete // Update status (EOF or Error)
 		} catch (...) {
-			*producer << StormByte::Buffer::Status::Error;
+			producer->Close();
 		}
 	}).detach();
 
@@ -249,8 +259,8 @@ bool ECDSA::Verify(const std::string& message, const std::string& signature, con
 	}
 }
 
-// Verification with Buffer::Simple
-bool ECDSA::Verify(const Buffer::Simple& message, const std::string& signature, const std::string& publicKey) noexcept {
+// Verification with Buffer::FIFO
+bool ECDSA::Verify(const Buffer::FIFO& message, const std::string& signature, const std::string& publicKey) noexcept {
 	try {
 		CryptoPP::AutoSeededRandomPool rng;
 
@@ -260,21 +270,23 @@ bool ECDSA::Verify(const Buffer::Simple& message, const std::string& signature, 
 			return false; // Public key validation failed
 		}
 
-		// Initialize the verifier
-		CryptoECDSA::Verifier verifier(key);
+	// Initialize the verifier
+	CryptoECDSA::Verifier verifier(key);
 
-		// Verify the signature
-		bool result = false;
-		CryptoPP::StringSource ss(
-			signature + std::string(reinterpret_cast<const char*>(message.Data().data()), message.Size()), true,
-			new CryptoPP::SignatureVerificationFilter(
-				verifier,
-				new CryptoPP::ArraySink((CryptoPP::byte*)&result, sizeof(result)),
-				CryptoPP::SignatureVerificationFilter::PUT_RESULT | CryptoPP::SignatureVerificationFilter::SIGNATURE_AT_BEGIN
-			)
-		);
-
-		return result;
+	// Verify the signature
+	auto data = const_cast<StormByte::Buffer::FIFO&>(message).Extract(0);
+	if (!data.has_value()) {
+		return false;
+	}
+	bool result = false;
+	CryptoPP::StringSource ss(
+		signature + std::string(reinterpret_cast<const char*>(data.value().data()), data.value().size()), true,
+		new CryptoPP::SignatureVerificationFilter(
+			verifier,
+			new CryptoPP::ArraySink((CryptoPP::byte*)&result, sizeof(result)),
+			CryptoPP::SignatureVerificationFilter::PUT_RESULT | CryptoPP::SignatureVerificationFilter::SIGNATURE_AT_BEGIN
+		)
+	);		return result;
 	} catch (const CryptoPP::Exception&) {
 		return false; // Signature verification failed
 	} catch (const std::exception&) {
@@ -283,7 +295,7 @@ bool ECDSA::Verify(const Buffer::Simple& message, const std::string& signature, 
 }
 
 // Verification with Buffer::Consumer
-bool ECDSA::Verify(const Buffer::Consumer consumer, const std::string& signature, const std::string& publicKey) noexcept {
+bool ECDSA::Verify(Buffer::Consumer consumer, const std::string& signature, const std::string& publicKey) noexcept {
 	try {
 		CryptoPP::AutoSeededRandomPool rng;
 
@@ -299,9 +311,12 @@ bool ECDSA::Verify(const Buffer::Consumer consumer, const std::string& signature
 		constexpr size_t chunkSize = 4096;
 		bool verificationResult = false;
 
-		while (consumer.IsReadable() && !consumer.IsEoF()) {
+		while (!consumer.IsClosed() || !consumer.Empty()) {
 			size_t availableBytes = consumer.AvailableBytes();
 			if (availableBytes == 0) {
+				if (consumer.IsClosed()) {
+					break;
+				}
 				std::this_thread::sleep_for(std::chrono::milliseconds(10));
 				continue;
 			}

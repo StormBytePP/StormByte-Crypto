@@ -102,7 +102,7 @@ ExpectedKeyPair ECC::GenerateKeyPair(const std::string& curve_name) noexcept {
 	}
 }
 
-ExpectedCryptoFutureString ECC::Encrypt(const std::string& message, const std::string& publicKey) noexcept {
+ExpectedCryptoString ECC::Encrypt(const std::string& message, const std::string& publicKey) noexcept {
 	try {
 		CryptoPP::AutoSeededRandomPool rng;
 
@@ -127,7 +127,7 @@ ExpectedCryptoFutureString ECC::Encrypt(const std::string& message, const std::s
 	}
 }
 
-ExpectedCryptoFutureBuffer ECC::Encrypt(const Buffer::Simple& input, const std::string& publicKey) noexcept {
+ExpectedCryptoBuffer ECC::Encrypt(const Buffer::FIFO& input, const std::string& publicKey) noexcept {
 	try {
 		CryptoPP::AutoSeededRandomPool rng;
 
@@ -141,8 +141,12 @@ ExpectedCryptoFutureBuffer ECC::Encrypt(const Buffer::Simple& input, const std::
 		ECIES::Encryptor encryptor(key);
 
 		// Perform encryption
+		auto data = const_cast<StormByte::Buffer::FIFO&>(input).Extract(0);
+		if (!data.has_value()) {
+			return StormByte::Unexpected<Exception>("Failed to extract data from input buffer");
+		}
 		std::string encryptedMessage;
-		CryptoPP::StringSource ss(reinterpret_cast<const CryptoPP::byte*>(input.Data().data()), input.Size(), true,
+		CryptoPP::StringSource ss(reinterpret_cast<const CryptoPP::byte*>(data.value().data()), data.value().size(), true,
 								new CryptoPP::PK_EncryptorFilter(rng, encryptor,
 																new CryptoPP::StringSink(encryptedMessage)));
 
@@ -151,25 +155,25 @@ ExpectedCryptoFutureBuffer ECC::Encrypt(const Buffer::Simple& input, const std::
 		std::transform(encryptedMessage.begin(), encryptedMessage.end(), encryptedBuffer.begin(),
 					[](char c) { return static_cast<std::byte>(c); });
 
-		std::promise<StormByte::Buffer::Simple> promise;
-		promise.set_value(StormByte::Buffer::Simple(std::move(encryptedBuffer)));
-		return promise.get_future();
+		StormByte::Buffer::FIFO buffer;
+		buffer.Write(encryptedBuffer);
+		return buffer;
 	} catch (const std::exception& e) {
 		return StormByte::Unexpected<Exception>("ECC encryption failed: " + std::string(e.what()));
 	}
 }
 
-StormByte::Buffer::Consumer ECC::Encrypt(const Buffer::Consumer consumer, const std::string& publicKey) noexcept {
+StormByte::Buffer::Consumer ECC::Encrypt(Buffer::Consumer consumer, const std::string& publicKey) noexcept {
 	SharedProducerBuffer producer = std::make_shared<StormByte::Buffer::Producer>();
 
-	std::thread([consumer, producer, publicKey]() {
+	std::thread([consumer, producer, publicKey]() mutable {
 		try {
 			CryptoPP::AutoSeededRandomPool rng;
 
 			// Deserialize, initialize, and validate the public key
 			ECIES::PublicKey key = DeserializePublicKey(publicKey);
 			if (!key.Validate(rng, 3)) {
-				*producer << StormByte::Buffer::Status::Error;
+				producer->Close();
 				return;
 			}
 
@@ -179,9 +183,12 @@ StormByte::Buffer::Consumer ECC::Encrypt(const Buffer::Consumer consumer, const 
 			constexpr size_t chunkSize = 4096;
 			std::string encryptedChunk;
 
-			while (consumer.IsReadable() && !consumer.IsEoF()) {
+			while (!consumer.IsClosed() || !consumer.Empty()) {
 				size_t availableBytes = consumer.AvailableBytes();
 				if (availableBytes == 0) {
+					if (consumer.IsClosed()) {
+						break;
+					}
 					std::this_thread::sleep_for(std::chrono::milliseconds(10));
 					continue;
 				}
@@ -189,7 +196,7 @@ StormByte::Buffer::Consumer ECC::Encrypt(const Buffer::Consumer consumer, const 
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
 				auto readResult = consumer.Read(bytesToRead);
 				if (!readResult.has_value()) {
-					*producer << StormByte::Buffer::Status::Error;
+					producer->Close();
 					return;
 				}
 
@@ -200,18 +207,23 @@ StormByte::Buffer::Consumer ECC::Encrypt(const Buffer::Consumer consumer, const 
 										new CryptoPP::PK_EncryptorFilter(rng, encryptor,
 																		new CryptoPP::StringSink(encryptedChunk)));
 
-				*producer << StormByte::Buffer::Simple(encryptedChunk.data(), encryptedChunk.size());
+								std::vector<std::byte> byteData;
+				byteData.reserve(encryptedChunk.size());
+				for (size_t i = 0; i < encryptedChunk.size(); ++i) {
+					byteData.push_back(static_cast<std::byte>(encryptedChunk[i]));
+				}
+				producer->Write(byteData);
 			}
-			*producer << consumer.Status(); // Update status (EOF or Error)
+			producer->Close(); // Mark processing complete // Update status (EOF or Error)
 		} catch (...) {
-			*producer << StormByte::Buffer::Status::Error;
+			producer->Close();
 		}
 	}).detach();
 
 	return producer->Consumer();
 }
 
-ExpectedCryptoFutureString ECC::Decrypt(const std::string& message, const std::string& privateKey) noexcept {
+ExpectedCryptoString ECC::Decrypt(const std::string& message, const std::string& privateKey) noexcept {
 	try {
 		CryptoPP::AutoSeededRandomPool rng;
 
@@ -236,7 +248,7 @@ ExpectedCryptoFutureString ECC::Decrypt(const std::string& message, const std::s
 	}
 }
 
-ExpectedCryptoFutureBuffer ECC::Decrypt(const Buffer::Simple& encryptedBuffer, const std::string& privateKey) noexcept {
+ExpectedCryptoBuffer ECC::Decrypt(const Buffer::FIFO& encryptedBuffer, const std::string& privateKey) noexcept {
 	try {
 		CryptoPP::AutoSeededRandomPool rng;
 
@@ -246,40 +258,42 @@ ExpectedCryptoFutureBuffer ECC::Decrypt(const Buffer::Simple& encryptedBuffer, c
 			return StormByte::Unexpected<Exception>("Private key validation failed");
 		}
 
-		// Initialize the decryptor
-		ECIES::Decryptor decryptor(key);
+	// Initialize the decryptor
+	ECIES::Decryptor decryptor(key);
 
-		// Perform decryption
-		std::string decryptedMessage;
-		CryptoPP::StringSource ss(
-			reinterpret_cast<const CryptoPP::byte*>(encryptedBuffer.Data().data()), encryptedBuffer.Size(), true,
-			new CryptoPP::PK_DecryptorFilter(rng, decryptor, new CryptoPP::StringSink(decryptedMessage))
-		);
-
-		// Convert the decrypted message into a buffer
+	// Perform decryption
+	auto data = const_cast<StormByte::Buffer::FIFO&>(encryptedBuffer).Extract(0);
+	if (!data.has_value()) {
+		return StormByte::Unexpected<Exception>("Failed to extract data from encrypted buffer");
+	}
+	std::string decryptedMessage;
+	CryptoPP::StringSource ss(
+		reinterpret_cast<const CryptoPP::byte*>(data.value().data()), data.value().size(), true,
+		new CryptoPP::PK_DecryptorFilter(rng, decryptor, new CryptoPP::StringSink(decryptedMessage))
+	);		// Convert the decrypted message into a buffer
 		std::vector<std::byte> decryptedBuffer(decryptedMessage.size());
 		std::transform(decryptedMessage.begin(), decryptedMessage.end(), decryptedBuffer.begin(),
 					[](char c) { return static_cast<std::byte>(c); });
 
-		std::promise<StormByte::Buffer::Simple> promise;
-		promise.set_value(StormByte::Buffer::Simple(std::move(decryptedBuffer)));
-		return promise.get_future();
+		StormByte::Buffer::FIFO buffer;
+		buffer.Write(decryptedBuffer);
+		return buffer;
 	} catch (const std::exception& e) {
 		return StormByte::Unexpected<Exception>("ECC decryption failed: " + std::string(e.what()));
 	}
 }
 
-StormByte::Buffer::Consumer ECC::Decrypt(const Buffer::Consumer consumer, const std::string& privateKey) noexcept {
+StormByte::Buffer::Consumer ECC::Decrypt(Buffer::Consumer consumer, const std::string& privateKey) noexcept {
 	SharedProducerBuffer producer = std::make_shared<StormByte::Buffer::Producer>();
 
-	std::thread([consumer, producer, privateKey]() {
+	std::thread([consumer, producer, privateKey]() mutable {
 		try {
 			CryptoPP::AutoSeededRandomPool rng;
 
 			// Deserialize, initialize, and validate the private key
 			ECIES::PrivateKey key = DeserializePrivateKey(privateKey);
 			if (!key.Validate(rng, 3)) {
-				*producer << StormByte::Buffer::Status::Error;
+				producer->Close();
 				return;
 			}
 
@@ -289,9 +303,12 @@ StormByte::Buffer::Consumer ECC::Decrypt(const Buffer::Consumer consumer, const 
 			constexpr size_t chunkSize = 4096;
 			std::string decryptedChunk;
 
-			while (consumer.IsReadable() && !consumer.IsEoF()) {
+			while (!consumer.IsClosed() || !consumer.Empty()) {
 				size_t availableBytes = consumer.AvailableBytes();
 				if (availableBytes == 0) {
+					if (consumer.IsClosed()) {
+						break;
+					}
 					std::this_thread::sleep_for(std::chrono::milliseconds(10));
 					continue;
 				}
@@ -299,7 +316,7 @@ StormByte::Buffer::Consumer ECC::Decrypt(const Buffer::Consumer consumer, const 
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
 				auto readResult = consumer.Read(bytesToRead);
 				if (!readResult.has_value()) {
-					*producer << StormByte::Buffer::Status::Error;
+					producer->Close();
 					return;
 				}
 
@@ -310,11 +327,16 @@ StormByte::Buffer::Consumer ECC::Decrypt(const Buffer::Consumer consumer, const 
 										new CryptoPP::PK_DecryptorFilter(rng, decryptor,
 																		new CryptoPP::StringSink(decryptedChunk)));
 
-				*producer << StormByte::Buffer::Simple(decryptedChunk.data(), decryptedChunk.size());
+								std::vector<std::byte> byteData;
+				byteData.reserve(decryptedChunk.size());
+				for (size_t i = 0; i < decryptedChunk.size(); ++i) {
+					byteData.push_back(static_cast<std::byte>(decryptedChunk[i]));
+				}
+				producer->Write(byteData);
 			}
-			*producer << consumer.Status(); // Update status (EOF or Error)
+			producer->Close(); // Mark processing complete // Update status (EOF or Error)
 		} catch (...) {
-			*producer << StormByte::Buffer::Status::Error;
+			producer->Close();
 		}
 	}).detach();
 

@@ -18,20 +18,17 @@ int TestCamelliaEncryptDecryptConsistency() {
 	auto encrypt_result = camellia.Encrypt(original_data);
 	ASSERT_TRUE(fn_name, encrypt_result.has_value());
 
-	auto encrypted_future = std::move(encrypt_result.value());
-	StormByte::Buffer::Simple encrypted_buffer = encrypted_future;
-	ASSERT_FALSE(fn_name, encrypted_buffer.Empty());
+	auto encrypted_string = encrypt_result.value();
+	ASSERT_FALSE(fn_name, encrypted_string.empty());
 
 	// Decrypt the data
-	auto decrypt_result = camellia.Decrypt(encrypted_buffer);
+	auto decrypt_result = camellia.Decrypt(encrypted_string);
 	ASSERT_TRUE(fn_name, decrypt_result.has_value());
 
-	auto decrypted_future = std::move(decrypt_result.value());
-	StormByte::Buffer::Simple decrypted_buffer = decrypted_future;
-	ASSERT_FALSE(fn_name, decrypted_buffer.Empty());
+	std::string decrypted_data = decrypt_result.value();
+	ASSERT_FALSE(fn_name, decrypted_data.empty());
 
 	// Validate decrypted data matches the original data
-	std::string decrypted_data(reinterpret_cast<const char*>(decrypted_buffer.Data().data()), decrypted_buffer.Size());
 	ASSERT_EQUAL(fn_name, original_data, decrypted_data);
 
 	RETURN_TEST(fn_name, 0);
@@ -50,12 +47,11 @@ int TestCamelliaWrongDecryptionPassword() {
 	auto encrypt_result = camellia.Encrypt(original_data);
 	ASSERT_TRUE(fn_name, encrypt_result.has_value());
 
-	auto encrypted_future = std::move(encrypt_result.value());
-	StormByte::Buffer::Simple encrypted_buffer = encrypted_future;
-	ASSERT_FALSE(fn_name, encrypted_buffer.Empty());
+	auto encrypted_string = encrypt_result.value();
+	ASSERT_FALSE(fn_name, encrypted_string.empty());
 
 	// Attempt to decrypt with a wrong password
-	auto decrypt_result = camellia_wrong.Decrypt(encrypted_buffer);
+	auto decrypt_result = camellia_wrong.Decrypt(encrypted_string);
 	ASSERT_FALSE(fn_name, decrypt_result.has_value()); // Decryption must fail
 
 	RETURN_TEST(fn_name, 0);
@@ -72,19 +68,17 @@ int TestCamelliaDecryptionWithCorruptedData() {
 	auto encrypt_result = camellia.Encrypt(original_data);
 	ASSERT_TRUE(fn_name, encrypt_result.has_value());
 
-	auto encrypted_future = std::move(encrypt_result.value());
-	StormByte::Buffer::Simple encrypted_buffer = encrypted_future;
-	ASSERT_FALSE(fn_name, encrypted_buffer.Empty());
+	auto encrypted_string = encrypt_result.value();
+	ASSERT_FALSE(fn_name, encrypted_string.empty());
 
 	// Corrupt the encrypted data (flip a bit in the buffer)
-	auto corrupted_buffer = encrypted_buffer;
-	auto corrupted_span = corrupted_buffer.Span();
-	if (!corrupted_span.empty()) {
-		corrupted_span[0] = std::byte(static_cast<uint8_t>(~std::to_integer<uint8_t>(corrupted_span[0]))); // Flip the first byte
+	auto corrupted_string = encrypted_string;
+	if (!corrupted_string.empty()) {
+		corrupted_string[0] = ~corrupted_string[0];
 	}
 
 	// Attempt to decrypt the corrupted data
-	auto decrypt_result = camellia.Decrypt(corrupted_buffer);
+	auto decrypt_result = camellia.Decrypt(corrupted_string);
 	ASSERT_FALSE(fn_name, decrypt_result.has_value()); // Decryption must fail
 
 	RETURN_TEST(fn_name, 0);
@@ -101,12 +95,11 @@ int TestCamelliaEncryptionProducesDifferentContent() {
 	auto encrypt_result = camellia.Encrypt(original_data);
 	ASSERT_TRUE(fn_name, encrypt_result.has_value());
 
-	auto encrypted_future = std::move(encrypt_result.value());
-	StormByte::Buffer::Simple encrypted_buffer = encrypted_future;
-	ASSERT_FALSE(fn_name, encrypted_buffer.Empty());
+	auto encrypted_string = encrypt_result.value();
+	ASSERT_FALSE(fn_name, encrypted_string.empty());
 
 	// Verify encrypted content is different from original
-	ASSERT_NOT_EQUAL(fn_name, original_data, std::string(reinterpret_cast<const char*>(encrypted_buffer.Data().data()), encrypted_buffer.Size()));
+	ASSERT_NOT_EQUAL(fn_name, original_data, encrypted_string);
 
 	RETURN_TEST(fn_name, 0);
 }
@@ -120,27 +113,27 @@ int TestCamelliaEncryptDecryptUsingConsumerProducer() {
 
 	// Create a producer buffer and write the input data
 	StormByte::Buffer::Producer producer;
-	producer << input_data;
-	producer << StormByte::Buffer::Status::ReadOnly; // Mark the producer as EOF
+	producer.Write(input_data);
+	producer.Close();
 
 	// Create a consumer buffer from the producer
 	StormByte::Buffer::Consumer consumer(producer.Consumer());
 
 	// Encrypt the data asynchronously
 	auto encrypted_consumer = camellia.Encrypt(consumer);
-	ASSERT_TRUE(fn_name, encrypted_consumer.IsReadable());
+	ASSERT_TRUE(fn_name, !encrypted_consumer.IsClosed() || !encrypted_consumer.Empty());
 
 	// Decrypt the data asynchronously
 	auto decrypted_consumer = camellia.Decrypt(encrypted_consumer);
-	ASSERT_TRUE(fn_name, decrypted_consumer.IsReadable());
+	ASSERT_TRUE(fn_name, !decrypted_consumer.IsClosed() || !decrypted_consumer.Empty());
 
 	// Read the decrypted data from the decrypted_consumer
-	StormByte::Buffer::Simple decrypted_data = ReadAllFromConsumer(decrypted_consumer);
+	StormByte::Buffer::FIFO decrypted_data = ReadAllFromConsumer(decrypted_consumer);
 	ASSERT_FALSE(fn_name, decrypted_data.Empty()); // Ensure encrypted data is not empty
 
 	// Validate decrypted data matches the original data
-	std::string decrypted_result = DeserializeString(decrypted_data);
-	ASSERT_EQUAL(fn_name, input_data, decrypted_result); // Ensure decrypted data matches original input data
+	std::string decrypt_result = DeserializeString(decrypted_data);
+	ASSERT_EQUAL(fn_name, input_data, decrypt_result); // Ensure decrypted data matches original input data
 
 	RETURN_TEST(fn_name, 0);
 }
