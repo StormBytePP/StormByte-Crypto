@@ -90,7 +90,7 @@ int TestBlake2bHashUsingConsumerProducer() {
 
 	// Hash the data asynchronously
 	auto hash_consumer = blake2b.Hash(consumer);
-	ASSERT_TRUE(fn_name, !hash_consumer.IsClosed() || !hash_consumer.Empty());
+	ASSERT_TRUE(fn_name, hash_consumer.IsWritable() || !hash_consumer.Empty());
 
 	// Read the hash result from the hash_consumer
 	auto hash_result = ReadAllFromConsumer(hash_consumer);

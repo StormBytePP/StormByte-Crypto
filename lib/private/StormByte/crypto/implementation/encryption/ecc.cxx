@@ -184,10 +184,10 @@ StormByte::Buffer::Consumer ECC::Encrypt(Buffer::Consumer consumer, const std::s
 			constexpr size_t chunkSize = 4096;
 			std::string encryptedChunk;
 
-			while (!consumer.IsClosed() || !consumer.Empty()) {
+			while (!consumer.EoF()) {
 				size_t availableBytes = consumer.AvailableBytes();
 				if (availableBytes == 0) {
-					if (consumer.IsClosed()) {
+					if (!consumer.IsWritable()) {
 						break;
 					}
 					std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -304,10 +304,10 @@ StormByte::Buffer::Consumer ECC::Decrypt(Buffer::Consumer consumer, const std::s
 			constexpr size_t chunkSize = 4096;
 			std::string decryptedChunk;
 
-			while (!consumer.IsClosed() || !consumer.Empty()) {
+			while (!consumer.EoF()) {
 				size_t availableBytes = consumer.AvailableBytes();
 				if (availableBytes == 0) {
-					if (consumer.IsClosed()) {
+					if (!consumer.IsWritable()) {
 						break;
 					}
 					std::this_thread::sleep_for(std::chrono::milliseconds(10));

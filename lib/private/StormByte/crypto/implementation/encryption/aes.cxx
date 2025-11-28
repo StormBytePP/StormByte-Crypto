@@ -7,13 +7,12 @@
 #include <modes.h>
 #include <filters.h>
 #include <format>
-#include <future>
 #include <osrng.h>
 #include <secblock.h>
 #include <thread>
 #include <pwdbased.h>
-#include <iostream>
 #include <iomanip>
+#include <span>
 
 using namespace StormByte::Crypto::Implementation::Encryption;
 
@@ -141,10 +140,10 @@ StormByte::Buffer::Consumer AES::Encrypt(Buffer::Consumer consumer, const std::s
 			CryptoPP::CBC_Mode<CryptoPP::AES>::Encryption encryption(key, key.size(), iv);
 			std::vector<uint8_t> encryptedChunk;
 
-			while (!consumer.IsClosed() || !consumer.Empty()) {
+			while (!consumer.EoF()) {
 				size_t availableBytes = consumer.AvailableBytes();
 				if (availableBytes == 0) {
-					if (consumer.IsClosed()) {
+					if (!consumer.IsWritable()) {
 						break;
 					}
 					std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -206,7 +205,7 @@ StormByte::Buffer::Consumer AES::Decrypt(Buffer::Consumer consumer, const std::s
 			CryptoPP::SecByteBlock iv(CryptoPP::AES::BLOCKSIZE);
 
 			while (consumer.AvailableBytes() < salt.size()) {
-				if (consumer.IsClosed() && consumer.AvailableBytes() < salt.size()) {
+				if (!consumer.IsWritable() && consumer.AvailableBytes() < salt.size()) {
 					producer->Close();
 					return;
 				}
@@ -220,7 +219,7 @@ StormByte::Buffer::Consumer AES::Decrypt(Buffer::Consumer consumer, const std::s
 			std::memcpy(salt.data(), saltResult.value().data(), salt.size());
 
 			while (consumer.AvailableBytes() < iv.size()) {
-				if (consumer.IsClosed() && consumer.AvailableBytes() < iv.size()) {
+				if (!consumer.IsWritable() && consumer.AvailableBytes() < iv.size()) {
 					producer->Close();
 					return;
 				}
@@ -241,10 +240,10 @@ StormByte::Buffer::Consumer AES::Decrypt(Buffer::Consumer consumer, const std::s
 			CryptoPP::CBC_Mode<CryptoPP::AES>::Decryption decryption(key, key.size(), iv);
 			std::vector<uint8_t> decryptedChunk;
 
-			while (!consumer.IsClosed() || !consumer.Empty()) {
+			while (!consumer.EoF()) {
 				size_t availableBytes = consumer.AvailableBytes();
 				if (availableBytes == 0) {
-					if (consumer.IsClosed()) {
+					if (!consumer.IsWritable()) {
 						break;
 					}
 					std::this_thread::sleep_for(std::chrono::milliseconds(10));

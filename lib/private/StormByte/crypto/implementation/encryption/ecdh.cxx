@@ -6,7 +6,6 @@
 #include <oids.h>
 #include <base64.h>
 #include <string>
-#include <future>
 
 using namespace StormByte::Crypto::Implementation::Encryption;
 

@@ -154,10 +154,10 @@ StormByte::Buffer::Consumer RSA::Encrypt(Buffer::Consumer consumer, const std::s
 			constexpr size_t chunkSize = 4096;
 			std::string encryptedChunk;
 
-			while (!consumer.IsClosed() || !consumer.Empty()) {
+			while (!consumer.EoF()) {
 				size_t availableBytes = consumer.AvailableBytes();
 				if (availableBytes == 0) {
-					if (consumer.IsClosed()) {
+					if (!consumer.IsWritable()) {
 						break;
 					}
 					std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -276,10 +276,10 @@ StormByte::Buffer::Consumer RSA::Decrypt(Buffer::Consumer consumer, const std::s
 			constexpr size_t chunkSize = 4096;
 			std::string decryptedChunk;
 
-			while (!consumer.IsClosed() || !consumer.Empty()) {
+			while (!consumer.EoF()) {
 				size_t availableBytes = consumer.AvailableBytes();
 				if (availableBytes == 0) {
-					if (consumer.IsClosed()) {
+					if (!consumer.IsWritable()) {
 						break;
 					}
 					std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -403,10 +403,10 @@ StormByte::Buffer::Consumer RSA::Sign(Buffer::Consumer consumer, const std::stri
 			constexpr size_t chunkSize = 4096;
 			std::string signatureChunk;
 
-			while (!consumer.IsClosed() || !consumer.Empty()) {
+			while (!consumer.EoF()) {
 				size_t availableBytes = consumer.AvailableBytes();
 				if (availableBytes == 0) {
-					if (consumer.IsClosed()) {
+					if (!consumer.IsWritable()) {
 						break;
 					}
 					std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -531,10 +531,10 @@ bool RSA::Verify(Buffer::Consumer consumer, const std::string& signature, const 
 		const constexpr size_t chunkSize = 4096;
 		bool verificationResult = false;
 
-		while (!consumer.IsClosed() || !consumer.Empty()) {
+		while (!consumer.EoF()) {
 			size_t availableBytes = consumer.AvailableBytes();
 			if (availableBytes == 0) {
-				if (consumer.IsClosed()) {
+				if (!consumer.IsWritable()) {
 					break;
 				}
 				std::this_thread::sleep_for(std::chrono::milliseconds(10));

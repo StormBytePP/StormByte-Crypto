@@ -5,6 +5,7 @@
 #include <hex.h>
 #include <vector>
 #include <thread>
+#include <span>
 
 using namespace StormByte::Crypto::Implementation::Hash;
 
@@ -56,10 +57,10 @@ StormByte::Buffer::Consumer Blake2b::Hash(Buffer::Consumer consumer) noexcept {
 			constexpr size_t chunkSize = 4096;
 			std::vector<uint8_t> chunkBuffer(chunkSize);
 
-			while (!consumer.IsClosed() || !consumer.Empty()) {
+			while (!consumer.EoF()) {
 				size_t availableBytes = consumer.AvailableBytes();
 				if (availableBytes == 0) {
-					if (consumer.IsClosed()) {
+					if (!consumer.IsWritable()) {
 						break;
 					}
 					std::this_thread::sleep_for(std::chrono::milliseconds(10));

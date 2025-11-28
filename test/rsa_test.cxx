@@ -183,12 +183,11 @@ int TestRSAEncryptDecryptUsingConsumerProducer() {
 
 	// Encrypt the data asynchronously
 	auto encrypted_consumer = rsa.Encrypt(consumer);
-	ASSERT_TRUE(fn_name, !encrypted_consumer.IsClosed() || !encrypted_consumer.Empty());
+	ASSERT_TRUE(fn_name, encrypted_consumer.IsWritable() || !encrypted_consumer.Empty());
 
 	// Decrypt the data asynchronously
 	auto decrypted_consumer = rsa.Decrypt(encrypted_consumer);
-	ASSERT_TRUE(fn_name, !decrypted_consumer.IsClosed() || !decrypted_consumer.Empty());
-
+	ASSERT_TRUE(fn_name, decrypted_consumer.IsWritable() || !decrypted_consumer.Empty());
 	// Read the encrypted data from the encrypted_consumer
 	auto decrypted_data = ReadAllFromConsumer(decrypted_consumer);
 	ASSERT_FALSE(fn_name, decrypted_data.Empty()); // Ensure decrypted data is not empty

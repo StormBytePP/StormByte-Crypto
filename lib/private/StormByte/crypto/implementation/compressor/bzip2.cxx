@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstring>
 #include <stdexcept>
+#include <span>
 #include <thread>
 #include <vector>
 
@@ -108,12 +109,12 @@ StormByte::Buffer::Consumer BZip2::Compress(Buffer::Consumer consumer) noexcept 
 			constexpr size_t chunkSize = 4096; // Define the chunk size for reading from the consumer
 			std::vector<uint8_t> compressedBuffer(chunkSize * 2); // Allocate a larger buffer for compressed data
 
-			while (!consumer.IsClosed() || !consumer.Empty()) {
+			while (!consumer.EoF()) {
 				// Check how many bytes are available in the consumer
 				size_t availableBytes = consumer.AvailableBytes();
 
 				if (availableBytes == 0) {
-					if (consumer.IsClosed()) {
+					if (!consumer.IsWritable()) {
 						break; // No more data will arrive
 					}
 					// Wait for more data to become available
@@ -197,12 +198,12 @@ StormByte::Buffer::Consumer BZip2::Decompress(Buffer::Consumer consumer) noexcep
 			constexpr size_t chunkSize = 4096; // Define the chunk size for reading from the consumer
 			std::vector<uint8_t> decompressedBuffer(chunkSize * 2); // Start with a larger buffer for decompressed data
 
-			while (!consumer.IsClosed() || !consumer.Empty()) {
+			while (!consumer.EoF()) {
 				// Check how many bytes are available in the consumer
 				size_t availableBytes = consumer.AvailableBytes();
 
 				if (availableBytes == 0) {
-					if (consumer.IsClosed()) {
+					if (!consumer.IsWritable()) {
 						break; // No more data will arrive
 					}
 					// Wait for more data to become available

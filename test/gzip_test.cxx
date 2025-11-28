@@ -64,12 +64,11 @@ int TestGzipCompressDecompressUsingConsumerProducer() {
 
 	// Compress the data asynchronously
 	auto compressed_consumer = gzip.Compress(consumer);
-	ASSERT_TRUE(fn_name, !compressed_consumer.IsClosed() || !compressed_consumer.Empty());
+	ASSERT_TRUE(fn_name, compressed_consumer.IsWritable() || !compressed_consumer.Empty());
 
 	// Decompress the data asynchronously
 	auto decompressed_consumer = gzip.Decompress(compressed_consumer);
-	ASSERT_TRUE(fn_name, !decompressed_consumer.IsClosed() || !decompressed_consumer.Empty());
-
+	ASSERT_TRUE(fn_name, decompressed_consumer.IsWritable() || !decompressed_consumer.Empty());
 	// Read the decompressed data from the decompressed_consumer
 	StormByte::Buffer::FIFO decompressed_data = ReadAllFromConsumer(decompressed_consumer);
 	ASSERT_FALSE(fn_name, decompressed_data.Empty()); // Ensure compressed data is not empty

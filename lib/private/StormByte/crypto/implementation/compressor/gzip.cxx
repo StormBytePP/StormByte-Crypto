@@ -4,10 +4,10 @@
 #include <gzip.h>
 #include <cryptlib.h>
 #include <filters.h>
-#include <future>
 #include <stdexcept>
 #include <thread>
 #include <vector>
+#include <span>
 
 using namespace StormByte::Crypto::Implementation::Compressor;
 
@@ -88,12 +88,12 @@ StormByte::Buffer::Consumer Gzip::Compress(Buffer::Consumer consumer) noexcept {
 			constexpr size_t chunkSize = 4096; // Define the chunk size for reading from the consumer
 			std::string compressedString;
 
-			while (!consumer.IsClosed() || !consumer.Empty()) {
+			while (!consumer.EoF()) {
 				// Check how many bytes are available in the consumer
 				size_t availableBytes = consumer.AvailableBytes();
 
 				if (availableBytes == 0) {
-					if (consumer.IsClosed()) {
+					if (!consumer.IsWritable()) {
 						break; // No more data will arrive
 					}
 					// Wait for more data to become available
@@ -162,12 +162,12 @@ StormByte::Buffer::Consumer Gzip::Decompress(Buffer::Consumer consumer) noexcept
 			constexpr size_t chunkSize = 4096; // Define the chunk size for reading from the consumer
 			std::string decompressedString;
 
-			while (!consumer.IsClosed() || !consumer.Empty()) {
+			while (!consumer.EoF()) {
 				// Check how many bytes are available in the consumer
 				size_t availableBytes = consumer.AvailableBytes();
 
 				if (availableBytes == 0) {
-					if (consumer.IsClosed()) {
+					if (!consumer.IsWritable()) {
 						break; // No more data will arrive
 					}
 					// Wait for more data to become available

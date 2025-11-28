@@ -8,7 +8,6 @@
 #include <oids.h>
 #include <filters.h>
 #include <string>
-#include <future>
 #include <thread>
 
 using namespace StormByte::Crypto::Implementation::Encryption;
@@ -182,10 +181,10 @@ StormByte::Buffer::Consumer ECDSA::Sign(Buffer::Consumer consumer, const std::st
 			constexpr size_t chunkSize = 4096;
 			std::string signatureChunk;
 
-			while (!consumer.IsClosed() || !consumer.Empty()) {
+			while (!consumer.EoF()) {
 				size_t availableBytes = consumer.AvailableBytes();
 				if (availableBytes == 0) {
-					if (consumer.IsClosed()) {
+					if (!consumer.IsWritable()) {
 						break;
 					}
 					std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -312,10 +311,10 @@ bool ECDSA::Verify(Buffer::Consumer consumer, const std::string& signature, cons
 		constexpr size_t chunkSize = 4096;
 		bool verificationResult = false;
 
-		while (!consumer.IsClosed() || !consumer.Empty()) {
+		while (!consumer.EoF()) {
 			size_t availableBytes = consumer.AvailableBytes();
 			if (availableBytes == 0) {
-				if (consumer.IsClosed()) {
+				if (!consumer.IsWritable()) {
 					break;
 				}
 				std::this_thread::sleep_for(std::chrono::milliseconds(10));
