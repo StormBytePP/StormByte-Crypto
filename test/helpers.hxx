@@ -9,13 +9,10 @@
 StormByte::Buffer::FIFO ReadAllFromConsumer(StormByte::Buffer::Consumer consumer) {
 	// Read the decompressed data from the consumer
 	StormByte::Buffer::FIFO data;
-	while (consumer.IsWritable() || !consumer.Empty()) {
+	while (!consumer.EoF()) {
 		size_t available_bytes = consumer.AvailableBytes();
 		if (available_bytes == 0) {
-			if (!consumer.IsWritable()) {
-				break;
-			}
-			std::this_thread::sleep_for(std::chrono::milliseconds(100));
+			std::this_thread::yield();
 			continue;
 		}
 
