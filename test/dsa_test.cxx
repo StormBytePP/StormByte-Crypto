@@ -12,21 +12,19 @@ int TestDSASignAndVerify() {
     const std::string message = "This is a test message.";
     const int key_strength = 2048;
 
-    // Generate a key pair
+	// Generate a key pair
 	auto keypair_result = KeyPair::Generate(Algorithm::Sign::DSA, key_strength);
 	ASSERT_TRUE(fn_name, keypair_result.has_value());
 	Signer dsa(Algorithm::Sign::DSA, keypair_result.value());
 
-    // Sign the message
-    auto sign_result = dsa.Sign(message);
-    ASSERT_TRUE(fn_name, sign_result.has_value());
-    std::string signature = sign_result.value();
+	// Sign the message
+	auto sign_result = dsa.Sign(message);
+	ASSERT_TRUE(fn_name, sign_result.has_value());
+	std::string signature = sign_result.value();
 
-    // Verify the signature
-    bool verify_result = dsa.Verify(message, signature);
-    ASSERT_TRUE(fn_name, verify_result);
-
-    RETURN_TEST(fn_name, 0);
+	// Verify the signature
+	bool verify_result = dsa.Verify(message, signature);
+	ASSERT_TRUE(fn_name, verify_result);    RETURN_TEST(fn_name, 0);
 }
 
 int TestDSAVerifyWithCorruptedSignature() {
@@ -61,35 +59,31 @@ int TestDSAVerifyWithMismatchedKey() {
     const std::string message = "This is a test message.";
     const int key_strength = 2048;
 
-    // Generate two key pairs
-    auto keypair_result = KeyPair::Generate(Algorithm::Sign::DSA, key_strength);
+	// Generate two key pairs
+	auto keypair_result = KeyPair::Generate(Algorithm::Sign::DSA, key_strength);
 	ASSERT_TRUE(fn_name, keypair_result.has_value());
 	Signer dsa(Algorithm::Sign::DSA, keypair_result.value());
 
-    auto keypair_result_2 = KeyPair::Generate(Algorithm::Sign::DSA, key_strength);
+	auto keypair_result_2 = KeyPair::Generate(Algorithm::Sign::DSA, key_strength);
 	ASSERT_TRUE(fn_name, keypair_result_2.has_value());
 	Signer dsa2(Algorithm::Sign::DSA, keypair_result_2.value());
 
-    // Sign the message with the first private key
-    auto sign_result = dsa.Sign(message);
-    ASSERT_TRUE(fn_name, sign_result.has_value());
-    std::string signature = sign_result.value();
+	// Sign the message with the first private key
+	auto sign_result = dsa.Sign(message);
+	ASSERT_TRUE(fn_name, sign_result.has_value());
+	std::string signature = sign_result.value();
 
-    // Verify the signature with the second public key
-    bool verify_result = dsa2.Verify(message, signature);
-    ASSERT_FALSE(fn_name, verify_result);
-
-    RETURN_TEST(fn_name, 0);
+	// Verify the signature with the second public key
+	bool verify_result = dsa2.Verify(message, signature);
+	ASSERT_FALSE(fn_name, verify_result);    RETURN_TEST(fn_name, 0);
 }
 
 int main() {
     int result = 0;
 
-    result += TestDSASignAndVerify();
-    result += TestDSAVerifyWithCorruptedSignature();
-    result += TestDSAVerifyWithMismatchedKey();
-
-	if (result == 0) {
+	result += TestDSASignAndVerify();
+	result += TestDSAVerifyWithCorruptedSignature();
+	result += TestDSAVerifyWithMismatchedKey();	if (result == 0) {
         std::cout << "All tests passed!" << std::endl;
     } else {
         std::cout << result << " tests failed." << std::endl;
