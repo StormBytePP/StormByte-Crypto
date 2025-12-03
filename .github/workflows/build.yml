@@ -69,7 +69,7 @@ jobs:
           -DENABLE_ASAN=ON
           -DWITH_SYSTEM_CRYPTOPP=${{ matrix.system-cryptopp }}
           -DWITH_SYSTEM_BZIP2=${{ matrix.system-bzip2 }}
-          -DENABLE_LIB_ONLY=ON # For Bzip2
+          -DENABLE_LIB_ONLY=ON
         build-type: ${{ env.BUILD_TYPE }}
         run-test: true
         ctest-options: --output-on-failure --test-dir ${{ github.workspace }}/build/test
