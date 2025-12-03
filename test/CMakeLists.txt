@@ -1,5 +1,7 @@
 option(ENABLE_TEST "Enable Unit Tests" OFF)
 if(ENABLE_TEST AND NOT STORMBYTE_AS_DEPENDENCY)
+	enable_testing()
+	
 	add_executable(AESTests aes_test.cxx)
 	target_link_libraries(AESTests StormByte::Crypto)
 	add_test(NAME AESTests COMMAND AESTests)
