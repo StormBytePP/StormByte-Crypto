@@ -108,31 +108,35 @@ ExpectedCryptoBuffer AES::Encrypt(const StormByte::Buffer::FIFO& input, const st
 StormByte::Buffer::Consumer AES::Encrypt(Buffer::Consumer consumer, const std::string& password) noexcept {
 	SharedProducerBuffer producer = std::make_shared<StormByte::Buffer::Producer>();
 
-	std::thread([consumer, producer, password]() mutable {
+	// Generate and write header synchronously before starting async processing
+	// This prevents race condition where consumer is used before header exists
+	CryptoPP::AutoSeededRandomPool rng;
+	CryptoPP::SecByteBlock salt(16);
+	CryptoPP::SecByteBlock iv(CryptoPP::AES::BLOCKSIZE);
+	rng.GenerateBlock(salt, salt.size());
+	rng.GenerateBlock(iv, iv.size());
+
+	CryptoPP::SecByteBlock key(CryptoPP::AES::DEFAULT_KEYLENGTH);
+	CryptoPP::PKCS5_PBKDF2_HMAC<CryptoPP::SHA256> pbkdf2;
+	pbkdf2.DeriveKey(key, key.size(), 0, reinterpret_cast<const uint8_t*>(password.data()),
+					password.size(), salt, salt.size(), 10000);
+
+	// Write salt and IV to output in a single batch
+	std::vector<std::byte> headerBytes;
+	headerBytes.reserve(salt.size() + iv.size());
+	for (size_t i = 0; i < salt.size(); ++i) {
+		headerBytes.push_back(static_cast<std::byte>(salt[i]));
+	}
+	for (size_t i = 0; i < iv.size(); ++i) {
+		headerBytes.push_back(static_cast<std::byte>(iv[i]));
+	}
+	(void)producer->Write(std::move(headerBytes));
+
+	// Now start async encryption with the derived key and IV
+	std::thread([consumer, producer, key = std::move(key), iv = std::move(iv)]() mutable {
 		try {
 			constexpr size_t chunkSize = 4096;
-			CryptoPP::AutoSeededRandomPool rng;
-
-			CryptoPP::SecByteBlock salt(16);
-			CryptoPP::SecByteBlock iv(CryptoPP::AES::BLOCKSIZE);
-			rng.GenerateBlock(salt, salt.size());
-			rng.GenerateBlock(iv, iv.size());
-
-			CryptoPP::SecByteBlock key(CryptoPP::AES::DEFAULT_KEYLENGTH);
-			CryptoPP::PKCS5_PBKDF2_HMAC<CryptoPP::SHA256> pbkdf2;
-			pbkdf2.DeriveKey(key, key.size(), 0, reinterpret_cast<const uint8_t*>(password.data()),
-							password.size(), salt, salt.size(), 10000);
-
-		// Write salt and IV to output in a single batch
-		std::vector<std::byte> headerBytes;
-		headerBytes.reserve(salt.size() + iv.size());
-		for (size_t i = 0; i < salt.size(); ++i) {
-			headerBytes.push_back(static_cast<std::byte>(salt[i]));
-		}
-		for (size_t i = 0; i < iv.size(); ++i) {
-			headerBytes.push_back(static_cast<std::byte>(iv[i]));
-		}
-		(void)producer->Write(std::move(headerBytes));			CryptoPP::CBC_Mode<CryptoPP::AES>::Encryption encryption(key, key.size(), iv);
+			CryptoPP::CBC_Mode<CryptoPP::AES>::Encryption encryption(key, key.size(), iv);
 			std::vector<uint8_t> encryptedChunk;
 
 			while (!consumer.EoF()) {
