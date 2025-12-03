@@ -114,11 +114,8 @@ StormByte::Buffer::Consumer BZip2::Compress(Buffer::Consumer consumer) noexcept 
 				size_t availableBytes = consumer.AvailableBytes();
 
 				if (availableBytes == 0) {
-					if (!consumer.IsWritable()) {
-						break; // No more data will arrive
-					}
 					// Wait for more data to become available
-					std::this_thread::sleep_for(std::chrono::milliseconds(10));
+					std::this_thread::yield();
 					continue;
 				}
 
@@ -203,11 +200,8 @@ StormByte::Buffer::Consumer BZip2::Decompress(Buffer::Consumer consumer) noexcep
 				size_t availableBytes = consumer.AvailableBytes();
 
 				if (availableBytes == 0) {
-					if (!consumer.IsWritable()) {
-						break; // No more data will arrive
-					}
 					// Wait for more data to become available
-					std::this_thread::sleep_for(std::chrono::milliseconds(10));
+					std::this_thread::yield();
 					continue;
 				}
 

@@ -143,9 +143,6 @@ StormByte::Buffer::Consumer AES::Encrypt(Buffer::Consumer consumer, const std::s
 			while (!consumer.EoF()) {
 				size_t availableBytes = consumer.AvailableBytes();
 				if (availableBytes == 0) {
-					if (!consumer.IsWritable()) {
-						break;
-					}
 					std::this_thread::sleep_for(std::chrono::milliseconds(10));
 					continue;
 				}
@@ -209,7 +206,7 @@ StormByte::Buffer::Consumer AES::Decrypt(Buffer::Consumer consumer, const std::s
 					producer->Close();
 					return;
 				}
-				std::this_thread::sleep_for(std::chrono::milliseconds(10));
+				std::this_thread::yield();
 			}
 			auto saltResult = consumer.Read(salt.size());
 			if (!saltResult.has_value()) {
@@ -223,7 +220,7 @@ StormByte::Buffer::Consumer AES::Decrypt(Buffer::Consumer consumer, const std::s
 					producer->Close();
 					return;
 				}
-				std::this_thread::sleep_for(std::chrono::milliseconds(10));
+				std::this_thread::yield();
 			}
 			auto ivResult = consumer.Read(iv.size());
 			if (!ivResult.has_value()) {
@@ -243,10 +240,7 @@ StormByte::Buffer::Consumer AES::Decrypt(Buffer::Consumer consumer, const std::s
 			while (!consumer.EoF()) {
 				size_t availableBytes = consumer.AvailableBytes();
 				if (availableBytes == 0) {
-					if (!consumer.IsWritable()) {
-						break;
-					}
-					std::this_thread::sleep_for(std::chrono::milliseconds(10));
+					std::this_thread::yield();
 					continue;
 				}
 

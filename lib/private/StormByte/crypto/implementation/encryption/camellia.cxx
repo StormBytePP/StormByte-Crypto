@@ -143,10 +143,7 @@ StormByte::Buffer::Consumer Camellia::Encrypt(Buffer::Consumer consumer, const s
 			while (!consumer.EoF()) {
 				size_t availableBytes = consumer.AvailableBytes();
 				if (availableBytes == 0) {
-					if (!consumer.IsWritable()) {
-						break;
-					}
-					std::this_thread::sleep_for(std::chrono::milliseconds(10));
+					std::this_thread::yield();
 					continue;
 				}
 
@@ -205,11 +202,7 @@ StormByte::Buffer::Consumer Camellia::Decrypt(Buffer::Consumer consumer, const s
 			CryptoPP::SecByteBlock iv(CryptoPP::Camellia::BLOCKSIZE);
 
 			while (consumer.AvailableBytes() < salt.size()) {
-				if (!consumer.IsWritable() && consumer.AvailableBytes() < salt.size()) {
-					producer->Close();
-					return;
-				}
-				std::this_thread::sleep_for(std::chrono::milliseconds(10));
+				std::this_thread::yield();
 			}
 			auto saltResult = consumer.Read(salt.size());
 			if (!saltResult.has_value()) {
@@ -219,11 +212,7 @@ StormByte::Buffer::Consumer Camellia::Decrypt(Buffer::Consumer consumer, const s
 			std::memcpy(salt.data(), saltResult.value().data(), salt.size());
 
 			while (consumer.AvailableBytes() < iv.size()) {
-				if (!consumer.IsWritable() && consumer.AvailableBytes() < iv.size()) {
-					producer->Close();
-					return;
-				}
-				std::this_thread::sleep_for(std::chrono::milliseconds(10));
+				std::this_thread::yield();
 			}
 			auto ivResult = consumer.Read(iv.size());
 			if (!ivResult.has_value()) {
@@ -243,10 +232,7 @@ StormByte::Buffer::Consumer Camellia::Decrypt(Buffer::Consumer consumer, const s
 			while (!consumer.EoF()) {
 				size_t availableBytes = consumer.AvailableBytes();
 				if (availableBytes == 0) {
-					if (!consumer.IsWritable()) {
-						break;
-					}
-					std::this_thread::sleep_for(std::chrono::milliseconds(10));
+					std::this_thread::yield();
 					continue;
 				}
 

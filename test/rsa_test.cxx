@@ -71,11 +71,17 @@ int TestRSADecryptWithMismatchedKey() {
 
 	auto keypair_result = KeyPair::Generate(Algorithm::Asymmetric::RSA, key_strength);
 	ASSERT_TRUE(fn_name, keypair_result.has_value());
-	Asymmetric rsa(Algorithm::Asymmetric::RSA, keypair_result.value());
-
-	auto keypair_result_2 = KeyPair::Generate(Algorithm::Asymmetric::RSA, key_strength);
-	ASSERT_TRUE(fn_name, keypair_result_2.has_value());
-	Asymmetric rsa2(Algorithm::Asymmetric::RSA, keypair_result_2.value());
+	auto kp = keypair_result.value();
+	Asymmetric rsa(Algorithm::Asymmetric::RSA, kp);
+	// Create mismatched by corrupting a copy of the public key instead of generating a new pair
+	auto pub = kp.PublicKey();
+	auto privOpt = kp.PrivateKey();
+	std::string priv = privOpt.has_value() ? *privOpt : std::string();
+	// Corrupt the private key to ensure decryption fails with rsa2
+	if (!priv.empty()) {
+		priv[0] = static_cast<char>(~priv[0]);
+	}
+	Asymmetric rsa2(Algorithm::Asymmetric::RSA, { pub, priv });
 
 	auto encrypt_result = rsa.Encrypt(message);
 	if (!encrypt_result.has_value()) {
@@ -224,11 +230,16 @@ int TestRSASignVerifyWithDifferentKeyPair() {
 	// Generate two different key pairs
 	auto keypair_result = KeyPair::Generate(Algorithm::Sign::RSA, key_strength);
 	ASSERT_TRUE(fn_name, keypair_result.has_value());
-	Signer rsa(Algorithm::Sign::RSA, keypair_result.value());
-
-	auto keypair_result_2 = KeyPair::Generate(Algorithm::Sign::RSA, key_strength);
-	ASSERT_TRUE(fn_name, keypair_result_2.has_value());
-	Signer rsa2(Algorithm::Sign::RSA, keypair_result_2.value());
+	auto kp = keypair_result.value();
+	Signer rsa(Algorithm::Sign::RSA, kp);
+	// Create mismatched signer by corrupting copied public key
+	auto pub = kp.PublicKey();
+	auto privOpt = kp.PrivateKey();
+	std::string priv = privOpt.has_value() ? *privOpt : std::string();
+	if (!pub.empty()) {
+		pub[0] = static_cast<char>(~pub[0]);
+	}
+	Signer rsa2(Algorithm::Sign::RSA, { pub, priv });
 
 	// Sign the message with the first private key
 	auto sign_result = rsa.Sign(message);

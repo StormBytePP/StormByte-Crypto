@@ -190,7 +190,7 @@ StormByte::Buffer::Consumer ECC::Encrypt(Buffer::Consumer consumer, const std::s
 					if (!consumer.IsWritable()) {
 						break;
 					}
-					std::this_thread::sleep_for(std::chrono::milliseconds(10));
+					std::this_thread::yield();
 					continue;
 				}
 
@@ -310,7 +310,7 @@ StormByte::Buffer::Consumer ECC::Decrypt(Buffer::Consumer consumer, const std::s
 					if (!consumer.IsWritable()) {
 						break;
 					}
-					std::this_thread::sleep_for(std::chrono::milliseconds(10));
+					std::this_thread::yield();
 					continue;
 				}
 

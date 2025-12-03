@@ -188,6 +188,49 @@ int TestECDHServerClientSharedSecret() {
 	RETURN_TEST(fn_name, 0);
 }
 
+int TestECDHMaliciousThirdPartyKey() {
+	const std::string fn_name = "TestECDHMaliciousThirdPartyKey";
+	const std::string curve_name = "secp256r1";
+
+	// Alice and Bob generate their legitimate key pairs
+	auto keypair_alice = KeyPair::Generate(Algorithm::SecretShare::ECDH, curve_name);
+	ASSERT_TRUE(fn_name, keypair_alice.has_value());
+	Secret ecdh_alice(Algorithm::SecretShare::ECDH, keypair_alice.value());
+
+	auto keypair_bob = KeyPair::Generate(Algorithm::SecretShare::ECDH, curve_name);
+	ASSERT_TRUE(fn_name, keypair_bob.has_value());
+	Secret ecdh_bob(Algorithm::SecretShare::ECDH, keypair_bob.value());
+
+	// Mallory generates a malicious but valid key pair
+	auto keypair_mallory = KeyPair::Generate(Algorithm::SecretShare::ECDH, curve_name);
+	ASSERT_TRUE(fn_name, keypair_mallory.has_value());
+	Secret ecdh_mallory(Algorithm::SecretShare::ECDH, keypair_mallory.value());
+
+	// Alice and Bob exchange public keys correctly
+	ecdh_alice.PeerPublicKey(keypair_bob->PublicKey());
+	ecdh_bob.PeerPublicKey(keypair_alice->PublicKey());
+
+	// Mallory attempts to derive a shared secret using Alice's public key
+	ecdh_mallory.PeerPublicKey(keypair_alice->PublicKey());
+
+	// Derive the shared secrets
+	auto sharedSecret_alice_bob = ecdh_alice.Content();
+	auto sharedSecret_bob_alice = ecdh_bob.Content();
+	auto sharedSecret_mallory_alice = ecdh_mallory.Content();
+
+	ASSERT_TRUE(fn_name, sharedSecret_alice_bob.has_value());
+	ASSERT_TRUE(fn_name, sharedSecret_bob_alice.has_value());
+	ASSERT_TRUE(fn_name, sharedSecret_mallory_alice.has_value());
+
+	// Verify Alice and Bob share the same secret
+	ASSERT_EQUAL(fn_name, sharedSecret_alice_bob.value(), sharedSecret_bob_alice.value());
+
+	// Verify Mallory's derived secret is different from Alice-Bob's shared secret
+	ASSERT_NOT_EQUAL(fn_name, sharedSecret_mallory_alice.value(), sharedSecret_alice_bob.value());
+
+	RETURN_TEST(fn_name, 0);
+}
+
 int main() {
 	int result = 0;
 
@@ -198,6 +241,7 @@ int main() {
 	result += TestECDHSharedSecretDifferentCurves();
 	result += TestECDHSharedSecretCorruptedKeys();
 	result += TestECDHServerClientSharedSecret();
+	result += TestECDHMaliciousThirdPartyKey();
 
 	if (result == 0) {
 		std::cout << "All tests passed!" << std::endl;

@@ -97,7 +97,7 @@ StormByte::Buffer::Consumer Gzip::Compress(Buffer::Consumer consumer) noexcept {
 						break; // No more data will arrive
 					}
 					// Wait for more data to become available
-					std::this_thread::sleep_for(std::chrono::milliseconds(10));
+					std::this_thread::yield();
 					continue;
 				}
 
@@ -171,7 +171,7 @@ StormByte::Buffer::Consumer Gzip::Decompress(Buffer::Consumer consumer) noexcept
 						break; // No more data will arrive
 					}
 					// Wait for more data to become available
-					std::this_thread::sleep_for(std::chrono::milliseconds(10));
+					std::this_thread::yield();
 					continue;
 				}
 

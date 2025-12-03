@@ -39,7 +39,7 @@ namespace {
 		CryptoECDSA::PublicKey key;
 		CryptoPP::Base64Decoder decoder;
 		CryptoPP::StringSource keySource(keyString, true, new CryptoPP::Redirector(decoder));
-		key.Load(decoder); // Load the decoded key
+		key.Load(decoder);
 		return key;
 	}
 
@@ -47,7 +47,7 @@ namespace {
 		CryptoECDSA::PrivateKey key;
 		CryptoPP::Base64Decoder decoder;
 		CryptoPP::StringSource keySource(keyString, true, new CryptoPP::Redirector(decoder));
-		key.Load(decoder); // Load the decoded key
+		key.Load(decoder);
 		return key;
 	}
 }
@@ -184,10 +184,7 @@ StormByte::Buffer::Consumer ECDSA::Sign(Buffer::Consumer consumer, const std::st
 			while (!consumer.EoF()) {
 				size_t availableBytes = consumer.AvailableBytes();
 				if (availableBytes == 0) {
-					if (!consumer.IsWritable()) {
-						break;
-					}
-					std::this_thread::sleep_for(std::chrono::milliseconds(10));
+					std::this_thread::yield();
 					continue;
 				}
 
@@ -314,10 +311,7 @@ bool ECDSA::Verify(Buffer::Consumer consumer, const std::string& signature, cons
 		while (!consumer.EoF()) {
 			size_t availableBytes = consumer.AvailableBytes();
 			if (availableBytes == 0) {
-				if (!consumer.IsWritable()) {
-					break;
-				}
-				std::this_thread::sleep_for(std::chrono::milliseconds(10));
+				std::this_thread::yield();
 				continue;
 			}
 

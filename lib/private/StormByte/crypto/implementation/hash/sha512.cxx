@@ -74,7 +74,7 @@ StormByte::Buffer::Consumer SHA512::Hash(Buffer::Consumer consumer) noexcept {
 					if (!consumer.IsWritable()) {
 						break;
 					}
-					std::this_thread::sleep_for(std::chrono::milliseconds(10));
+					std::this_thread::yield();
 					continue;
 				}
 

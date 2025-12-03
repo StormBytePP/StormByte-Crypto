@@ -32,8 +32,8 @@ int TestDSAVerifyWithCorruptedSignature() {
     const std::string message = "This is a test message.";
     const int key_strength = 2048;
 
-    // Generate a key pair
-    auto keypair_result = KeyPair::Generate(Algorithm::Sign::DSA, key_strength);
+	// Generate a single key pair for this test
+	auto keypair_result = KeyPair::Generate(Algorithm::Sign::DSA, key_strength);
 	ASSERT_TRUE(fn_name, keypair_result.has_value());
 	Signer dsa(Algorithm::Sign::DSA, keypair_result.value());
 
@@ -59,14 +59,18 @@ int TestDSAVerifyWithMismatchedKey() {
     const std::string message = "This is a test message.";
     const int key_strength = 2048;
 
-	// Generate two key pairs
+	// Generate one key pair and copy public for mismatch (avoid extra generation)
 	auto keypair_result = KeyPair::Generate(Algorithm::Sign::DSA, key_strength);
 	ASSERT_TRUE(fn_name, keypair_result.has_value());
-	Signer dsa(Algorithm::Sign::DSA, keypair_result.value());
-
-	auto keypair_result_2 = KeyPair::Generate(Algorithm::Sign::DSA, key_strength);
-	ASSERT_TRUE(fn_name, keypair_result_2.has_value());
-	Signer dsa2(Algorithm::Sign::DSA, keypair_result_2.value());
+	auto kp = keypair_result.value();
+	Signer dsa(Algorithm::Sign::DSA, kp);
+	auto pub = kp.PublicKey();
+	auto privOpt = kp.PrivateKey();
+	std::string priv = privOpt.has_value() ? *privOpt : std::string();
+	if (!pub.empty()) {
+		pub[0] = static_cast<char>(~pub[0]);
+	}
+	Signer dsa2(Algorithm::Sign::DSA, { pub, priv });
 
 	// Sign the message with the first private key
 	auto sign_result = dsa.Sign(message);

@@ -189,11 +189,9 @@ StormByte::Buffer::Consumer DSA::Sign(Buffer::Consumer consumer, const std::stri
 			std::string signatureChunk;
 
 			while (!consumer.EoF()) {
-				size_t availableBytes = consumer.AvailableBytes();
+				const size_t availableBytes = consumer.AvailableBytes();
 				if (availableBytes == 0) {
-					if (!consumer.IsWritable()) {
-						break;
-					}
+					// No bytes available yet; wait briefly and retry.
 					std::this_thread::sleep_for(std::chrono::milliseconds(10));
 					continue;
 				}
@@ -218,7 +216,7 @@ StormByte::Buffer::Consumer DSA::Sign(Buffer::Consumer consumer, const std::stri
 				);
 
 				std::vector<std::byte> byteData;
-				byteData.reserve(signatureChunk.size());
+										std::this_thread::yield();
 				for (size_t i = 0; i < signatureChunk.size(); ++i) {
 					byteData.push_back(static_cast<std::byte>(signatureChunk[i]));
 				}
@@ -321,11 +319,8 @@ bool DSA::Verify(Buffer::Consumer consumer, const std::string& signature, const 
 		bool verificationResult = false;
 
 		while (!consumer.EoF()) {
-			size_t availableBytes = consumer.AvailableBytes();
+			const size_t availableBytes = consumer.AvailableBytes();
 			if (availableBytes == 0) {
-				if (!consumer.IsWritable()) {
-					break;
-				}
 				std::this_thread::sleep_for(std::chrono::milliseconds(10));
 				continue;
 			}
