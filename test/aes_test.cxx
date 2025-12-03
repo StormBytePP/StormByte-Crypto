@@ -74,15 +74,22 @@ int TestAESDecryptionWithCorruptedData() {
 	auto encrypted_string = encrypt_result.value();
 	ASSERT_FALSE(fn_name, encrypted_string.empty());
 
-	// Corrupt the encrypted data (flip a bit in the string)
+	// Corrupt the encrypted data
+	// AES CBC stores: [16-byte salt][16-byte IV][ciphertext]
+	// We should corrupt the ciphertext part to ensure padding validation fails
 	auto corrupted_string = encrypted_string;
-	if (!corrupted_string.empty()) {
-		corrupted_string[0] = ~corrupted_string[0]; // Flip the first byte
+	const size_t salt_iv_size = 32; // 16 bytes salt + 16 bytes IV
+	if (corrupted_string.size() > salt_iv_size) {
+		// Corrupt a byte in the actual ciphertext (last byte for reliable padding error)
+		corrupted_string[corrupted_string.size() - 1] = ~corrupted_string[corrupted_string.size() - 1];
+	} else {
+		// Fallback: corrupt any byte if data is too short
+		corrupted_string[0] = ~corrupted_string[0];
 	}
 
 	// Attempt to decrypt the corrupted data
 	auto decrypt_result = aes.Decrypt(corrupted_string);
-	ASSERT_FALSE(fn_name, decrypt_result.has_value()); // Decryption must fail
+	ASSERT_FALSE(fn_name, decrypt_result.has_value()); // Decryption must fail due to padding error
 
 	RETURN_TEST(fn_name, 0);
 }

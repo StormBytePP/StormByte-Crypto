@@ -48,6 +48,38 @@ int TestGzipCompressionProducesDifferentContent() {
 	RETURN_TEST(fn_name, 0);
 }
 
+int TestGzipDecompressCorruptedData() {
+	const std::string fn_name = "TestGzipDecompressCorruptedData";
+
+	// Original valid data
+	const std::string original_data = "This is some valid data to compress and corrupt for gzip testing.";
+
+	Compressor gzip(Algorithm::Compress::Gzip);
+
+	// Compress the valid data
+	auto compress_result = gzip.Compress(original_data);
+	ASSERT_TRUE(fn_name, compress_result.has_value());
+
+	auto compressed_string = compress_result.value();
+	ASSERT_FALSE(fn_name, compressed_string.empty());
+
+	// Corrupt the compressed data
+	// Gzip format has header bytes, corrupt the compressed payload instead
+	std::string corrupted_string = compressed_string;
+	if (corrupted_string.size() > 10) {
+		// Corrupt a byte in the middle of the compressed data
+		corrupted_string[corrupted_string.size() / 2] ^= 0xFF;
+	} else if (!corrupted_string.empty()) {
+		corrupted_string[0] ^= 0xFF;
+	}
+
+	// Attempt to decompress the corrupted data
+	auto decompress_result = gzip.Decompress(corrupted_string);
+	ASSERT_FALSE(fn_name, decompress_result.has_value()); // Expect decompression to fail
+
+	RETURN_TEST(fn_name, 0);
+}
+
 int TestGzipCompressDecompressUsingConsumerProducer() {
 	const std::string fn_name = "TestGzipCompressDecompressUsingConsumerProducer";
 	const std::string input_data = "This is some data to compress using the Consumer/Producer model.";
@@ -84,6 +116,7 @@ int main() {
 
 	result += TestGzipCompressionDecompressionIntegrity();
 	result += TestGzipCompressionProducesDifferentContent();
+	result += TestGzipDecompressCorruptedData();
 	result += TestGzipCompressDecompressUsingConsumerProducer();
 
 	if (result == 0) {

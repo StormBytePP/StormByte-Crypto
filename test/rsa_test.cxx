@@ -49,22 +49,19 @@ int TestRSADecryptionWithCorruptedData() {
 	}
 
 	auto encrypted_string = encrypt_result.value();
+	ASSERT_FALSE(fn_name, encrypted_string.empty());
 
+	// Corrupt the encrypted data
 	auto corrupted_string = encrypted_string;
 	if (!corrupted_string.empty()) {
 		corrupted_string[0] = ~corrupted_string[0];
 	}
 
-	else {
-		RETURN_TEST(fn_name, 1);
-	}
-
+	// Attempt to decrypt the corrupted data - should fail
 	auto decrypt_result = rsa.Decrypt(corrupted_string);
-	if (!decrypt_result.has_value()) {
-		RETURN_TEST(fn_name, 0);
-	}
+	ASSERT_FALSE(fn_name, decrypt_result.has_value());
 
-	RETURN_TEST(fn_name, 1);
+	RETURN_TEST(fn_name, 0);
 }
 
 int TestRSADecryptWithMismatchedKey() {

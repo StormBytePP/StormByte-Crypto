@@ -45,16 +45,15 @@ int TestECCDecryptionWithCorruptedData() {
 	ASSERT_TRUE(fn_name, encrypt_result.has_value());
 
 	auto encrypted_string = encrypt_result.value();
+	ASSERT_FALSE(fn_name, encrypted_string.empty());
 
+	// Corrupt the encrypted data
 	auto corrupted_string = encrypted_string;
 	if (!corrupted_string.empty()) {
 		corrupted_string[0] = ~corrupted_string[0];
 	}
 
-	else {
-		RETURN_TEST(fn_name, 1);
-	}
-
+	// Attempt to decrypt the corrupted data - should fail
 	auto decrypt_result = ecc.Decrypt(corrupted_string);
 	ASSERT_FALSE(fn_name, decrypt_result.has_value());
 
