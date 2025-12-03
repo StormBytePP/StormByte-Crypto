@@ -56,6 +56,7 @@ StormByte::Buffer::Consumer Blake2s::Hash(Buffer::Consumer consumer) noexcept {
 
 			constexpr size_t chunkSize = 4096;
 			std::vector<uint8_t> chunkBuffer(chunkSize);
+			size_t chunksProcessed = 0;
 
 			while (!consumer.EoF()) {
 				size_t availableBytes = consumer.AvailableBytes();
@@ -68,14 +69,19 @@ StormByte::Buffer::Consumer Blake2s::Hash(Buffer::Consumer consumer) noexcept {
 				}
 
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				auto readResult = consumer.Read(bytesToRead);
-				if (!readResult.has_value()) {
+				// Use Span for zero-copy read
+			auto spanResult = consumer.Span(bytesToRead);
+				if (!spanResult.has_value()) {
 					producer->Close();
 					return;
 				}
 
-				const auto& inputData = readResult.value();
-				hash.Update(reinterpret_cast<const CryptoPP::byte*>(inputData.data()), inputData.size());
+				const auto& inputSpan = spanResult.value();
+				hash.Update(reinterpret_cast<const CryptoPP::byte*>(inputSpan.data()), inputSpan.size());
+				// Clean periodically (every 16 chunks to balance memory vs performance)
+				if (++chunksProcessed % 16 == 0) {
+					consumer.Clean();
+				}
 			}
 			// Finalize the hash
 			hash.Final(reinterpret_cast<CryptoPP::byte*>(chunkBuffer.data()));

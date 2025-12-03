@@ -123,21 +123,16 @@ StormByte::Buffer::Consumer AES::Encrypt(Buffer::Consumer consumer, const std::s
 			pbkdf2.DeriveKey(key, key.size(), 0, reinterpret_cast<const uint8_t*>(password.data()),
 							password.size(), salt, salt.size(), 10000);
 
-			// Write salt and IV to output
-			std::vector<std::byte> saltBytes;
-			saltBytes.reserve(salt.size());
-			for (size_t i = 0; i < salt.size(); ++i) {
-				saltBytes.push_back(static_cast<std::byte>(salt[i]));
-			}
-			std::vector<std::byte> ivBytes;
-			ivBytes.reserve(iv.size());
-			for (size_t i = 0; i < iv.size(); ++i) {
-				ivBytes.push_back(static_cast<std::byte>(iv[i]));
-			}
-			producer->Write(saltBytes);
-			producer->Write(ivBytes);
-
-			CryptoPP::CBC_Mode<CryptoPP::AES>::Encryption encryption(key, key.size(), iv);
+		// Write salt and IV to output in a single batch
+		std::vector<std::byte> headerBytes;
+		headerBytes.reserve(salt.size() + iv.size());
+		for (size_t i = 0; i < salt.size(); ++i) {
+			headerBytes.push_back(static_cast<std::byte>(salt[i]));
+		}
+		for (size_t i = 0; i < iv.size(); ++i) {
+			headerBytes.push_back(static_cast<std::byte>(iv[i]));
+		}
+		producer->Write(std::move(headerBytes));			CryptoPP::CBC_Mode<CryptoPP::AES>::Encryption encryption(key, key.size(), iv);
 			std::vector<uint8_t> encryptedChunk;
 
 			while (!consumer.EoF()) {
@@ -147,17 +142,18 @@ StormByte::Buffer::Consumer AES::Encrypt(Buffer::Consumer consumer, const std::s
 					continue;
 				}
 
-				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				auto readResult = consumer.Read(bytesToRead);
-				if (!readResult.has_value()) {
+			size_t bytesToRead = std::min(availableBytes, chunkSize);
+			// Use Span for zero-copy read
+			auto spanResult = consumer.Span(bytesToRead);
+				if (!spanResult.has_value()) {
 					producer->Close();
 					return;
 				}
 
-				const auto& inputData = readResult.value();
+				const auto& inputSpan = spanResult.value();
 				encryptedChunk.clear();
 
-				CryptoPP::StringSource ss(reinterpret_cast<const uint8_t*>(inputData.data()), inputData.size(), true,
+				CryptoPP::StringSource ss(reinterpret_cast<const uint8_t*>(inputSpan.data()), inputSpan.size(), true,
 										new CryptoPP::StreamTransformationFilter(encryption,
 																		new CryptoPP::VectorSink(encryptedChunk)));
 
@@ -208,12 +204,13 @@ StormByte::Buffer::Consumer AES::Decrypt(Buffer::Consumer consumer, const std::s
 				}
 				std::this_thread::yield();
 			}
-			auto saltResult = consumer.Read(salt.size());
-			if (!saltResult.has_value()) {
+			// Use Span for zero-copy read
+			auto saltSpan = consumer.Span(salt.size());
+			if (!saltSpan.has_value()) {
 				producer->Close();
 				return;
 			}
-			std::memcpy(salt.data(), saltResult.value().data(), salt.size());
+			std::copy_n(reinterpret_cast<const uint8_t*>(saltSpan.value().data()), salt.size(), salt.data());
 
 			while (consumer.AvailableBytes() < iv.size()) {
 				if (!consumer.IsWritable() && consumer.AvailableBytes() < iv.size()) {
@@ -222,12 +219,13 @@ StormByte::Buffer::Consumer AES::Decrypt(Buffer::Consumer consumer, const std::s
 				}
 				std::this_thread::yield();
 			}
-			auto ivResult = consumer.Read(iv.size());
-			if (!ivResult.has_value()) {
+			// Use Span for zero-copy read
+			auto ivSpan = consumer.Span(iv.size());
+			if (!ivSpan.has_value()) {
 				producer->Close();
 				return;
 			}
-			std::memcpy(iv.data(), ivResult.value().data(), iv.size());
+			std::copy_n(reinterpret_cast<const uint8_t*>(ivSpan.value().data()), iv.size(), iv.data());
 
 			CryptoPP::SecByteBlock key(CryptoPP::AES::DEFAULT_KEYLENGTH);
 			CryptoPP::PKCS5_PBKDF2_HMAC<CryptoPP::SHA256> pbkdf2;
@@ -245,16 +243,17 @@ StormByte::Buffer::Consumer AES::Decrypt(Buffer::Consumer consumer, const std::s
 				}
 
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				auto readResult = consumer.Read(bytesToRead);
-				if (!readResult.has_value()) {
+				// Use Span for zero-copy read
+			auto spanResult = consumer.Span(bytesToRead);
+				if (!spanResult.has_value()) {
 					producer->Close();
 					return;
 				}
 
-				const auto& encryptedData = readResult.value();
+				const auto& encryptedSpan = spanResult.value();
 				decryptedChunk.clear();
 
-				CryptoPP::StringSource ss(reinterpret_cast<const uint8_t*>(encryptedData.data()), encryptedData.size(), true,
+				CryptoPP::StringSource ss(reinterpret_cast<const uint8_t*>(encryptedSpan.data()), encryptedSpan.size(), true,
 										new CryptoPP::StreamTransformationFilter(decryption,
 																		new CryptoPP::VectorSink(decryptedChunk)));
 

@@ -267,41 +267,56 @@ StormByte::Buffer::Consumer RSA::Decrypt(Buffer::Consumer consumer, const std::s
 				return;
 			}
 
-			// Initialize the decryptor
-			CryptoPP::RSAES_OAEP_SHA_Decryptor decryptor(key);
+		// Initialize the decryptor
+		CryptoPP::RSAES_OAEP_SHA_Decryptor decryptor(key);
 
-			constexpr size_t chunkSize = 4096;
-			std::string decryptedChunk;
+		constexpr size_t chunkSize = 4096;
+		std::string decryptedChunk;
+		// Batch writes to reduce internal reallocations
+		std::vector<std::byte> batchBuffer;
+		batchBuffer.reserve(chunkSize * 2); // Pre-allocate for batching
 
-			while (!consumer.EoF()) {
+		while (!consumer.EoF()) {
 				size_t availableBytes = consumer.AvailableBytes();
 				if (availableBytes == 0) {
 					std::this_thread::yield();
 					continue;
 				}
 
-				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				auto readResult = consumer.Read(bytesToRead);
-				if (!readResult.has_value()) {
-					producer->Close();
-					return;
-				}
-
-				const auto& encryptedData = readResult.value();
-				decryptedChunk.clear();
-
-				CryptoPP::StringSource ss(reinterpret_cast<const CryptoPP::byte*>(encryptedData.data()), encryptedData.size(), true,
-										new CryptoPP::PK_DecryptorFilter(rng, decryptor,
-																		new CryptoPP::StringSink(decryptedChunk)));
-
-								std::vector<std::byte> byteData;
-				byteData.reserve(decryptedChunk.size());
-				for (size_t i = 0; i < decryptedChunk.size(); ++i) {
-					byteData.push_back(static_cast<std::byte>(decryptedChunk[i]));
-				}
-				producer->Write(byteData);
+			size_t bytesToRead = std::min(availableBytes, chunkSize);
+			// Use Span for zero-copy read
+			auto spanResult = consumer.Span(bytesToRead);
+			if (!spanResult.has_value()) {
+				producer->Close();
+				return;
 			}
-			producer->Close(); // Mark processing complete // Pass the status of the consumer to the producer
+
+			const auto& encryptedSpan = spanResult.value();
+			decryptedChunk.clear();
+
+			CryptoPP::StringSource ss(reinterpret_cast<const CryptoPP::byte*>(encryptedSpan.data()), encryptedSpan.size(), true,
+									new CryptoPP::PK_DecryptorFilter(rng, decryptor,
+																	new CryptoPP::StringSink(decryptedChunk)));
+
+			// Accumulate into batch buffer
+			for (size_t i = 0; i < decryptedChunk.size(); ++i) {
+				batchBuffer.push_back(static_cast<std::byte>(decryptedChunk[i]));
+			}
+
+			// Write in larger batches to reduce reallocation overhead
+			if (batchBuffer.size() >= chunkSize) {
+				producer->Write(std::move(batchBuffer));
+				batchBuffer.clear();
+				batchBuffer.reserve(chunkSize * 2);
+				// Clean consumed data periodically (only when batch is written)
+				consumer.Clean();
+			}
+		}
+		// Write any remaining data
+		if (!batchBuffer.empty()) {
+			producer->Write(std::move(batchBuffer));
+		}
+		producer->Close(); // Mark processing complete // Pass the status of the consumer to the producer
 		} catch (...) {
 			producer->Close();
 		}
@@ -396,6 +411,9 @@ StormByte::Buffer::Consumer RSA::Sign(Buffer::Consumer consumer, const std::stri
 
 			constexpr size_t chunkSize = 4096;
 			std::string signatureChunk;
+			// Batch writes to reduce internal reallocations
+			std::vector<std::byte> batchBuffer;
+			batchBuffer.reserve(chunkSize * 2); // Pre-allocate for batching
 
 			while (!consumer.EoF()) {
 				size_t availableBytes = consumer.AvailableBytes();
@@ -405,30 +423,40 @@ StormByte::Buffer::Consumer RSA::Sign(Buffer::Consumer consumer, const std::stri
 				}
 
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				auto readResult = consumer.Read(bytesToRead);
-				if (!readResult.has_value()) {
+				// Use Span for zero-copy read
+				auto spanResult = consumer.Span(bytesToRead);
+				if (!spanResult.has_value()) {
 					producer->Close();
 					return;
 				}
 
-				const auto& inputData = readResult.value();
+				const auto& inputSpan = spanResult.value();
 				signatureChunk.clear();
 
 				// Sign the chunk
 				CryptoPP::StringSource ss(
-					reinterpret_cast<const CryptoPP::byte*>(inputData.data()), inputData.size(), true,
+					reinterpret_cast<const CryptoPP::byte*>(inputSpan.data()), inputSpan.size(), true,
 					new CryptoPP::SignerFilter(
 						rng, signer,
 						new CryptoPP::StringSink(signatureChunk)
 					)
 				);
 
-				std::vector<std::byte> byteData;
-				byteData.reserve(signatureChunk.size());
+				// Accumulate into batch buffer
 				for (size_t i = 0; i < signatureChunk.size(); ++i) {
-					byteData.push_back(static_cast<std::byte>(signatureChunk[i]));
+					batchBuffer.push_back(static_cast<std::byte>(signatureChunk[i]));
 				}
-				producer->Write(byteData);
+
+				// Write in larger batches to reduce reallocation overhead
+				if (batchBuffer.size() >= chunkSize) {
+					producer->Write(std::move(batchBuffer));
+					batchBuffer.clear();
+					batchBuffer.reserve(chunkSize * 2);
+				}
+			}
+			// Write any remaining data
+			if (!batchBuffer.empty()) {
+				producer->Write(std::move(batchBuffer));
 			}
 			producer->Close(); // Mark processing complete // Pass the status of the consumer to the producer
 		} catch (...) {
@@ -533,16 +561,17 @@ bool RSA::Verify(Buffer::Consumer consumer, const std::string& signature, const 
 			}
 
 			size_t bytesToRead = std::min(availableBytes, chunkSize);
-			auto readResult = consumer.Read(bytesToRead);
-			if (!readResult.has_value()) {
+			// Use Span for zero-copy read
+			auto spanResult = consumer.Span(bytesToRead);
+			if (!spanResult.has_value()) {
 				return false; // Error reading data
 			}
 
-			const auto& inputData = readResult.value();
+			const auto& inputSpan = spanResult.value();
 
 			// Verify the chunk
 			CryptoPP::StringSource ss(
-				signature + std::string(reinterpret_cast<const char*>(inputData.data()), inputData.size()), true,
+				signature + std::string(reinterpret_cast<const char*>(inputSpan.data()), inputSpan.size()), true,
 				new CryptoPP::SignatureVerificationFilter(
 					verifier,
 					new CryptoPP::ArraySink(reinterpret_cast<CryptoPP::byte*>(&verificationResult), sizeof(verificationResult)),

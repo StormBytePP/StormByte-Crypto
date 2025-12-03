@@ -168,6 +168,8 @@ StormByte::Buffer::Consumer ECDSA::Sign(Buffer::Consumer consumer, const std::st
 		try {
 			CryptoPP::AutoSeededRandomPool rng;
 
+			size_t chunksProcessed = 0;
+
 			// Deserialize and validate the private key
 			CryptoECDSA::PrivateKey key = DeserializePrivateKey(privateKey);
 			if (!key.Validate(rng, 3)) {
@@ -189,18 +191,19 @@ StormByte::Buffer::Consumer ECDSA::Sign(Buffer::Consumer consumer, const std::st
 				}
 
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				auto readResult = consumer.Read(bytesToRead);
-				if (!readResult.has_value()) {
+				// Use Span for zero-copy read
+			auto spanResult = consumer.Span(bytesToRead);
+				if (!spanResult.has_value()) {
 					producer->Close();
 					return;
 				}
 
-				const auto& inputData = readResult.value();
+				const auto& inputSpan = spanResult.value();
 				signatureChunk.clear();
 
 				// Sign the chunk
 				CryptoPP::StringSource ss(
-					reinterpret_cast<const CryptoPP::byte*>(inputData.data()), inputData.size(), true,
+					reinterpret_cast<const CryptoPP::byte*>(inputSpan.data()), inputSpan.size(), true,
 					new CryptoPP::SignerFilter(
 						rng, signer,
 						new CryptoPP::StringSink(signatureChunk)
@@ -213,6 +216,10 @@ StormByte::Buffer::Consumer ECDSA::Sign(Buffer::Consumer consumer, const std::st
 					byteData.push_back(static_cast<std::byte>(signatureChunk[i]));
 				}
 				producer->Write(byteData);
+				// Clean periodically (every 16 chunks to balance memory vs performance)
+				if (++chunksProcessed % 16 == 0) {
+					consumer.Clean();
+				}
 			}
 			producer->Close(); // Mark processing complete // Update status (EOF or Error)
 		} catch (...) {
@@ -316,16 +323,17 @@ bool ECDSA::Verify(Buffer::Consumer consumer, const std::string& signature, cons
 			}
 
 			size_t bytesToRead = std::min(availableBytes, chunkSize);
-			auto readResult = consumer.Read(bytesToRead);
-			if (!readResult.has_value()) {
+			// Use Span for zero-copy read
+			auto spanResult = consumer.Span(bytesToRead);
+			if (!spanResult.has_value()) {
 				return false; // Error reading data
 			}
 
-			const auto& inputData = readResult.value();
+			const auto& inputSpan = spanResult.value();
 
 			// Verify the chunk
 			CryptoPP::StringSource ss(
-				signature + std::string(reinterpret_cast<const char*>(inputData.data()), inputData.size()), true,
+				signature + std::string(reinterpret_cast<const char*>(inputSpan.data()), inputSpan.size()), true,
 				new CryptoPP::SignatureVerificationFilter(
 					verifier,
 					new CryptoPP::ArraySink(reinterpret_cast<CryptoPP::byte*>(&verificationResult), sizeof(verificationResult)),

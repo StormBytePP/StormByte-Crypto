@@ -148,16 +148,17 @@ StormByte::Buffer::Consumer Camellia::Encrypt(Buffer::Consumer consumer, const s
 				}
 
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				auto readResult = consumer.Read(bytesToRead);
-				if (!readResult.has_value()) {
+				// Use Span for zero-copy read
+			auto spanResult = consumer.Span(bytesToRead);
+				if (!spanResult.has_value()) {
 					producer->Close();
 					return;
 				}
 
-				const auto& inputData = readResult.value();
+				const auto& inputSpan = spanResult.value();
 				encryptedChunk.clear();
 
-				CryptoPP::StringSource ss(reinterpret_cast<const uint8_t*>(inputData.data()), inputData.size(), true,
+				CryptoPP::StringSource ss(reinterpret_cast<const uint8_t*>(inputSpan.data()), inputSpan.size(), true,
 										new CryptoPP::StreamTransformationFilter(encryption,
 																		new CryptoPP::VectorSink(encryptedChunk)));
 
@@ -201,27 +202,27 @@ StormByte::Buffer::Consumer Camellia::Decrypt(Buffer::Consumer consumer, const s
 			CryptoPP::SecByteBlock salt(16);
 			CryptoPP::SecByteBlock iv(CryptoPP::Camellia::BLOCKSIZE);
 
-			while (consumer.AvailableBytes() < salt.size()) {
-				std::this_thread::yield();
-			}
-			auto saltResult = consumer.Read(salt.size());
-			if (!saltResult.has_value()) {
-				producer->Close();
-				return;
-			}
-			std::memcpy(salt.data(), saltResult.value().data(), salt.size());
+		while (consumer.AvailableBytes() < salt.size()) {
+			std::this_thread::yield();
+		}
+		// Use Span for zero-copy read
+		auto saltSpan = consumer.Span(salt.size());
+		if (!saltSpan.has_value()) {
+			producer->Close();
+			return;
+		}
+		std::copy_n(reinterpret_cast<const uint8_t*>(saltSpan.value().data()), salt.size(), salt.data());
 
-			while (consumer.AvailableBytes() < iv.size()) {
-				std::this_thread::yield();
-			}
-			auto ivResult = consumer.Read(iv.size());
-			if (!ivResult.has_value()) {
-				producer->Close();
-				return;
-			}
-			std::memcpy(iv.data(), ivResult.value().data(), iv.size());
-
-			CryptoPP::SecByteBlock key(CryptoPP::Camellia::DEFAULT_KEYLENGTH);
+		while (consumer.AvailableBytes() < iv.size()) {
+			std::this_thread::yield();
+		}
+		// Use Span for zero-copy read
+		auto ivSpan = consumer.Span(iv.size());
+		if (!ivSpan.has_value()) {
+			producer->Close();
+			return;
+		}
+		std::copy_n(reinterpret_cast<const uint8_t*>(ivSpan.value().data()), iv.size(), iv.data());			CryptoPP::SecByteBlock key(CryptoPP::Camellia::DEFAULT_KEYLENGTH);
 			CryptoPP::PKCS5_PBKDF2_HMAC<CryptoPP::SHA256> pbkdf2;
 			pbkdf2.DeriveKey(key, key.size(), 0, reinterpret_cast<const uint8_t*>(password.data()),
 							password.size(), salt, salt.size(), 10000);
@@ -237,16 +238,17 @@ StormByte::Buffer::Consumer Camellia::Decrypt(Buffer::Consumer consumer, const s
 				}
 
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				auto readResult = consumer.Read(bytesToRead);
-				if (!readResult.has_value()) {
+				// Use Span for zero-copy read
+			auto spanResult = consumer.Span(bytesToRead);
+				if (!spanResult.has_value()) {
 					producer->Close();
 					return;
 				}
 
-				const auto& encryptedData = readResult.value();
+				const auto& encryptedSpan = spanResult.value();
 				decryptedChunk.clear();
 
-				CryptoPP::StringSource ss(reinterpret_cast<const uint8_t*>(encryptedData.data()), encryptedData.size(), true,
+				CryptoPP::StringSource ss(reinterpret_cast<const uint8_t*>(encryptedSpan.data()), encryptedSpan.size(), true,
 										new CryptoPP::StreamTransformationFilter(decryption,
 																		new CryptoPP::VectorSink(decryptedChunk)));
 

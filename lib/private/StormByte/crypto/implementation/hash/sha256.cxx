@@ -61,14 +61,15 @@ StormByte::Buffer::Consumer SHA256::Hash(Buffer::Consumer consumer) noexcept {
 
 	std::thread([consumer, producer]() mutable {
 		try {
-			CryptoPP::SHA256 hash;
-			std::string hashOutput;
-			CryptoPP::HexEncoder encoder(new CryptoPP::StringSink(hashOutput));
+		CryptoPP::SHA256 hash;
+		std::string hashOutput;
+		CryptoPP::HexEncoder encoder(new CryptoPP::StringSink(hashOutput));
 
-			constexpr size_t chunkSize = 4096;
-			std::vector<uint8_t> chunkBuffer(chunkSize);
+		constexpr size_t chunkSize = 4096;
+		std::vector<uint8_t> chunkBuffer(chunkSize);
+		[[maybe_unused]] size_t chunksProcessed = 0;
 
-			while (!consumer.EoF()) {
+		while (!consumer.EoF()) {
 				size_t availableBytes = consumer.AvailableBytes();
 				if (availableBytes == 0) {
 					if (!consumer.IsWritable()) {
@@ -79,14 +80,15 @@ StormByte::Buffer::Consumer SHA256::Hash(Buffer::Consumer consumer) noexcept {
 				}
 
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				auto readResult = consumer.Read(bytesToRead);
-				if (!readResult.has_value()) {
+				// Use Span for zero-copy read
+			auto spanResult = consumer.Span(bytesToRead);
+				if (!spanResult.has_value()) {
 					producer->Close();
 					return;
 				}
 
-				const auto& inputData = readResult.value();
-				hash.Update(reinterpret_cast<const CryptoPP::byte*>(inputData.data()), inputData.size());
+				const auto& inputSpan = spanResult.value();
+				hash.Update(reinterpret_cast<const CryptoPP::byte*>(inputSpan.data()), inputSpan.size());
 			}
 			// Finalize the hash
 			hash.Final(reinterpret_cast<CryptoPP::byte*>(chunkBuffer.data()));

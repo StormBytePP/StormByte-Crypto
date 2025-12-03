@@ -170,6 +170,7 @@ StormByte::Buffer::Consumer ECC::Encrypt(Buffer::Consumer consumer, const std::s
 	std::thread([consumer, producer, publicKey]() mutable {
 		try {
 			CryptoPP::AutoSeededRandomPool rng;
+			size_t chunksProcessed = 0;
 
 			// Deserialize, initialize, and validate the public key
 			ECIES::PublicKey key = DeserializePublicKey(publicKey);
@@ -195,16 +196,17 @@ StormByte::Buffer::Consumer ECC::Encrypt(Buffer::Consumer consumer, const std::s
 				}
 
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				auto readResult = consumer.Read(bytesToRead);
-				if (!readResult.has_value()) {
+				// Use Span for zero-copy read
+			auto spanResult = consumer.Span(bytesToRead);
+				if (!spanResult.has_value()) {
 					producer->Close();
 					return;
 				}
 
-				const auto& inputData = readResult.value();
+				const auto& inputSpan = spanResult.value();
 				encryptedChunk.clear();
 
-				CryptoPP::StringSource ss(reinterpret_cast<const CryptoPP::byte*>(inputData.data()), inputData.size(), true,
+				CryptoPP::StringSource ss(reinterpret_cast<const CryptoPP::byte*>(inputSpan.data()), inputSpan.size(), true,
 										new CryptoPP::PK_EncryptorFilter(rng, encryptor,
 																		new CryptoPP::StringSink(encryptedChunk)));
 
@@ -214,6 +216,10 @@ StormByte::Buffer::Consumer ECC::Encrypt(Buffer::Consumer consumer, const std::s
 					byteData.push_back(static_cast<std::byte>(encryptedChunk[i]));
 				}
 				producer->Write(byteData);
+				// Clean periodically (every 16 chunks to balance memory vs performance)
+				if (++chunksProcessed % 16 == 0) {
+					consumer.Clean();
+				}
 			}
 			producer->Close(); // Mark processing complete // Update status (EOF or Error)
 		} catch (...) {
@@ -315,16 +321,17 @@ StormByte::Buffer::Consumer ECC::Decrypt(Buffer::Consumer consumer, const std::s
 				}
 
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				auto readResult = consumer.Read(bytesToRead);
-				if (!readResult.has_value()) {
+				// Use Span for zero-copy read
+			auto spanResult = consumer.Span(bytesToRead);
+				if (!spanResult.has_value()) {
 					producer->Close();
 					return;
 				}
 
-				const auto& encryptedData = readResult.value();
+				const auto& encryptedSpan = spanResult.value();
 				decryptedChunk.clear();
 
-				CryptoPP::StringSource ss(reinterpret_cast<const CryptoPP::byte*>(encryptedData.data()), encryptedData.size(), true,
+				CryptoPP::StringSource ss(reinterpret_cast<const CryptoPP::byte*>(encryptedSpan.data()), encryptedSpan.size(), true,
 										new CryptoPP::PK_DecryptorFilter(rng, decryptor,
 																		new CryptoPP::StringSink(decryptedChunk)));
 

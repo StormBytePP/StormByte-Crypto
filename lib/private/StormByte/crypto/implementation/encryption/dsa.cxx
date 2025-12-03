@@ -187,6 +187,9 @@ StormByte::Buffer::Consumer DSA::Sign(Buffer::Consumer consumer, const std::stri
 
 			constexpr size_t chunkSize = 4096;
 			std::string signatureChunk;
+			// Batch writes to reduce internal reallocations
+			std::vector<std::byte> batchBuffer;
+			batchBuffer.reserve(chunkSize * 2); // Pre-allocate for batching
 
 			while (!consumer.EoF()) {
 				const size_t availableBytes = consumer.AvailableBytes();
@@ -197,30 +200,42 @@ StormByte::Buffer::Consumer DSA::Sign(Buffer::Consumer consumer, const std::stri
 				}
 
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				auto readResult = consumer.Read(bytesToRead);
-				if (!readResult.has_value()) {
+				// Use Span for zero-copy read
+				auto spanResult = consumer.Span(bytesToRead);
+				if (!spanResult.has_value()) {
 					producer->Close();
 					return;
 				}
 
-				const auto& inputData = readResult.value();
+				const auto& inputSpan = spanResult.value();
 				signatureChunk.clear();
 
 				// Sign the chunk
 				CryptoPP::StringSource ss(
-					reinterpret_cast<const CryptoPP::byte*>(inputData.data()), inputData.size(), true,
+					reinterpret_cast<const CryptoPP::byte*>(inputSpan.data()), inputSpan.size(), true,
 					new CryptoPP::SignerFilter(
 						rng, signer,
 						new CryptoPP::StringSink(signatureChunk)
 					)
 				);
 
-				std::vector<std::byte> byteData;
-										std::this_thread::yield();
+				// Accumulate into batch buffer
 				for (size_t i = 0; i < signatureChunk.size(); ++i) {
-					byteData.push_back(static_cast<std::byte>(signatureChunk[i]));
+					batchBuffer.push_back(static_cast<std::byte>(signatureChunk[i]));
 				}
-				producer->Write(byteData);
+
+				// Write in larger batches to reduce reallocation overhead
+				if (batchBuffer.size() >= chunkSize) {
+					producer->Write(std::move(batchBuffer));
+					batchBuffer.clear();
+					batchBuffer.reserve(chunkSize * 2);
+					// Clean consumed data periodically (only when batch is written)
+					consumer.Clean();
+				}
+			}
+			// Write any remaining data
+			if (!batchBuffer.empty()) {
+				producer->Write(std::move(batchBuffer));
 			}
 			producer->Close(); // Mark processing complete // Update status (EOF or Error)
 		} catch (...) {
@@ -326,16 +341,17 @@ bool DSA::Verify(Buffer::Consumer consumer, const std::string& signature, const 
 			}
 
 			size_t bytesToRead = std::min(availableBytes, chunkSize);
-			auto readResult = consumer.Read(bytesToRead);
-			if (!readResult.has_value()) {
+			// Use Span for zero-copy read
+			auto spanResult = consumer.Span(bytesToRead);
+			if (!spanResult.has_value()) {
 				return false; // Error reading data
 			}
 
-			const auto& inputData = readResult.value();
+			const auto& inputSpan = spanResult.value();
 
 			// Verify the chunk
 			CryptoPP::StringSource ss(
-				signature + std::string(reinterpret_cast<const char*>(inputData.data()), inputData.size()), true,
+				signature + std::string(reinterpret_cast<const char*>(inputSpan.data()), inputSpan.size()), true,
 				new CryptoPP::SignatureVerificationFilter(
 					verifier,
 					new CryptoPP::ArraySink(reinterpret_cast<CryptoPP::byte*>(&verificationResult), sizeof(verificationResult)),

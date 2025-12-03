@@ -87,6 +87,7 @@ StormByte::Buffer::Consumer Gzip::Compress(Buffer::Consumer consumer) noexcept {
 		try {
 			constexpr size_t chunkSize = 4096; // Define the chunk size for reading from the consumer
 			std::string compressedString;
+			size_t chunksProcessed = 0;
 
 			while (!consumer.EoF()) {
 				// Check how many bytes are available in the consumer
@@ -103,20 +104,21 @@ StormByte::Buffer::Consumer Gzip::Compress(Buffer::Consumer consumer) noexcept {
 
 				// Read the available bytes (up to chunkSize)
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				auto readResult = consumer.Read(bytesToRead);
-				if (!readResult.has_value()) {
+				// Use Span for zero-copy read
+			auto spanResult = consumer.Span(bytesToRead);
+				if (!spanResult.has_value()) {
 					producer->Close();
 					return;
 				}
 
-				const auto& inputData = readResult.value();
-				if (inputData.empty()) {
+				const auto& inputSpan = spanResult.value();
+				if (inputSpan.empty()) {
 					continue;
 				}
 
 				// Use Crypto++'s Gzip for compression
 				CryptoPP::StringSource ss(
-					reinterpret_cast<const uint8_t*>(inputData.data()), inputData.size(), true,
+					reinterpret_cast<const uint8_t*>(inputSpan.data()), inputSpan.size(), true,
 					new CryptoPP::Gzip(new CryptoPP::StringSink(compressedString), CryptoPP::Gzip::MAX_DEFLATE_LEVEL));
 
 				// Write the compressed data to the producer
@@ -125,6 +127,10 @@ StormByte::Buffer::Consumer Gzip::Compress(Buffer::Consumer consumer) noexcept {
 					[](char c) { return static_cast<std::byte>(c); });
 				producer->Write(byteData);
 				compressedString.clear();
+				// Clean periodically (every 16 chunks to balance memory vs performance)
+				if (++chunksProcessed % 16 == 0) {
+					consumer.Clean();
+				}
 			}
 			producer->Close(); // Mark compression complete
 		} catch (...) {
@@ -177,20 +183,21 @@ StormByte::Buffer::Consumer Gzip::Decompress(Buffer::Consumer consumer) noexcept
 
 				// Read the available bytes (up to chunkSize)
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				auto readResult = consumer.Read(bytesToRead);
-				if (!readResult.has_value()) {
+				// Use Span for zero-copy read
+			auto spanResult = consumer.Span(bytesToRead);
+				if (!spanResult.has_value()) {
 					producer->Close();
 					return;
 				}
 
-				const auto& compressedData = readResult.value();
-				if (compressedData.empty()) {
+				const auto& compressedSpan = spanResult.value();
+				if (compressedSpan.empty()) {
 					continue;
 				}
 
 				// Use Crypto++'s Gunzip for decompression
 				CryptoPP::StringSource ss(
-					reinterpret_cast<const uint8_t*>(compressedData.data()), compressedData.size(), true,
+					reinterpret_cast<const uint8_t*>(compressedSpan.data()), compressedSpan.size(), true,
 					new CryptoPP::Gunzip(new CryptoPP::StringSink(decompressedString)));
 
 				// Write the decompressed data to the producer
