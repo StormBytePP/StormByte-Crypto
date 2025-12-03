@@ -129,6 +129,17 @@ namespace StormByte::Crypto {
 			const std::optional<std::string>& 				PrivateKey() const noexcept;
 
 			/**
+			 * @brief Generates a random key pair using the specified algorithm
+			 * 
+			 * This method generates both a public and private key, creating a `KeyPair` that can be used for all cryptographic operations.
+			 * 
+			 * @param algo The algorithm to use for key generation.
+			 * @return An Expected containing the generated KeyPair or an error.
+			 */
+			[[nodiscard]]
+			static Expected<KeyPair, Exception> 			Generate(const Algorithm::Asymmetric& algo) noexcept;
+
+			/**
 			 * @brief Generates a random key pair using the specified algorithm and key size.
 			 * 
 			 * This method generates both a public and private key, creating a `KeyPair` that can be used for all cryptographic operations.
@@ -153,6 +164,17 @@ namespace StormByte::Crypto {
 			static Expected<KeyPair, Exception> 			Generate(const Algorithm::Asymmetric& algo, const std::string& curve_name) noexcept;
 
 			/**
+			 * @brief Generates a random key pair for signing
+			 * 
+			 * This method generates both a public and private key, creating a `KeyPair` that can be used for signing and signature verification.
+			 * 
+			 * @param algo The signing algorithm to use.
+			 * @return An Expected containing the generated KeyPair or an error.
+			 */
+			[[nodiscard]]
+			static Expected<KeyPair, Exception> 			Generate(const Algorithm::Sign& algo) noexcept;
+
+			/**
 			 * @brief Generates a random key pair for signing using the specified algorithm and key size.
 			 * 
 			 * This method generates both a public and private key, creating a `KeyPair` that can be used for signing and signature verification.
@@ -175,6 +197,17 @@ namespace StormByte::Crypto {
 			 */
 			[[nodiscard]]
 			static Expected<KeyPair, Exception> 			Generate(const Algorithm::Sign& algo, const std::string& curve_name) noexcept;
+
+			/**
+			 * @brief Generates a random key pair for secret-sharing
+			 * 
+			 * This method generates both a public and private key, creating a `KeyPair` that can be used for shared secret generation.
+			 * 
+			 * @param algo The secret-sharing algorithm to use.
+			 * @return An Expected containing the generated KeyPair or an error.
+			 */
+			[[nodiscard]]
+			static Expected<KeyPair, Exception> 			Generate(const Algorithm::SecretShare& algo) noexcept;
 
 			/**
 			 * @brief Generates a random key pair for secret-sharing using the specified algorithm and curve name.

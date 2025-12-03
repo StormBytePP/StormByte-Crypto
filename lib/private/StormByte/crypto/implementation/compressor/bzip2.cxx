@@ -104,67 +104,82 @@ StormByte::Buffer::Consumer BZip2::Compress(Buffer::Consumer consumer) noexcept 
 	// Launch a detached thread to handle compression
 	std::thread([consumer, producer]() mutable {
 		try {
-			constexpr size_t chunkSize = 4096; // Define the chunk size for reading from the consumer
-			std::vector<uint8_t> compressedBuffer(chunkSize * 2); // Allocate a larger buffer for compressed data
-			size_t chunksProcessed = 0;
+			constexpr size_t chunkSize = 4096;
+			std::vector<uint8_t> compressedBuffer(chunkSize * 2);
+
+			// Initialize bzip2 stream
+			bz_stream stream;
+			std::memset(&stream, 0, sizeof(stream));
+			if (BZ2_bzCompressInit(&stream, 9, 0, 30) != BZ_OK) {
+				producer->Close();
+				return;
+			}
 
 			while (!consumer.EoF()) {
-				// Check how many bytes are available in the consumer
 				size_t availableBytes = consumer.AvailableBytes();
 
 				if (availableBytes == 0) {
-					// Wait for more data to become available
+					if (!consumer.IsWritable()) break;
 					std::this_thread::yield();
 					continue;
 				}
 
-				// Read the available bytes (up to chunkSize)
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				// Use Span for zero-copy read
-			auto spanResult = consumer.Span(bytesToRead);
+				auto spanResult = consumer.Span(bytesToRead);
 				if (!spanResult.has_value()) {
-					// If reading fails, close the producer
-					producer->Close();
-					break;
-				}
-
-				const auto& inputSpan = spanResult.value();
-
-				if (inputSpan.empty()) {
-					continue; // Try again
-				}
-
-				// Compress the chunk
-				unsigned int compressedSize = static_cast<unsigned int>(std::ceil(inputSpan.size() * 1.01 + 600));
-				compressedBuffer.resize(compressedSize);
-
-				int result = BZ2_bzBuffToBuffCompress(
-					reinterpret_cast<char*>(compressedBuffer.data()), &compressedSize,
-					const_cast<char*>(reinterpret_cast<const char*>(inputSpan.data())),
-					static_cast<unsigned int>(inputSpan.size()), 9, 0, 30);
-
-				if (result != BZ_OK) {
-					// Compression failed, close the producer
+					BZ2_bzCompressEnd(&stream);
 					producer->Close();
 					return;
 				}
 
-				// Resize the compressed buffer to the actual size
-				compressedBuffer.resize(compressedSize);
+				const auto& inputSpan = spanResult.value();
+				if (inputSpan.empty()) continue;
 
-				// Write the compressed data to the producer
-				std::vector<std::byte> byteData(compressedSize);
-				std::transform(compressedBuffer.begin(), compressedBuffer.end(), byteData.begin(),
-					[](uint8_t b) { return static_cast<std::byte>(b); });
-				(void)producer->Write(byteData);
-				// Clean periodically (every 16 chunks to balance memory vs performance)
-				if (++chunksProcessed % 16 == 0) {
-					consumer.Clean();
-				}
+				// Feed data to compressor
+				stream.next_in = const_cast<char*>(reinterpret_cast<const char*>(inputSpan.data()));
+				stream.avail_in = static_cast<unsigned int>(inputSpan.size());
+
+				do {
+					stream.next_out = reinterpret_cast<char*>(compressedBuffer.data());
+					stream.avail_out = static_cast<unsigned int>(compressedBuffer.size());
+
+					int result = BZ2_bzCompress(&stream, BZ_RUN);
+					if (result < 0) {
+						BZ2_bzCompressEnd(&stream);
+						producer->Close();
+						return;
+					}
+
+					size_t produced = compressedBuffer.size() - stream.avail_out;
+					if (produced > 0) {
+						std::vector<std::byte> byteData(produced);
+						std::transform(compressedBuffer.begin(), compressedBuffer.begin() + produced, byteData.begin(),
+							[](uint8_t b) { return static_cast<std::byte>(b); });
+						(void)producer->Write(byteData);
+					}
+				} while (stream.avail_in > 0);
 			}
-			producer->Close(); // Mark compression complete
+
+			// Finalize compression
+			stream.next_in = nullptr;
+			stream.avail_in = 0;
+			int result;
+			do {
+				stream.next_out = reinterpret_cast<char*>(compressedBuffer.data());
+				stream.avail_out = static_cast<unsigned int>(compressedBuffer.size());
+				result = BZ2_bzCompress(&stream, BZ_FINISH);
+				size_t produced = compressedBuffer.size() - stream.avail_out;
+				if (produced > 0) {
+					std::vector<std::byte> byteData(produced);
+					std::transform(compressedBuffer.begin(), compressedBuffer.begin() + produced, byteData.begin(),
+						[](uint8_t b) { return static_cast<std::byte>(b); });
+					(void)producer->Write(byteData);
+				}
+			} while (result != BZ_STREAM_END);
+
+			BZ2_bzCompressEnd(&stream);
+			producer->Close();
 		} catch (...) {
-			// Handle any unexpected exceptions and close the producer
 			producer->Close();
 		}
 	}).detach();
@@ -196,70 +211,67 @@ StormByte::Buffer::Consumer BZip2::Decompress(Buffer::Consumer consumer) noexcep
 	// Launch a detached thread to handle decompression
 	std::thread([consumer, producer]() mutable {
 		try {
-			constexpr size_t chunkSize = 4096; // Define the chunk size for reading from the consumer
-			std::vector<uint8_t> decompressedBuffer(chunkSize * 2); // Start with a larger buffer for decompressed data
+			constexpr size_t chunkSize = 4096;
+			std::vector<uint8_t> decompressedBuffer(chunkSize * 2);
+
+			// Initialize bzip2 stream
+			bz_stream stream;
+			std::memset(&stream, 0, sizeof(stream));
+			if (BZ2_bzDecompressInit(&stream, 0, 0) != BZ_OK) {
+				producer->Close();
+				return;
+			}
 
 			while (!consumer.EoF()) {
-				// Check how many bytes are available in the consumer
 				size_t availableBytes = consumer.AvailableBytes();
 
 				if (availableBytes == 0) {
-					// Wait for more data to become available
+					if (!consumer.IsWritable()) break;
 					std::this_thread::yield();
 					continue;
 				}
 
-				// Read the available bytes (up to chunkSize)
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				// Use Span for zero-copy read
-			auto spanResult = consumer.Span(bytesToRead);
+				auto spanResult = consumer.Span(bytesToRead);
 				if (!spanResult.has_value()) {
-					// If reading fails, close the producer
+					BZ2_bzDecompressEnd(&stream);
 					producer->Close();
 					return;
 				}
 
 				const auto& compressedSpan = spanResult.value();
-				if (compressedSpan.empty()) {
-					continue; // Try again
-				}
+				if (compressedSpan.empty()) continue;
 
-				// Decompress the chunk
-				unsigned int decompressedSize = static_cast<unsigned int>(decompressedBuffer.size());
-				int result = BZ2_bzBuffToBuffDecompress(
-					reinterpret_cast<char*>(decompressedBuffer.data()), &decompressedSize,
-					const_cast<char*>(reinterpret_cast<const char*>(compressedSpan.data())),
-					static_cast<unsigned int>(compressedSpan.size()), 0, 0);
+				// Feed data to decompressor
+				stream.next_in = const_cast<char*>(reinterpret_cast<const char*>(compressedSpan.data()));
+				stream.avail_in = static_cast<unsigned int>(compressedSpan.size());
 
-				// If the buffer was too small, resize and retry
-				while (result == BZ_OUTBUFF_FULL) {
-					decompressedBuffer.resize(decompressedBuffer.size() * 2);
-					decompressedSize = static_cast<unsigned int>(decompressedBuffer.size());
+				do {
+					stream.next_out = reinterpret_cast<char*>(decompressedBuffer.data());
+					stream.avail_out = static_cast<unsigned int>(decompressedBuffer.size());
 
-					result = BZ2_bzBuffToBuffDecompress(
-						reinterpret_cast<char*>(decompressedBuffer.data()), &decompressedSize,
-						const_cast<char*>(reinterpret_cast<const char*>(compressedSpan.data())),
-						static_cast<unsigned int>(compressedSpan.size()), 0, 0);
-				}
+					int result = BZ2_bzDecompress(&stream);
+					if (result < 0) {
+						BZ2_bzDecompressEnd(&stream);
+						producer->Close();
+						return;
+					}
 
-				if (result != BZ_OK) {
-					// Decompression failed, close the producer
-					producer->Close();
-					return;
-				}
+					size_t produced = decompressedBuffer.size() - stream.avail_out;
+					if (produced > 0) {
+						std::vector<std::byte> byteData(produced);
+						std::transform(decompressedBuffer.begin(), decompressedBuffer.begin() + produced, byteData.begin(),
+							[](uint8_t b) { return static_cast<std::byte>(b); });
+						(void)producer->Write(byteData);
+					}
 
-				// Resize the decompressed buffer to the actual size
-				decompressedBuffer.resize(decompressedSize);
-
-				// Write the decompressed data to the producer
-				std::vector<std::byte> byteData(decompressedSize);
-				std::transform(decompressedBuffer.begin(), decompressedBuffer.end(), byteData.begin(),
-					[](uint8_t b) { return static_cast<std::byte>(b); });
-				(void)producer->Write(byteData);
+					if (result == BZ_STREAM_END) break;
+				} while (stream.avail_in > 0);
 			}
-			producer->Close(); // Mark decompression complete
+
+			BZ2_bzDecompressEnd(&stream);
+			producer->Close();
 		} catch (...) {
-			// Handle any unexpected exceptions and close the producer
 			producer->Close();
 		}
 	}).detach();

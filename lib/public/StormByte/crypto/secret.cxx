@@ -1,5 +1,6 @@
 #include <StormByte/crypto/secret.hxx>
 #include <StormByte/crypto/implementation/encryption/ecdh.hxx>
+#include <StormByte/crypto/implementation/encryption/x25519.hxx>
 
 using namespace StormByte::Crypto;
 
@@ -26,6 +27,9 @@ StormByte::Expected<std::string, Exception> Secret::Content() const noexcept {
 		case Algorithm::SecretShare::ECDH:
 			// Derive shared secret using ECDH
 			return Implementation::Encryption::ECDH::DeriveSharedSecret(m_key_pair.PrivateKey().value(), m_peer_public_key);
+		case Algorithm::SecretShare::X25519:
+			// Derive shared secret using X25519
+			return Implementation::Encryption::X25519::DeriveSharedSecret(m_key_pair.PrivateKey().value(), m_peer_public_key);
 		default:
 			return StormByte::Unexpected<Exception>("Unsupported secret-sharing algorithm.");
 	}

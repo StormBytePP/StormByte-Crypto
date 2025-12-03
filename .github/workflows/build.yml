@@ -104,16 +104,16 @@ jobs:
             -DENABLE_ASAN=ON
             -DWITH_SYSTEM_CRYPTOPP=OFF
             -DWITH_SYSTEM_BZIP2=OFF
-            -DENABLE_LIB_ONLY=ON # For Bzip2
+            -DENABLE_LIB_ONLY=ON
           build-type: ${{ env.BUILD_TYPE }}
 
       - name: Copy DLLs
-        run: |
-          Copy-Item -Path "${{ github.workspace }}\build\thirdparty\Bzip2\src\bz2.dll" -Destination "${{ github.workspace }}\build\test\bz2-1.dll" -Force # Somehow bz2-1.dll is needed
-          Copy-Item -Path "${{ github.workspace }}\build\thirdparty\StormByte\base\lib\StormByte.dll" -Destination "${{ github.workspace }}\build\test" -Force
-          Copy-Item -Path "${{ github.workspace }}\build\thirdparty\StormByte\buffer\lib\StormByte-Buffer.dll" -Destination "${{ github.workspace }}\build\test" -Force
-          Copy-Item -Path "${{ github.workspace }}\build\thirdparty\StormByte\logger\lib\StormByte-Logger.dll" -Destination "${{ github.workspace }}\build\test" -Force
-          Copy-Item -Path "${{ github.workspace }}\build\lib\StormByte-Crypto.dll" -Destination "${{ github.workspace }}\build\test" -Force
+        run: | # I need somehow a for loop here for many "category"s
+          Copy-Item -Path "${{ github.workspace }}\build\thirdparty\Bzip2\src\bz2.dll" -Destination "${{ github.workspace }}\build\test\${{ category }}\bz2-1.dll" -Force # Somehow bz2-1.dll is needed
+          Copy-Item -Path "${{ github.workspace }}\build\thirdparty\StormByte\base\lib\StormByte.dll" -Destination "${{ github.workspace }}\build\test\${{ category }}" -Force
+          Copy-Item -Path "${{ github.workspace }}\build\thirdparty\StormByte\buffer\lib\StormByte-Buffer.dll" -Destination "${{ github.workspace }}\build\test\${{ category }}" -Force
+          Copy-Item -Path "${{ github.workspace }}\build\thirdparty\StormByte\logger\lib\StormByte-Logger.dll" -Destination "${{ github.workspace }}\build\test\${{ category }}" -Force
+          Copy-Item -Path "${{ github.workspace }}\build\lib\StormByte-Crypto.dll" -Destination "${{ github.workspace }}\build\test\${{ category }}" -Force
 
       - name: Run unit tests
         run: ctest --output-on-failure --test-dir ${{ github.workspace }}\build\test

@@ -22,8 +22,12 @@ namespace StormByte::Crypto::Algorithm {
 	 */
 	enum class STORMBYTE_CRYPTO_PUBLIC Symmetric {
 		None = 0,			///< No encryption
-		AES,				///< AES encryption
+		AES,				///< AES encryption (CBC mode)
+		AES_GCM,			///< AES-GCM authenticated encryption
 		Camellia,			///< Camellia encryption
+		ChaCha20,			///< ChaCha20 stream cipher
+		Serpent,			///< Serpent block cipher
+		Twofish,			///< Twofish block cipher
 	};
 
 	/**
@@ -34,6 +38,7 @@ namespace StormByte::Crypto::Algorithm {
 		None = 0,			///< No compression
 		Bzip2,				///< Bzip2 compression
 		Gzip,				///< Gzip compression
+		Zlib,				///< Zlib (Deflate) compression
 	};
 
 	/**
@@ -45,6 +50,8 @@ namespace StormByte::Crypto::Algorithm {
 		Blake2s,			///< Blake2s hash algorithm
 		SHA256,				///< SHA256 hash algorithm
 		SHA512,				///< SHA512 hash algorithm
+		SHA3_256,			///< SHA3-256 hash algorithm
+		SHA3_512,			///< SHA3-512 hash algorithm
 	};
 
 	/**
@@ -55,6 +62,7 @@ namespace StormByte::Crypto::Algorithm {
 		DSA,				///< Digital Signature Algorithm (DSA)
 		ECDSA,				///< Elliptic Curve Digital Signature Algorithm (ECDSA)
 		RSA,				///< RSA signing
+		Ed25519,			///< Ed25519 signature scheme
 	};
 
 	/**
@@ -63,5 +71,6 @@ namespace StormByte::Crypto::Algorithm {
 	 */
 	enum class STORMBYTE_CRYPTO_PUBLIC SecretShare {
 		ECDH,				///< Elliptic Curve Diffie-Hellman (ECDH) for shared secret generation
+		X25519,				///< X25519 key agreement scheme
 	};
 }

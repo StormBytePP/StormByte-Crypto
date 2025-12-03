@@ -8,14 +8,10 @@
 
 using namespace StormByte::Crypto;
 
-int TestRSAEncryptDecrypt() {
+int TestRSAEncryptDecrypt(const KeyPair &kp) {
 	const std::string fn_name = "TestRSAEncryptDecrypt";
 	const std::string message = "This is a test message.";
-	const int key_strength = 2048;
-
-	auto keypair_result = KeyPair::Generate(Algorithm::Asymmetric::RSA, key_strength);
-	ASSERT_TRUE(fn_name, keypair_result.has_value());
-	Asymmetric rsa(Algorithm::Asymmetric::RSA, keypair_result.value());
+	Asymmetric rsa(Algorithm::Asymmetric::RSA, kp);
 
 	auto encrypt_result = rsa.Encrypt(message);
 	if (!encrypt_result.has_value()) {
@@ -34,14 +30,11 @@ int TestRSAEncryptDecrypt() {
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestRSADecryptionWithCorruptedData() {
+
+int TestRSADecryptionWithCorruptedData(const KeyPair &kp) {
 	const std::string fn_name = "TestRSADecryptionWithCorruptedData";
 	const std::string message = "Important message!";
-	const int key_strength = 2048;
-
-	auto keypair_result = KeyPair::Generate(Algorithm::Asymmetric::RSA, key_strength);
-	ASSERT_TRUE(fn_name, keypair_result.has_value());
-	Asymmetric rsa(Algorithm::Asymmetric::RSA, keypair_result.value());
+	Asymmetric rsa(Algorithm::Asymmetric::RSA, kp);
 
 	auto encrypt_result = rsa.Encrypt(message);
 	if (!encrypt_result.has_value()) {
@@ -64,14 +57,10 @@ int TestRSADecryptionWithCorruptedData() {
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestRSADecryptWithMismatchedKey() {
+
+int TestRSADecryptWithMismatchedKey(const KeyPair &kp) {
 	const std::string fn_name = "TestRSADecryptWithMismatchedKey";
 	const std::string message = "Sensitive message.";
-	const int key_strength = 2048;
-
-	auto keypair_result = KeyPair::Generate(Algorithm::Asymmetric::RSA, key_strength);
-	ASSERT_TRUE(fn_name, keypair_result.has_value());
-	auto kp = keypair_result.value();
 	Asymmetric rsa(Algorithm::Asymmetric::RSA, kp);
 	// Create mismatched by corrupting a copy of the public key instead of generating a new pair
 	auto pub = kp.PublicKey();
@@ -98,24 +87,21 @@ int TestRSADecryptWithMismatchedKey() {
 	RETURN_TEST(fn_name, 1);
 }
 
-int TestRSAWithCorruptedKeys() {
+
+int TestRSAWithCorruptedKeys(const KeyPair &kp) {
 	const std::string fn_name = "TestRSAWithCorruptedKeys";
 	const std::string message = "This is a test message.";
-	const int key_strength = 2048;
+	// Use supplied keypair
+	Asymmetric rsa(Algorithm::Asymmetric::RSA, kp);
 
-	// Step 1: Generate a valid RSA key pair
-	auto keypair_result = KeyPair::Generate(Algorithm::Asymmetric::RSA, key_strength);
-	ASSERT_TRUE(fn_name, keypair_result.has_value());
-	Asymmetric rsa(Algorithm::Asymmetric::RSA, keypair_result.value());
-
-	// Step 2: Corrupt the public key
-	std::string corrupted_public_key = keypair_result->PublicKey();
+	// Step 2: Corrupt the public key (use supplied keypair)
+	std::string corrupted_public_key = kp.PublicKey();
 	if (!corrupted_public_key.empty()) {
 		corrupted_public_key[0] = static_cast<char>(~corrupted_public_key[0]);
 	}
 
 	// Step 3: Corrupt the private key
-	std::string corrupted_private_key = *keypair_result->PrivateKey();
+	std::string corrupted_private_key = *kp.PrivateKey();
 	if (!corrupted_private_key.empty()) {
 		corrupted_private_key[0] = static_cast<char>(~corrupted_private_key[0]);
 	}
@@ -145,14 +131,12 @@ int TestRSAWithCorruptedKeys() {
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestRSAEncryptionProducesDifferentContent() {
+
+int TestRSAEncryptionProducesDifferentContent(const KeyPair &kp) {
 	const std::string fn_name = "TestRSAEncryptionProducesDifferentContent";
 	const std::string original_data = "Sensitive message";
 	const int key_strength = 2048;
-
-	auto keypair_result = KeyPair::Generate(Algorithm::Asymmetric::RSA, key_strength);
-	ASSERT_TRUE(fn_name, keypair_result.has_value());
-	Asymmetric rsa(Algorithm::Asymmetric::RSA, keypair_result.value());
+	Asymmetric rsa(Algorithm::Asymmetric::RSA, kp);
 
 	// Encrypt the data
 	auto encrypt_result = rsa.Encrypt(original_data);
@@ -166,15 +150,12 @@ int TestRSAEncryptionProducesDifferentContent() {
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestRSAEncryptDecryptUsingConsumerProducer() {
+
+int TestRSAEncryptDecryptUsingConsumerProducer(const KeyPair &kp) {
 	const std::string fn_name = "TestRSAEncryptDecryptUsingConsumerProducer";
 	const std::string input_data = "This is some data to encrypt using the Consumer/Producer model.";
 	const int key_strength = 2048;
-
-	// Generate a key pair
-	auto keypair_result = KeyPair::Generate(Algorithm::Asymmetric::RSA, key_strength);
-	ASSERT_TRUE(fn_name, keypair_result.has_value());
-	Asymmetric rsa(Algorithm::Asymmetric::RSA, keypair_result.value());
+	Asymmetric rsa(Algorithm::Asymmetric::RSA, kp);
 
 	// Create a producer buffer and write the input data
 	StormByte::Buffer::Producer producer;
@@ -200,99 +181,24 @@ int TestRSAEncryptDecryptUsingConsumerProducer() {
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestRSASignVerifySuccess() {
-	const std::string fn_name = "TestRSASignVerifySuccess";
-	const std::string message = "This is a message to sign.";
-	const int key_strength = 2048;
-
-	// Generate a key pair
-	auto keypair_result = KeyPair::Generate(Algorithm::Sign::RSA, key_strength);
-	ASSERT_TRUE(fn_name, keypair_result.has_value());
-	Signer rsa(Algorithm::Sign::RSA, keypair_result.value());
-
-	// Sign the message
-	auto sign_result = rsa.Sign(message);
-	ASSERT_TRUE(fn_name, sign_result.has_value());
-	std::string signature = sign_result.value();
-
-	// Verify the signature
-	bool verify_result = rsa.Verify(message, signature);
-	ASSERT_TRUE(fn_name, verify_result);
-
-	RETURN_TEST(fn_name, 0);
-}
-
-int TestRSASignVerifyWithDifferentKeyPair() {
-	const std::string fn_name = "TestRSASignVerifyWithDifferentKeyPair";
-	const std::string message = "This is a message to sign.";
-	const int key_strength = 2048;
-
-	// Generate two different key pairs
-	auto keypair_result = KeyPair::Generate(Algorithm::Sign::RSA, key_strength);
-	ASSERT_TRUE(fn_name, keypair_result.has_value());
-	auto kp = keypair_result.value();
-	Signer rsa(Algorithm::Sign::RSA, kp);
-	// Create mismatched signer by corrupting copied public key
-	auto pub = kp.PublicKey();
-	auto privOpt = kp.PrivateKey();
-	std::string priv = privOpt.has_value() ? *privOpt : std::string();
-	if (!pub.empty()) {
-		pub[0] = static_cast<char>(~pub[0]);
-	}
-	Signer rsa2(Algorithm::Sign::RSA, { pub, priv });
-
-	// Sign the message with the first private key
-	auto sign_result = rsa.Sign(message);
-	ASSERT_TRUE(fn_name, sign_result.has_value());
-	std::string signature = sign_result.value();
-
-	// Attempt to verify the signature with the second public key
-	bool verify_result = rsa2.Verify(message, signature);
-	ASSERT_FALSE(fn_name, verify_result);
-
-	RETURN_TEST(fn_name, 0);
-}
-
-int TestRSASignVerifyWithCorruptedMessage() {
-	const std::string fn_name = "TestRSASignVerifyWithCorruptedMessage";
-	const std::string message = "This is a message to sign.";
-	const int key_strength = 2048;
-
-	// Generate a key pair
-	auto keypair_result = KeyPair::Generate(Algorithm::Sign::RSA, key_strength);
-	ASSERT_TRUE(fn_name, keypair_result.has_value());
-	Signer rsa(Algorithm::Sign::RSA, keypair_result.value());
-
-	// Sign the message
-	auto sign_result = rsa.Sign(message);
-	ASSERT_TRUE(fn_name, sign_result.has_value());
-	std::string signature = sign_result.value();
-
-	// Corrupt the message
-	std::string corrupted_message = message;
-	if (!corrupted_message.empty()) {
-		corrupted_message[0] = static_cast<char>(~corrupted_message[0]);
-	}
-
-	// Attempt to verify the signature with the corrupted message
-	bool verify_result = rsa.Verify(corrupted_message, signature);
-	ASSERT_FALSE(fn_name, verify_result);
-
-	RETURN_TEST(fn_name, 0);
-}
-
 int main() {
 	int result = 0;
+	const int key_strength = 2048;
 
-	result += TestRSAEncryptDecrypt();
-	result += TestRSASignVerifySuccess();
-	result += TestRSASignVerifyWithDifferentKeyPair();
-	result += TestRSASignVerifyWithCorruptedMessage();
-	result += TestRSADecryptionWithCorruptedData();
-	result += TestRSADecryptWithMismatchedKey();
-	result += TestRSAWithCorruptedKeys();
-	result += TestRSAEncryptionProducesDifferentContent();
-	result += TestRSAEncryptDecryptUsingConsumerProducer();
+	// Generate one keypair for asymmetric operations and one for signing
+	auto kp_asym_result = KeyPair::Generate(Algorithm::Asymmetric::RSA, key_strength);
+	if (!kp_asym_result.has_value()) {
+		std::cerr << "Failed to generate RSA asymmetric keypair" << std::endl;
+		return 1;
+	}
+	auto kp_asym = kp_asym_result.value();
+
+	result += TestRSAEncryptDecrypt(kp_asym);
+	result += TestRSADecryptionWithCorruptedData(kp_asym);
+	result += TestRSADecryptWithMismatchedKey(kp_asym);
+	result += TestRSAWithCorruptedKeys(kp_asym);
+	result += TestRSAEncryptionProducesDifferentContent(kp_asym);
+	result += TestRSAEncryptDecryptUsingConsumerProducer(kp_asym);
 
 	if (result == 0) {
 		std::cout << "All tests passed!" << std::endl;

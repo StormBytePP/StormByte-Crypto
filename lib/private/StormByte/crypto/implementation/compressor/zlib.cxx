@@ -1,7 +1,7 @@
-#include <StormByte/crypto/implementation/compressor/gzip.hxx>
+#include <StormByte/crypto/implementation/compressor/zlib.hxx>
 
 #include <algorithm>
-#include <gzip.h>
+#include <cryptopp/zlib.h>
 #include <cryptlib.h>
 #include <filters.h>
 #include <stdexcept>
@@ -16,21 +16,21 @@ namespace {
 		try {
 			std::string compressedString;
 
-			// Use Crypto++'s Gzip for compression
+			// Use Crypto++'s Zlib for compression (Deflate)
 			CryptoPP::StringSource ss(
 				reinterpret_cast<const uint8_t*>(inputData.data()), inputData.size_bytes(), true,
-				new CryptoPP::Gzip(
-					new CryptoPP::StringSink(compressedString), CryptoPP::Gzip::MAX_DEFLATE_LEVEL));
+				new CryptoPP::ZlibCompressor(
+					new CryptoPP::StringSink(compressedString), CryptoPP::ZlibCompressor::MAX_DEFLATE_LEVEL));
 
-		// Convert the compressed string to std::vector<std::byte>
-		std::vector<std::byte> compressedData(compressedString.size());
-		std::transform(compressedString.begin(), compressedString.end(), compressedData.begin(),
-			[](char c) { return static_cast<std::byte>(c); });
+			// Convert the compressed string to std::vector<std::byte>
+			std::vector<std::byte> compressedData(compressedString.size());
+			std::transform(compressedString.begin(), compressedString.end(), compressedData.begin(),
+				[](char c) { return static_cast<std::byte>(c); });
 
-		// Create Buffer and write data
-		StormByte::Buffer::FIFO buffer;
-		(void)buffer.Write(compressedData);
-		return buffer;
+			// Create Buffer and write data
+			StormByte::Buffer::FIFO buffer;
+			(void)buffer.Write(compressedData);
+			return buffer;
 		}
 		catch (const CryptoPP::Exception& e) {
 			return StormByte::Unexpected<StormByte::Crypto::Exception>(e.what());
@@ -41,20 +41,20 @@ namespace {
 		try {
 			std::string decompressedString;
 
-			// Use Crypto++'s Gunzip for decompression
+			// Use Crypto++'s Zlib for decompression (Inflate)
 			CryptoPP::StringSource ss(
 				reinterpret_cast<const uint8_t*>(compressedData.data()), compressedData.size_bytes(), true,
-				new CryptoPP::Gunzip(new CryptoPP::StringSink(decompressedString)));
+				new CryptoPP::ZlibDecompressor(new CryptoPP::StringSink(decompressedString)));
 
-		// Convert the decompressed string to std::vector<std::byte>
-		std::vector<std::byte> decompressedData(decompressedString.size());
-		std::transform(decompressedString.begin(), decompressedString.end(), decompressedData.begin(),
-			[](char c) { return static_cast<std::byte>(c); });
+			// Convert the decompressed string to std::vector<std::byte>
+			std::vector<std::byte> decompressedData(decompressedString.size());
+			std::transform(decompressedString.begin(), decompressedString.end(), decompressedData.begin(),
+				[](char c) { return static_cast<std::byte>(c); });
 
-		// Create Buffer and write data
-		StormByte::Buffer::FIFO buffer;
-		(void)buffer.Write(decompressedData);
-		return buffer;
+			// Create Buffer and write data
+			StormByte::Buffer::FIFO buffer;
+			(void)buffer.Write(decompressedData);
+			return buffer;
 		}
 		catch (const CryptoPP::Exception& e) {
 			return StormByte::Unexpected<StormByte::Crypto::Exception>(e.what());
@@ -63,13 +63,12 @@ namespace {
 }
 
 // Public Compress Methods
-ExpectedCompressorBuffer Gzip::Compress(const std::string& input) noexcept {
+ExpectedCompressorBuffer Zlib::Compress(const std::string& input) noexcept {
 	std::span<const std::byte> dataSpan(reinterpret_cast<const std::byte*>(input.data()), input.size());
 	return CompressHelper(dataSpan);
 }
 
-ExpectedCompressorBuffer Gzip::Compress(const StormByte::Buffer::FIFO& input) noexcept {
-	// Extract all data from FIFO to a span
+ExpectedCompressorBuffer Zlib::Compress(const StormByte::Buffer::FIFO& input) noexcept {
 	auto data = const_cast<StormByte::Buffer::FIFO&>(input).Extract(0);
 	if (!data.has_value()) {
 		return StormByte::Unexpected<StormByte::Crypto::Exception>("Failed to extract data from input buffer");
@@ -78,38 +77,26 @@ ExpectedCompressorBuffer Gzip::Compress(const StormByte::Buffer::FIFO& input) no
 	return CompressHelper(dataSpan);
 }
 
-StormByte::Buffer::Consumer Gzip::Compress(Buffer::Consumer consumer) noexcept {
-	// Create a producer buffer to store the compressed data
+StormByte::Buffer::Consumer Zlib::Compress(Buffer::Consumer consumer) noexcept {
 	SharedProducerBuffer producer = std::make_shared<StormByte::Buffer::Producer>();
 
-	// Launch a detached thread to handle compression
 	std::thread([consumer, producer]() mutable {
 		try {
-			constexpr size_t chunkSize = 4096; // Define the chunk size for reading from the consumer
+			constexpr size_t chunkSize = 4096;
 			std::string compressedString;
-			CryptoPP::Gzip compressor(new CryptoPP::StringSink(compressedString), CryptoPP::Gzip::MAX_DEFLATE_LEVEL);
+			CryptoPP::ZlibCompressor compressor(new CryptoPP::StringSink(compressedString), CryptoPP::ZlibCompressor::MAX_DEFLATE_LEVEL);
 
 			while (!consumer.EoF()) {
-				// Check how many bytes are available in the consumer
 				size_t availableBytes = consumer.AvailableBytes();
-
 				if (availableBytes == 0) {
-					if (!consumer.IsWritable()) {
-						break; // No more data will arrive
-					}
-					// Wait for more data to become available
+					if (!consumer.IsWritable()) break;
 					std::this_thread::yield();
 					continue;
 				}
 
-				// Read the available bytes (up to chunkSize)
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				// Use Span for zero-copy read
-			auto spanResult = consumer.Span(bytesToRead);
-				if (!spanResult.has_value()) {
-					producer->Close();
-					return;
-				}
+				auto spanResult = consumer.Span(bytesToRead);
+				if (!spanResult.has_value()) { producer->Close(); return; }
 
 				const auto& inputSpan = spanResult.value();
 				if (inputSpan.empty()) continue;
@@ -129,24 +116,22 @@ StormByte::Buffer::Consumer Gzip::Compress(Buffer::Consumer consumer) noexcept {
 				std::transform(compressedString.begin(), compressedString.end(), byteData.begin(), [](char c) { return static_cast<std::byte>(c); });
 				(void)producer->Write(byteData);
 			}
-			producer->Close(); // Mark compression complete
+			producer->Close();
 		} catch (...) {
 			producer->Close();
 		}
 	}).detach();
 
-	// Return a consumer buffer for the producer
 	return producer->Consumer();
 }
 
 // Public Decompress Methods
-ExpectedCompressorBuffer Gzip::Decompress(const std::string& input) noexcept {
+ExpectedCompressorBuffer Zlib::Decompress(const std::string& input) noexcept {
 	std::span<const std::byte> dataSpan(reinterpret_cast<const std::byte*>(input.data()), input.size());
 	return DecompressHelper(dataSpan);
 }
 
-ExpectedCompressorBuffer Gzip::Decompress(const StormByte::Buffer::FIFO& input) noexcept {
-	// Extract all data from FIFO to a span
+ExpectedCompressorBuffer Zlib::Decompress(const StormByte::Buffer::FIFO& input) noexcept {
 	auto data = const_cast<StormByte::Buffer::FIFO&>(input).Extract(0);
 	if (!data.has_value()) {
 		return StormByte::Unexpected<StormByte::Crypto::Exception>("Failed to extract data from input buffer");
@@ -155,38 +140,26 @@ ExpectedCompressorBuffer Gzip::Decompress(const StormByte::Buffer::FIFO& input) 
 	return DecompressHelper(dataSpan);
 }
 
-StormByte::Buffer::Consumer Gzip::Decompress(Buffer::Consumer consumer) noexcept {
-	// Create a producer buffer to store the decompressed data
+StormByte::Buffer::Consumer Zlib::Decompress(Buffer::Consumer consumer) noexcept {
 	SharedProducerBuffer producer = std::make_shared<StormByte::Buffer::Producer>();
 
-	// Launch a detached thread to handle decompression
 	std::thread([consumer, producer]() mutable {
 		try {
-			constexpr size_t chunkSize = 4096; // Define the chunk size for reading from the consumer
+			constexpr size_t chunkSize = 4096;
 			std::string decompressedString;
-			CryptoPP::Gunzip decompressor(new CryptoPP::StringSink(decompressedString));
+			CryptoPP::ZlibDecompressor decompressor(new CryptoPP::StringSink(decompressedString));
 
 			while (!consumer.EoF()) {
-				// Check how many bytes are available in the consumer
 				size_t availableBytes = consumer.AvailableBytes();
-
 				if (availableBytes == 0) {
-					if (!consumer.IsWritable()) {
-						break; // No more data will arrive
-					}
-					// Wait for more data to become available
+					if (!consumer.IsWritable()) break;
 					std::this_thread::yield();
 					continue;
 				}
 
-				// Read the available bytes (up to chunkSize)
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				// Use Span for zero-copy read
-			auto spanResult = consumer.Span(bytesToRead);
-				if (!spanResult.has_value()) {
-					producer->Close();
-					return;
-				}
+				auto spanResult = consumer.Span(bytesToRead);
+				if (!spanResult.has_value()) { producer->Close(); return; }
 
 				const auto& compressedSpan = spanResult.value();
 				if (compressedSpan.empty()) continue;
@@ -206,12 +179,11 @@ StormByte::Buffer::Consumer Gzip::Decompress(Buffer::Consumer consumer) noexcept
 				std::transform(decompressedString.begin(), decompressedString.end(), byteData.begin(), [](char c) { return static_cast<std::byte>(c); });
 				(void)producer->Write(byteData);
 			}
-			producer->Close(); // Mark decompression complete
+			producer->Close();
 		} catch (...) {
 			producer->Close();
 		}
 	}).detach();
 
-	// Return a consumer buffer for the producer
 	return producer->Consumer();
 }

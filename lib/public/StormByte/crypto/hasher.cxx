@@ -4,6 +4,7 @@
 #include <StormByte/crypto/implementation/hash/blake2s.hxx>
 #include <StormByte/crypto/implementation/hash/sha256.hxx>
 #include <StormByte/crypto/implementation/hash/sha512.hxx>
+#include <StormByte/crypto/implementation/hash/sha3.hxx>
 
 using namespace StormByte::Crypto;
 
@@ -20,6 +21,10 @@ StormByte::Expected<std::string, Exception> Hasher::Hash(const std::string& inpu
 			return Implementation::Hash::SHA256::Hash(input);
 		case Algorithm::Hash::SHA512:
 			return Implementation::Hash::SHA512::Hash(input);
+		case Algorithm::Hash::SHA3_256:
+			return Implementation::Hash::SHA3_256::Hash(input);
+		case Algorithm::Hash::SHA3_512:
+			return Implementation::Hash::SHA3_512::Hash(input);
 		default:
 			return input;
 	}
@@ -35,6 +40,10 @@ StormByte::Expected<std::string, Exception> Hasher::Hash(const Buffer::FIFO& buf
 			return Implementation::Hash::SHA256::Hash(buffer);
 		case Algorithm::Hash::SHA512:
 			return Implementation::Hash::SHA512::Hash(buffer);
+		case Algorithm::Hash::SHA3_256:
+			return Implementation::Hash::SHA3_256::Hash(buffer);
+		case Algorithm::Hash::SHA3_512:
+			return Implementation::Hash::SHA3_512::Hash(buffer);
 		default: {
 			auto data = const_cast<Buffer::FIFO&>(buffer).Extract(0);
 			if (!data.has_value()) {
@@ -55,6 +64,10 @@ StormByte::Buffer::Consumer Hasher::Hash(const Buffer::Consumer consumer) const 
 			return Implementation::Hash::SHA256::Hash(consumer);
 		case Algorithm::Hash::SHA512:
 			return Implementation::Hash::SHA512::Hash(consumer);
+		case Algorithm::Hash::SHA3_256:
+			return Implementation::Hash::SHA3_256::Hash(consumer);
+		case Algorithm::Hash::SHA3_512:
+			return Implementation::Hash::SHA3_512::Hash(consumer);
 		default:
 			return consumer;
 	}

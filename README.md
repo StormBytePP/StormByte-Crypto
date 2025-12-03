@@ -39,364 +39,256 @@ The `Crypto` module provides a wide range of cryptographic utilities, including 
 
 ## Examples
 
-### Hashing
+### Overview
 
-#### SHA-256 Example
-```cpp
-#include <StormByte/crypto/hasher.hxx>
-#include <iostream>
+The examples below show concise, copy-pastable usage patterns for every algorithm family defined in
+`lib/public/StormByte/crypto/algorithm.hxx`. They follow the same high-level patterns used by the
+unit tests in `test/`:
 
-using namespace StormByte::Crypto;
+- Convenience APIs: accept/return `std::string` or `StormByte::Buffer::FIFO` for whole-message flows.
+- Streaming APIs: accept a `StormByte::Buffer::Consumer` and return a `StormByte::Buffer::Consumer` for output.
+- KeyPair-based APIs: generate a `KeyPair` and use it with `Asymmetric`, `Signer` or `Secret` helpers.
 
-int main() {
-    const std::string input_data = "HashThisString";
-
-    // Create a SHA-256 hasher
-    Hasher sha256(Algorithm::Hash::SHA256);
-
-    // Compute the hash
-    auto hash_result = sha256.Hash(input_data);
-    if (hash_result.has_value()) {
-        std::cout << "SHA-256 Hash: " << hash_result.value() << std::endl;
-    } else {
-        std::cerr << "Hashing failed!" << std::endl;
-    }
-
-    return 0;
-}
-```
-
-#### SHA-512 Example
-```cpp
-#include <StormByte/crypto/hasher.hxx>
-#include <iostream>
-
-using namespace StormByte::Crypto;
-
-int main() {
-    const std::string input_data = "HashThisString";
-
-    // Create a SHA-512 hasher
-    Hasher sha512(Algorithm::Hash::SHA512);
-
-    // Compute the hash
-    auto hash_result = sha512.Hash(input_data);
-    if (hash_result.has_value()) {
-        std::cout << "SHA-512 Hash: " << hash_result.value() << std::endl;
-    } else {
-        std::cerr << "Hashing failed!" << std::endl;
-    }
-
-    return 0;
-}
-```
-
-#### Blake2s Example
-```cpp
-#include <StormByte/crypto/hasher.hxx>
-#include <iostream>
-
-using namespace StormByte::Crypto;
-
-int main() {
-    const std::string input_data = "HashThisString";
-
-    // Create a Blake2s hasher
-    Hasher blake2s(Algorithm::Hash::Blake2s);
-
-    // Compute the hash
-    auto hash_result = blake2s.Hash(input_data);
-    if (hash_result.has_value()) {
-        std::cout << "Blake2s Hash: " << hash_result.value() << std::endl;
-    } else {
-        std::cerr << "Hashing failed!" << std::endl;
-    }
-
-    return 0;
-}
-```
-
----
-
-### Encryption
-
-#### AES Example
-```cpp
-#include <StormByte/crypto/symmetric.hxx>
-#include <iostream>
-
-using namespace StormByte::Crypto;
-
-int main() {
-    const std::string password = "SecurePassword123!";
-    const std::string original_data = "Confidential information.";
-
-    // Create an AES instance
-    Symmetric aes(Algorithm::Symmetric::AES, password);
-
-    // Encrypt the data
-    auto encrypt_result = aes.Encrypt(original_data);
-    if (encrypt_result.has_value()) {
-        auto encrypted_buffer = encrypt_result.value();
-        std::cout << "Data encrypted successfully!" << std::endl;
-
-        // Decrypt the data
-        auto decrypt_result = aes.Decrypt(encrypted_buffer);
-        if (decrypt_result.has_value()) {
-            std::string decrypted_data(reinterpret_cast<const char*>(decrypt_result.value().Data().data()), decrypt_result.value().Size());
-            std::cout << "Decrypted Data: " << decrypted_data << std::endl;
-        } else {
-            std::cerr << "Decryption failed!" << std::endl;
-        }
-    } else {
-        std::cerr << "Encryption failed!" << std::endl;
-    }
-
-    return 0;
-}
-```
-
-#### RSA Example
-```cpp
-#include <StormByte/crypto/asymetric.hxx>
-#include <iostream>
-
-using namespace StormByte::Crypto;
-
-int main() {
-    const std::string message = "This is a test message.";
-    const int key_strength = 2048;
-
-    // Generate RSA key pair
-    auto keypair_result = KeyPair::Generate(Algorithm::Asymmetric::RSA, key_strength);
-    if (keypair_result.has_value()) {
-        Asymmetric rsa(Algorithm::Asymmetric::RSA, keypair_result.value());
-
-        // Encrypt the message
-        auto encrypt_result = rsa.Encrypt(message);
-        if (encrypt_result.has_value()) {
-            auto encrypted_buffer = encrypt_result.value();
-            std::cout << "Message encrypted successfully!" << std::endl;
-
-            // Decrypt the message
-            auto decrypt_result = rsa.Decrypt(encrypted_buffer);
-            if (decrypt_result.has_value()) {
-                std::string decrypted_message(reinterpret_cast<const char*>(decrypt_result.value().Data().data()), decrypt_result.value().Size());
-                std::cout << "Decrypted Message: " << decrypted_message << std::endl;
-            } else {
-                std::cerr << "Decryption failed!" << std::endl;
-            }
-        } else {
-            std::cerr << "Encryption failed!" << std::endl;
-        }
-    } else {
-        std::cerr << "Key generation failed!" << std::endl;
-    }
-
-    return 0;
-}
-```
-
----
-
-### Signing
-
-#### DSA Example
-```cpp
-#include <StormByte/crypto/encryption/dsa.hxx>
-#include <iostream>
-
-using namespace StormByte::Crypto::Encryption::DSA;
-
-int main() {
-    const std::string message = "This is a test message.";
-    const int key_strength = 2048;
-
-    // Generate DSA key pair
-    auto keypair_result = KeyPair::Generate(Algorithm::Sign::DSA, key_Strength);
-    if (keypair_result.has_value()) {
-        Signer dsa(keypair_result.value());
-
-        // Sign the message
-        auto sign_result = dsa.Sign(message);
-        if (sign_result.has_value()) {
-            std::string signature = sign_result.value();
-            std::cout << "Message signed successfully!" << std::endl;
-
-            // Verify the signature
-            if (dsa.Verify(message, signature)) {
-                std::cout << "Signature verified successfully!" << std::endl;
-            } else {
-                std::cerr << "Signature verification failed!" << std::endl;
-            }
-        } else {
-            std::cerr << "Signing failed!" << std::endl;
-        }
-    } else {
-        std::cerr << "Key generation failed!" << std::endl;
-    }
-
-    return 0;
-}
-```
-
-#### ECDSA Example
-```cpp
-#include <StormByte/crypto/signer.hxx>
-#include <iostream>
-
-using namespace StormByte::Crypto;
-
-int main() {
-    const std::string message = "This is a test message.";
-    const std::string curve_name = "secp256r1";
-
-    // Generate an ECDSA key pair
-    auto keypair_result = KeyPair::Generate(Algorithm::Sign::ECDSA, curve_name);
-    if (keypair_result.has_value()) {
-        Signer ecdsa(Algorithm::Sign::ECDSA, keypair_result.value());
-
-        // Sign the message
-        auto sign_result = ecdsa.Sign(message);
-        if (sign_result.has_value()) {
-            std::string signature = sign_result.value();
-            std::cout << "Message signed successfully!" << std::endl;
-
-            // Verify the signature
-            if (ecdsa.Verify(message, signature)) {
-                std::cout << "Signature verified successfully!" << std::endl;
-            } else {
-                std::cerr << "Signature verification failed!" << std::endl;
-            }
-        } else {
-            std::cerr << "Signing failed!" << std::endl;
-        }
-    } else {
-        std::cerr << "Key generation failed!" << std::endl;
-    }
-
-    return 0;
-}
-```
-
----
+Code snippets below are intentionally short; see `test/` for full, real-world examples.
 
 ### Compression
 
-#### Gzip Example
+All compressors support convenience string/buffer APIs and streaming (Producer/Consumer) APIs.
+
+- `Algorithm::Compress::Gzip` (Crypto++ Gzip)
+
 ```cpp
-#include <StormByte/crypto/compressor.hxx>
-#include <iostream>
+// compress a string
+StormByte::Crypto::Compressor c(StormByte::Crypto::Algorithm::Compress::Gzip);
+auto out = c.Compress(std::string("hello world"));
 
-using namespace StormByte::Crypto;
-
-int main() {
-    const std::string input_data = "Data to compress and decompress.";
-
-    // Create a Gzip compressor
-    Compressor gzip(Algorithm::Compress::Gzip);
-
-    // Compress the data
-    auto compress_result = gzip.Compress(input_data);
-    if (compress_result.has_value()) {
-        auto compressed_buffer = compress_result.value();
-        std::cout << "Data compressed successfully!" << std::endl;
-
-        // Decompress the data
-        auto decompress_result = gzip.Decompress(compressed_buffer);
-        if (decompress_result.has_value()) {
-            std::string decompressed_data(reinterpret_cast<const char*>(decompress_result.value().Data().data()), decompress_result.value().Size());
-            std::cout << "Decompressed Data: " << decompressed_data << std::endl;
-        } else {
-            std::cerr << "Decompression failed!" << std::endl;
-        }
-    } else {
-        std::cerr << "Compression failed!" << std::endl;
-    }
-
-    return 0;
-}
+// streaming: push input into a Producer and read compressed data from returned Consumer
+StormByte::Buffer::FIFO fifo;
+auto inputProducer = fifo.Producer();
+auto compressedConsumer = c.Compress(fifo.Consumer());
+inputProducer.Put("hello"); inputProducer.MessageEnd();
+auto compressed = ReadAllFromConsumer(compressedConsumer);
 ```
 
-#### BZip2 Example
+- `Algorithm::Compress::Zlib` (Crypto++ ZlibCompressor/ZlibDecompressor)
+
 ```cpp
-#include <StormByte/crypto/compressor/bzip2.hxx>
-#include <iostream>
+StormByte::Crypto::Compressor z(StormByte::Crypto::Algorithm::Compress::Zlib);
+auto compressed = z.Compress(std::string("some large payload"));
 
-using namespace StormByte::Crypto::Compressor::BZip2;
-
-int main() {
-    const std::string input_data = "Data to compress and decompress.";
-
-    // Compress the data
-    auto compress_result = Compress(input_data);
-    if (compress_result.has_value()) {
-        auto compressed_buffer = compress_result.value().get();
-        std::cout << "Data compressed successfully!" << std::endl;
-
-        // Decompress the data
-        auto decompress_result = Decompress(compressed_buffer, input_data.size());
-        if (decompress_result.has_value()) {
-            auto decompressed_buffer = decompress_result.value().get();
-            std::string decompressed_data(reinterpret_cast<const char*>(decompressed_buffer.Data().data()), decompressed_buffer.Size());
-            std::cout << "Decompressed Data: " << decompressed_data << std::endl;
-        } else {
-            std::cerr << "Decompression failed!" << std::endl;
-        }
-    } else {
-        std::cerr << "Compression failed!" << std::endl;
-    }
-
-    return 0;
-}
+// streaming: identical pattern as Gzip
 ```
 
----
+- `Algorithm::Compress::Bzip2` (system `bzlib` / `libbzip2`)
 
-### Key Exchange
-
-#### ECDH Example
 ```cpp
-#include <StormByte/crypto/secret.hxx>
-#include <iostream>
+StormByte::Crypto::Compressor b(StormByte::Crypto::Algorithm::Compress::Bzip2);
+auto compressed = b.Compress(std::string("data"));
 
-using namespace StormByte::Crypto;
-
-int main() {
-    const std::string curve_name = "secp256r1";
-
-    // Generate key pairs for server and client
-    auto server_keypair = KeyPair::Generate(Algorithm::SecretShare::ECDH, curve_name);
-    auto client_keypair = KeyPair::Generate(Algorithm::SecretShare::ECDH, curve_name);
-
-    if (server_keypair.has_value() && client_keypair.has_value()) {
-        Secret server_secret(Algorithm::SecretShare::ECDH, server_keypair.value());
-        Secret client_secret(Algorithm::SecretShare::ECDH, client_keypair.value());
-
-        // Exchange public keys
-        server_secret.PeerPublicKey(client_keypair->PublicKey());
-        client_secret.PeerPublicKey(server_keypair->PublicKey());
-
-        // Derive shared secrets
-        auto server_shared_secret = server_secret.Content();
-        auto client_shared_secret = client_secret.Content();
-
-        if (server_shared_secret.has_value() && client_shared_secret.has_value()) {
-            std::cout << "Shared secret derived successfully!" << std::endl;
-            std::cout << "Server Shared Secret: " << server_shared_secret.value() << std::endl;
-            std::cout << "Client Shared Secret: " << client_shared_secret.value() << std::endl;
-        } else {
-            std::cerr << "Failed to derive shared secret!" << std::endl;
-        }
-    } else {
-        std::cerr << "Key pair generation failed!" << std::endl;
-    }
-
-    return 0;
-}
+// streaming uses bzlib under the hood; consumer helpers in tests show correct usage
 ```
 
----
+### Symmetric
+
+Symmetric ciphers expose `Encrypt` / `Decrypt` convenience and streaming helpers. The constructor accepts
+an `Algorithm::Symmetric` value and a password/key string (or derivation params according to your build).
+
+- AES (CBC)
+
+```cpp
+StormByte::Crypto::Symmetric s(StormByte::Crypto::Algorithm::Symmetric::AES, "password-or-key");
+auto enc = s.Encrypt("plaintext");
+auto dec = s.Decrypt(*enc);
+```
+
+- AES-GCM (authenticated)
+
+```cpp
+StormByte::Crypto::Symmetric g(StormByte::Crypto::Algorithm::Symmetric::AES_GCM, "key32bytes...");
+auto cipher = g.Encrypt("message");
+// Verify/Decrypt will return std::nullopt on auth failure
+auto plain = g.Decrypt(*cipher);
+```
+
+- Camellia, ChaCha20, Serpent, Twofish
+
+```cpp
+StormByte::Crypto::Symmetric cam(StormByte::Crypto::Algorithm::Symmetric::Camellia, "key");
+auto ctext = cam.Encrypt("data");
+auto ptext = cam.Decrypt(*ctext);
+
+StormByte::Crypto::Symmetric chacha(StormByte::Crypto::Algorithm::Symmetric::ChaCha20, "key");
+// same Encrypt/Decrypt pattern for Serpent and Twofish
+```
+
+Streaming encryption mirrors compressors: pass a `Buffer::Consumer` to `Encrypt` and read from the returned consumer.
+
+### Asymmetric
+
+Asymmetric usage revolves around `KeyPair` generation and using `Asymmetric` to Encrypt/Decrypt.
+
+- `Algorithm::Asymmetric::RSA`
+
+```cpp
+auto kp = StormByte::Crypto::KeyPair::Generate(StormByte::Crypto::Algorithm::Asymmetric::RSA, /*params*/{});
+StormByte::Crypto::Asymmetric rsa(StormByte::Crypto::Algorithm::Asymmetric::RSA, kp);
+auto c = rsa.Encrypt("hello");
+auto p = rsa.Decrypt(*c);
+```
+
+- `Algorithm::Asymmetric::ECC` (EC-based encryption / key exchange patterns used with `Secret`)
+
+```cpp
+auto kp1 = StormByte::Crypto::KeyPair::Generate(StormByte::Crypto::Algorithm::Asymmetric::ECC, /*curve params*/{});
+auto kp2 = StormByte::Crypto::KeyPair::Generate(StormByte::Crypto::Algorithm::Asymmetric::ECC, /*curve params*/{});
+// For EC-based key agreement use `Secret` / ECDH APIs instead of Encrypt/Decrypt for symmetric key derivation
+```
+
+### Hash
+
+Hasher is simple: construct with an `Algorithm::Hash` value and call `Hash`.
+
+- Blake2b / Blake2s
+
+```cpp
+StormByte::Crypto::Hasher h1(StormByte::Crypto::Algorithm::Hash::Blake2b);
+auto digest = h1.Hash("payload"); // hex string
+
+StormByte::Crypto::Hasher h2(StormByte::Crypto::Algorithm::Hash::Blake2s);
+```
+
+- SHA256 / SHA512
+
+```cpp
+StormByte::Crypto::Hasher s256(StormByte::Crypto::Algorithm::Hash::SHA256);
+auto d = s256.Hash("data");
+```
+
+- SHA3-256 / SHA3-512
+
+```cpp
+StormByte::Crypto::Hasher sha3(StormByte::Crypto::Algorithm::Hash::SHA3_256);
+auto dd = sha3.Hash("abc");
+```
+
+### Sign
+
+Signing helpers use `KeyPair` and `Signer` to create and verify signatures.
+
+- DSA / ECDSA / RSA
+
+```cpp
+auto kp = StormByte::Crypto::KeyPair::Generate(StormByte::Crypto::Algorithm::Asymmetric::ECC);
+StormByte::Crypto::Signer signer(StormByte::Crypto::Algorithm::Sign::ECDSA, kp);
+auto sig = signer.Sign("message");
+bool ok = signer.Verify("message", *sig);
+```
+
+- Ed25519
+
+```cpp
+auto kp = StormByte::Crypto::KeyPair::Generate(StormByte::Crypto::Algorithm::Asymmetric::ECC /*or helper for Ed25519*/);
+StormByte::Crypto::Signer ed(StormByte::Crypto::Algorithm::Sign::Ed25519, kp);
+auto sig = ed.Sign("msg");
+ed.Verify("msg", *sig);
+```
+
+### Secret Share (Key agreement)
+
+Use `StormByte::Crypto::Secret` to derive a shared secret from two `KeyPair`s. Examples mirror the unit tests.
+
+- ECDH
+
+```cpp
+auto a = StormByte::Crypto::KeyPair::Generate(StormByte::Crypto::Algorithm::Asymmetric::ECC);
+auto b = StormByte::Crypto::KeyPair::Generate(StormByte::Crypto::Algorithm::Asymmetric::ECC);
+StormByte::Crypto::Secret sa(StormByte::Crypto::Algorithm::SecretShare::ECDH, a);
+sa.SetPeerPublicKey(b.PublicKey());
+auto sharedA = sa.Content();
+// symmetric key derived by both sides should match
+```
+
+- X25519
+
+```cpp
+auto a = StormByte::Crypto::KeyPair::Generate(StormByte::Crypto::Algorithm::Asymmetric::ECC /*or X25519 helper*/);
+auto b = StormByte::Crypto::KeyPair::Generate(StormByte::Crypto::Algorithm::Asymmetric::ECC /*or X25519 helper*/);
+StormByte::Crypto::Secret sA(StormByte::Crypto::Algorithm::SecretShare::X25519, a);
+sA.SetPeerPublicKey(b.PublicKey());
+auto key = sA.Content();
+```
+
+For streaming examples, inspect `test/compressors/*_test.cxx`, `test/aes_test.cxx`, `test/ecdsa_test.cxx`, and friends — they demonstrate both convenience and streaming workflows used above.
+
+
+## Public API (high-level)
+
+This is a concise listing of the main public classes and their typical usage patterns. See the `test/` directory for detailed examples and expected behaviors.
+
+- `StormByte::Crypto::Algorithm` enums
+  The library exposes a small set of enums (see `lib/public/StormByte/crypto/algorithm.hxx`) used across the public API. Current values include:
+
+  - `Algorithm::Asymmetric`:
+    - `ECC` — elliptic-curve public-key algorithms
+    - `RSA` — RSA public-key algorithm
+
+  - `Algorithm::Symmetric`:
+    - `None`
+    - `AES` (CBC)
+    - `AES_GCM` (authenticated AES-GCM)
+    - `Camellia`
+    - `ChaCha20`
+    - `Serpent`
+    - `Twofish`
+
+  - `Algorithm::Compress`:
+    - `None`
+    - `Bzip2` (uses system `bzlib` / `libbzip2`)
+    - `Gzip` (Crypto++ `Gzip` filter)
+    - `Zlib` (Crypto++ `ZlibCompressor` / `ZlibDecompressor`)
+
+  - `Algorithm::Hash`:
+    - `Blake2b`, `Blake2s`
+    - `SHA256`, `SHA512`
+    - `SHA3_256`, `SHA3_512`
+
+  - `Algorithm::Sign`:
+    - `DSA`, `ECDSA`, `RSA`, `Ed25519`
+
+  - `Algorithm::SecretShare`:
+    - `ECDH`, `X25519`
+
+  See the public header `lib/public/StormByte/crypto/algorithm.hxx` for the authoritative list.
+
+- `StormByte::Crypto::Hasher`
+  - Constructor: `Hasher(Algorithm::Hash algorithm)`
+  - `std::optional<std::string> Hash(const std::string &data)` — returns hex encoded digest on success.
+
+- `StormByte::Crypto::Compressor`
+  - Constructor: `Compressor(Algorithm::Compress algorithm)`
+  - `std::optional<std::string> Compress(const std::string &)`
+  - `std::optional<StormByte::Buffer::FIFO> Compress(const StormByte::Buffer::FIFO &)`
+  - `StormByte::Buffer::Consumer Compress(StormByte::Buffer::Consumer)` — streaming compressor that returns a consumer for compressed data.
+  - `Decompress` variants mirror `Compress`.
+
+- `StormByte::Crypto::Symmetric`
+  - Constructor: `Symmetric(Algorithm::Symmetric, const std::string &password_or_key)`
+  - `Encrypt/Decrypt` methods returning optional buffers; see tests for exact types.
+
+- `StormByte::Crypto::Asymmetric` and `StormByte::Crypto::KeyPair`
+  - `KeyPair::Generate(Algorithm::Asymmetric, params)` — generate a key pair for RSA/EC.
+  - `Asymmetric` constructor accepts an algorithm and a `KeyPair` and provides `Encrypt/Decrypt`.
+
+- `StormByte::Crypto::Signer`
+  - Construct with algorithm+keypair or just a `KeyPair`; provides `Sign` and `Verify` methods.
+
+- `StormByte::Crypto::Secret` (key agreement helpers)
+  - Used for ECDH/X25519 workflows: set peer public key and call `Content()` to derive shared secret.
+
+Test locations and usage notes
+- The test suite is the most complete usage reference — see the `test/` folder at the repository root. Tests are grouped by functionality (compressors, hashers, encryptors, signers, etc.) and demonstrate both convenience and streaming APIs.
+- Compression streaming: prefer `Compressor::Compress(Buffer::Consumer)` / `Decompress(Buffer::Consumer)` and read output with the consumer helpers (see `test/helpers.hxx`).
+- Bzip2: because Crypto++ does not provide Bzip2 filters, the project uses the system `bzlib` API for Bzip2 streaming and the `Bzip2` implementation will require `libbzip2` on the target platform.
 
 ## Contributing
 

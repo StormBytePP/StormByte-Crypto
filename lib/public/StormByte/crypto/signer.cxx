@@ -2,6 +2,7 @@
 #include <StormByte/crypto/implementation/encryption/dsa.hxx>
 #include <StormByte/crypto/implementation/encryption/ecdsa.hxx>
 #include <StormByte/crypto/implementation/encryption/rsa.hxx>
+#include <StormByte/crypto/implementation/encryption/ed25519.hxx>
 
 using namespace StormByte::Crypto;
 
@@ -25,6 +26,9 @@ StormByte::Expected<std::string, Exception> Signer::Sign(const std::string& inpu
 			break;
 		case Algorithm::Sign::RSA:
 			outstr = Implementation::Encryption::RSA::Sign(input, m_keys.PrivateKey().value());
+			break;
+		case Algorithm::Sign::Ed25519:
+			outstr = Implementation::Encryption::Ed25519::Sign(input, m_keys.PrivateKey().value());
 			break;
 		default:
 			return StormByte::Unexpected<Exception>("Invalid algorithm for signing.");
@@ -51,6 +55,9 @@ StormByte::Expected<std::string, Exception> Signer::Sign(const Buffer::FIFO& buf
 			break;
 		case Algorithm::Sign::RSA:
 			outbuff = Implementation::Encryption::RSA::Sign(buffer, m_keys.PrivateKey().value());
+			break;
+		case Algorithm::Sign::Ed25519:
+			outbuff = Implementation::Encryption::Ed25519::Sign(buffer, m_keys.PrivateKey().value());
 			break;
 		default:
 			return StormByte::Unexpected<Exception>("Invalid algorithm for signing.");
@@ -81,6 +88,8 @@ StormByte::Buffer::Consumer Signer::Sign(const Buffer::Consumer consumer) const 
 			return Implementation::Encryption::ECDSA::Sign(consumer, m_keys.PrivateKey().value());
 		case Algorithm::Sign::RSA:
 			return Implementation::Encryption::RSA::Sign(consumer, m_keys.PrivateKey().value());
+		case Algorithm::Sign::Ed25519:
+			return Implementation::Encryption::Ed25519::Sign(consumer, m_keys.PrivateKey().value());
 		default:
 			return consumer;
 	}
@@ -94,6 +103,8 @@ bool Signer::Verify(const std::string& message, const std::string& signature) co
 			return Implementation::Encryption::ECDSA::Verify(message, signature, m_keys.PublicKey());
 		case Algorithm::Sign::RSA:
 			return Implementation::Encryption::RSA::Verify(message, signature, m_keys.PublicKey());
+		case Algorithm::Sign::Ed25519:
+			return Implementation::Encryption::Ed25519::Verify(message, signature, m_keys.PublicKey());
 		default:
 			return false;
 	}

@@ -1,6 +1,7 @@
 #include <StormByte/crypto/compressor.hxx>
 #include <StormByte/crypto/implementation/compressor/bzip2.hxx>
 #include <StormByte/crypto/implementation/compressor/gzip.hxx>
+#include <StormByte/crypto/implementation/compressor/zlib.hxx>
 
 using namespace StormByte::Crypto;
 
@@ -15,6 +16,9 @@ StormByte::Expected<std::string, Exception> Compressor::Compress(const std::stri
 			break;
 		case Algorithm::Compress::Gzip:
 			outbuff = Implementation::Compressor::Gzip::Compress(input);
+			break;
+		case Algorithm::Compress::Zlib:
+			outbuff = Implementation::Compressor::Zlib::Compress(input);
 			break;
 		default:
 			return input;
@@ -41,6 +45,9 @@ StormByte::Expected<StormByte::Buffer::FIFO, StormByte::Crypto::Exception> Compr
 		case Algorithm::Compress::Gzip:
 			outbuff = Implementation::Compressor::Gzip::Compress(buffer);
 			break;
+		case Algorithm::Compress::Zlib:
+			outbuff = Implementation::Compressor::Zlib::Compress(buffer);
+			break;
 		default:
 			return buffer;
 	}
@@ -58,6 +65,8 @@ StormByte::Buffer::Consumer Compressor::Compress(const Buffer::Consumer consumer
 			return Implementation::Compressor::BZip2::Compress(consumer);
 		case Algorithm::Compress::Gzip:
 			return Implementation::Compressor::Gzip::Compress(consumer);
+		case Algorithm::Compress::Zlib:
+			return Implementation::Compressor::Zlib::Compress(consumer);
 		default:
 			return consumer;
 	}
@@ -71,6 +80,9 @@ StormByte::Expected<std::string, Exception> Compressor::Decompress(const std::st
 			break;
 		case Algorithm::Compress::Gzip:
 			outbuff = Implementation::Compressor::Gzip::Decompress(input);
+			break;
+		case Algorithm::Compress::Zlib:
+			outbuff = Implementation::Compressor::Zlib::Decompress(input);
 			break;
 		default:
 			return input;
@@ -97,6 +109,9 @@ StormByte::Expected<StormByte::Buffer::FIFO, StormByte::Crypto::Exception> Compr
 		case Algorithm::Compress::Gzip:
 			outbuff = Implementation::Compressor::Gzip::Decompress(buffer);
 			break;
+		case Algorithm::Compress::Zlib:
+			outbuff = Implementation::Compressor::Zlib::Decompress(buffer);
+			break;
 		default:
 			return buffer;
 	}
@@ -114,6 +129,8 @@ StormByte::Buffer::Consumer Compressor::Decompress(const Buffer::Consumer consum
 			return Implementation::Compressor::BZip2::Decompress(consumer);
 		case Algorithm::Compress::Gzip:
 			return Implementation::Compressor::Gzip::Decompress(consumer);
+		case Algorithm::Compress::Zlib:
+			return Implementation::Compressor::Zlib::Decompress(consumer);
 		default:
 			return consumer;
 	}
