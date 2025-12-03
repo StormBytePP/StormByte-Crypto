@@ -31,7 +31,7 @@ namespace {
 			[](uint8_t b) { return static_cast<std::byte>(b); });
 		
 		StormByte::Buffer::FIFO buffer;
-		buffer.Write(byteData);
+		(void)buffer.Write(byteData);
 		return buffer;
 		}
 		catch (const std::exception& e) {
@@ -73,7 +73,7 @@ namespace {
 			[](uint8_t b) { return static_cast<std::byte>(b); });
 		
 		StormByte::Buffer::FIFO buffer;
-		buffer.Write(byteData);
+		(void)buffer.Write(byteData);
 		return buffer;
 		} catch (const std::exception& e) {
 			return StormByte::Unexpected<StormByte::Crypto::Exception>(e.what());
@@ -156,7 +156,7 @@ StormByte::Buffer::Consumer BZip2::Compress(Buffer::Consumer consumer) noexcept 
 				std::vector<std::byte> byteData(compressedSize);
 				std::transform(compressedBuffer.begin(), compressedBuffer.end(), byteData.begin(),
 					[](uint8_t b) { return static_cast<std::byte>(b); });
-				producer->Write(byteData);
+				(void)producer->Write(byteData);
 				// Clean periodically (every 16 chunks to balance memory vs performance)
 				if (++chunksProcessed % 16 == 0) {
 					consumer.Clean();
@@ -255,7 +255,7 @@ StormByte::Buffer::Consumer BZip2::Decompress(Buffer::Consumer consumer) noexcep
 				std::vector<std::byte> byteData(decompressedSize);
 				std::transform(decompressedBuffer.begin(), decompressedBuffer.end(), byteData.begin(),
 					[](uint8_t b) { return static_cast<std::byte>(b); });
-				producer->Write(byteData);
+				(void)producer->Write(byteData);
 			}
 			producer->Close(); // Mark decompression complete
 		} catch (...) {

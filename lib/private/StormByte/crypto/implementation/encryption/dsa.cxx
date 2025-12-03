@@ -160,7 +160,7 @@ ExpectedCryptoBuffer DSA::Sign(const Buffer::FIFO& message, const std::string& p
 					[](char c) { return static_cast<std::byte>(c); });
 
 		StormByte::Buffer::FIFO buffer;
-		buffer.Write(signatureBuffer);
+		(void)buffer.Write(signatureBuffer);
 		return buffer;
 	} catch (const std::exception& e) {
 		return StormByte::Unexpected<Exception>("DSA signing failed: " + std::string(e.what()));
@@ -226,7 +226,7 @@ StormByte::Buffer::Consumer DSA::Sign(Buffer::Consumer consumer, const std::stri
 
 				// Write in larger batches to reduce reallocation overhead
 				if (batchBuffer.size() >= chunkSize) {
-					producer->Write(std::move(batchBuffer));
+					(void)producer->Write(std::move(batchBuffer));
 					batchBuffer.clear();
 					batchBuffer.reserve(chunkSize * 2);
 					// Clean consumed data periodically (only when batch is written)
@@ -235,7 +235,7 @@ StormByte::Buffer::Consumer DSA::Sign(Buffer::Consumer consumer, const std::stri
 			}
 			// Write any remaining data
 			if (!batchBuffer.empty()) {
-				producer->Write(std::move(batchBuffer));
+				(void)producer->Write(std::move(batchBuffer));
 			}
 			producer->Close(); // Mark processing complete // Update status (EOF or Error)
 		} catch (...) {

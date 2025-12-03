@@ -127,7 +127,7 @@ ExpectedCryptoBuffer RSA::Encrypt(const Buffer::FIFO& input, const std::string& 
 					[](char c) { return static_cast<std::byte>(c); });
 
 		StormByte::Buffer::FIFO buffer;
-		buffer.Write(encryptedBuffer);
+		(void)buffer.Write(encryptedBuffer);
 		return buffer;
 	} catch (const std::exception& e) {
 		return StormByte::Unexpected<Exception>("RSA encryption failed: " + std::string(e.what()));
@@ -180,7 +180,7 @@ StormByte::Buffer::Consumer RSA::Encrypt(Buffer::Consumer consumer, const std::s
 				for (size_t i = 0; i < encryptedChunk.size(); ++i) {
 					byteData.push_back(static_cast<std::byte>(encryptedChunk[i]));
 				}
-				producer->Write(byteData);
+				(void)producer->Write(byteData);
 			}
 			producer->Close(); // Mark processing complete // Pass the status of the consumer to the producer
 		} catch (...) {
@@ -246,7 +246,7 @@ ExpectedCryptoBuffer RSA::Decrypt(const Buffer::FIFO& encryptedBuffer, const std
 					[](char c) { return static_cast<std::byte>(c); });
 
 		StormByte::Buffer::FIFO buffer;
-		buffer.Write(decryptedBuffer);
+		(void)buffer.Write(decryptedBuffer);
 		return buffer;
 	} catch (const std::exception& e) {
 		return StormByte::Unexpected<Exception>("RSA decryption failed: " + std::string(e.what()));
@@ -305,7 +305,7 @@ StormByte::Buffer::Consumer RSA::Decrypt(Buffer::Consumer consumer, const std::s
 
 			// Write in larger batches to reduce reallocation overhead
 			if (batchBuffer.size() >= chunkSize) {
-				producer->Write(std::move(batchBuffer));
+				(void)producer->Write(std::move(batchBuffer));
 				batchBuffer.clear();
 				batchBuffer.reserve(chunkSize * 2);
 				// Clean consumed data periodically (only when batch is written)
@@ -314,7 +314,7 @@ StormByte::Buffer::Consumer RSA::Decrypt(Buffer::Consumer consumer, const std::s
 		}
 		// Write any remaining data
 		if (!batchBuffer.empty()) {
-			producer->Write(std::move(batchBuffer));
+			(void)producer->Write(std::move(batchBuffer));
 		}
 		producer->Close(); // Mark processing complete // Pass the status of the consumer to the producer
 		} catch (...) {
@@ -385,7 +385,7 @@ ExpectedCryptoBuffer RSA::Sign(const Buffer::FIFO& message, const std::string& p
 					[](char c) { return static_cast<std::byte>(c); });
 
 		StormByte::Buffer::FIFO buffer;
-		buffer.Write(signatureBuffer);
+		(void)buffer.Write(signatureBuffer);
 		return buffer;
 	} catch (const std::exception& e) {
 		return StormByte::Unexpected<Exception>("RSA signing failed: " + std::string(e.what()));
@@ -449,14 +449,14 @@ StormByte::Buffer::Consumer RSA::Sign(Buffer::Consumer consumer, const std::stri
 
 				// Write in larger batches to reduce reallocation overhead
 				if (batchBuffer.size() >= chunkSize) {
-					producer->Write(std::move(batchBuffer));
+					(void)producer->Write(std::move(batchBuffer));
 					batchBuffer.clear();
 					batchBuffer.reserve(chunkSize * 2);
 				}
 			}
 			// Write any remaining data
 			if (!batchBuffer.empty()) {
-				producer->Write(std::move(batchBuffer));
+				(void)producer->Write(std::move(batchBuffer));
 			}
 			producer->Close(); // Mark processing complete // Pass the status of the consumer to the producer
 		} catch (...) {

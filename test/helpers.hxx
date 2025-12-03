@@ -22,7 +22,7 @@ StormByte::Buffer::FIFO ReadAllFromConsumer(StormByte::Buffer::Consumer consumer
 		}
 
 		const auto& chunk = read_result.value();
-		data.Write(chunk);
+		(void)data.Write(chunk);
 	}
 	return data;
 }

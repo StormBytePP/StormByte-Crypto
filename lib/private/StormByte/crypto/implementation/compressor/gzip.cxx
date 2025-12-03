@@ -29,7 +29,7 @@ namespace {
 
 		// Create Buffer and write data
 		StormByte::Buffer::FIFO buffer;
-		buffer.Write(compressedData);
+		(void)buffer.Write(compressedData);
 		return buffer;
 		}
 		catch (const CryptoPP::Exception& e) {
@@ -53,7 +53,7 @@ namespace {
 
 		// Create Buffer and write data
 		StormByte::Buffer::FIFO buffer;
-		buffer.Write(decompressedData);
+		(void)buffer.Write(decompressedData);
 		return buffer;
 		}
 		catch (const CryptoPP::Exception& e) {
@@ -125,7 +125,7 @@ StormByte::Buffer::Consumer Gzip::Compress(Buffer::Consumer consumer) noexcept {
 				std::vector<std::byte> byteData(compressedString.size());
 				std::transform(compressedString.begin(), compressedString.end(), byteData.begin(),
 					[](char c) { return static_cast<std::byte>(c); });
-				producer->Write(byteData);
+				(void)producer->Write(byteData);
 				compressedString.clear();
 				// Clean periodically (every 16 chunks to balance memory vs performance)
 				if (++chunksProcessed % 16 == 0) {
@@ -204,7 +204,7 @@ StormByte::Buffer::Consumer Gzip::Decompress(Buffer::Consumer consumer) noexcept
 				std::vector<std::byte> byteData(decompressedString.size());
 				std::transform(decompressedString.begin(), decompressedString.end(), byteData.begin(),
 					[](char c) { return static_cast<std::byte>(c); });
-				producer->Write(byteData);
+				(void)producer->Write(byteData);
 				decompressedString.clear();
 			}
 			producer->Close(); // Mark decompression complete

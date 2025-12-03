@@ -157,7 +157,7 @@ ExpectedCryptoBuffer ECC::Encrypt(const Buffer::FIFO& input, const std::string& 
 					[](char c) { return static_cast<std::byte>(c); });
 
 		StormByte::Buffer::FIFO buffer;
-		buffer.Write(encryptedBuffer);
+		(void)buffer.Write(encryptedBuffer);
 		return buffer;
 	} catch (const std::exception& e) {
 		return StormByte::Unexpected<Exception>("ECC encryption failed: " + std::string(e.what()));
@@ -215,7 +215,7 @@ StormByte::Buffer::Consumer ECC::Encrypt(Buffer::Consumer consumer, const std::s
 				for (size_t i = 0; i < encryptedChunk.size(); ++i) {
 					byteData.push_back(static_cast<std::byte>(encryptedChunk[i]));
 				}
-				producer->Write(byteData);
+				(void)producer->Write(byteData);
 				// Clean periodically (every 16 chunks to balance memory vs performance)
 				if (++chunksProcessed % 16 == 0) {
 					consumer.Clean();
@@ -283,7 +283,7 @@ ExpectedCryptoBuffer ECC::Decrypt(const Buffer::FIFO& encryptedBuffer, const std
 					[](char c) { return static_cast<std::byte>(c); });
 
 		StormByte::Buffer::FIFO buffer;
-		buffer.Write(decryptedBuffer);
+		(void)buffer.Write(decryptedBuffer);
 		return buffer;
 	} catch (const std::exception& e) {
 		return StormByte::Unexpected<Exception>("ECC decryption failed: " + std::string(e.what()));
@@ -340,7 +340,7 @@ StormByte::Buffer::Consumer ECC::Decrypt(Buffer::Consumer consumer, const std::s
 				for (size_t i = 0; i < decryptedChunk.size(); ++i) {
 					byteData.push_back(static_cast<std::byte>(decryptedChunk[i]));
 				}
-				producer->Write(byteData);
+				(void)producer->Write(byteData);
 			}
 			producer->Close(); // Mark processing complete // Update status (EOF or Error)
 		} catch (...) {

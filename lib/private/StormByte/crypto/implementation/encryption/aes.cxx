@@ -44,7 +44,7 @@ namespace {
 					[](uint8_t byte) { return static_cast<std::byte>(byte); });
 
 		StormByte::Buffer::FIFO buffer;
-		buffer.Write(convertedData);
+		(void)buffer.Write(convertedData);
 		return buffer;
 		} catch (const std::exception& e) {
 			return StormByte::Unexpected<StormByte::Crypto::Exception>(e.what());
@@ -79,13 +79,13 @@ namespace {
 
 		std::vector<std::byte> convertedData(decryptedData.size());
 		std::transform(decryptedData.begin(), decryptedData.end(), convertedData.begin(),
-				[](uint8_t byte) { return static_cast<std::byte>(byte); });
+			[](uint8_t byte) { return static_cast<std::byte>(byte); });
 
-		StormByte::Buffer::FIFO buffer;
-		buffer.Write(convertedData);
-		return buffer;
-		} catch (const std::exception& e) {
-			return StormByte::Unexpected<StormByte::Crypto::Exception>(e.what());
+	StormByte::Buffer::FIFO buffer;
+	(void)buffer.Write(convertedData);
+	return buffer;
+	} catch (const std::exception& e) {
+		return StormByte::Unexpected<StormByte::Crypto::Exception>(e.what());
 		}
 	}
 }
@@ -132,7 +132,7 @@ StormByte::Buffer::Consumer AES::Encrypt(Buffer::Consumer consumer, const std::s
 		for (size_t i = 0; i < iv.size(); ++i) {
 			headerBytes.push_back(static_cast<std::byte>(iv[i]));
 		}
-		producer->Write(std::move(headerBytes));			CryptoPP::CBC_Mode<CryptoPP::AES>::Encryption encryption(key, key.size(), iv);
+		(void)producer->Write(std::move(headerBytes));			CryptoPP::CBC_Mode<CryptoPP::AES>::Encryption encryption(key, key.size(), iv);
 			std::vector<uint8_t> encryptedChunk;
 
 			while (!consumer.EoF()) {
@@ -162,7 +162,7 @@ StormByte::Buffer::Consumer AES::Encrypt(Buffer::Consumer consumer, const std::s
 				for (size_t i = 0; i < encryptedChunk.size(); ++i) {
 					byteData.push_back(static_cast<std::byte>(encryptedChunk[i]));
 				}
-				producer->Write(byteData);
+				(void)producer->Write(byteData);
 			}
 			producer->Close(); // Mark processing complete // Update status (EOF or Error)
 		} catch (...) {
@@ -262,7 +262,7 @@ StormByte::Buffer::Consumer AES::Decrypt(Buffer::Consumer consumer, const std::s
 				for (size_t i = 0; i < decryptedChunk.size(); ++i) {
 					byteData.push_back(static_cast<std::byte>(decryptedChunk[i]));
 				}
-				producer->Write(byteData);
+				(void)producer->Write(byteData);
 			}
 			producer->Close(); // Mark processing complete // Update status (EOF or Error)
 		} catch (...) {

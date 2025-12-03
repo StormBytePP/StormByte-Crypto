@@ -104,7 +104,7 @@ StormByte::Buffer::Consumer SHA512::Hash(Buffer::Consumer consumer) noexcept {
 			for (size_t i = 0; i < hashOutput.size(); ++i) {
 				byteData.push_back(static_cast<std::byte>(hashOutput[i]));
 			}
-			producer->Write(byteData);
+			(void)producer->Write(byteData);
 			producer->Close();
 		} catch (...) {
 			producer->Close();

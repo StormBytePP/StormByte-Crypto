@@ -44,7 +44,7 @@ namespace {
 						[](uint8_t byte) { return static_cast<std::byte>(byte); });
 
 			StormByte::Buffer::FIFO buffer;
-			buffer.Write(convertedData);
+			(void)buffer.Write(convertedData);
 			return buffer;
 		} catch (const std::exception& e) {
 			return StormByte::Unexpected<StormByte::Crypto::Exception>(e.what());
@@ -82,7 +82,7 @@ namespace {
 						[](uint8_t byte) { return static_cast<std::byte>(byte); });
 
 			StormByte::Buffer::FIFO buffer;
-			buffer.Write(convertedData);
+			(void)buffer.Write(convertedData);
 			return buffer;
 		} catch (const std::exception& e) {
 			return StormByte::Unexpected<StormByte::Crypto::Exception>(e.what());
@@ -134,8 +134,8 @@ StormByte::Buffer::Consumer Camellia::Encrypt(Buffer::Consumer consumer, const s
 			for (size_t i = 0; i < iv.size(); ++i) {
 				ivBytes.push_back(static_cast<std::byte>(iv[i]));
 			}
-			producer->Write(saltBytes);
-			producer->Write(ivBytes);
+			(void)producer->Write(saltBytes);
+			(void)producer->Write(ivBytes);
 
 			CryptoPP::CBC_Mode<CryptoPP::Camellia>::Encryption encryption(key, key.size(), iv);
 			std::vector<uint8_t> encryptedChunk;
@@ -167,7 +167,7 @@ StormByte::Buffer::Consumer Camellia::Encrypt(Buffer::Consumer consumer, const s
 				for (size_t i = 0; i < encryptedChunk.size(); ++i) {
 					byteData.push_back(static_cast<std::byte>(encryptedChunk[i]));
 				}
-				producer->Write(byteData);
+				(void)producer->Write(byteData);
 			}
 			producer->Close(); // Mark processing complete // Update status (EOF or Error)
 		} catch (...) {
@@ -257,7 +257,7 @@ StormByte::Buffer::Consumer Camellia::Decrypt(Buffer::Consumer consumer, const s
 				for (size_t i = 0; i < decryptedChunk.size(); ++i) {
 					byteData.push_back(static_cast<std::byte>(decryptedChunk[i]));
 				}
-				producer->Write(byteData);
+				(void)producer->Write(byteData);
 			}
 			producer->Close(); // Mark processing complete // Update status (EOF or Error)
 		} catch (...) {

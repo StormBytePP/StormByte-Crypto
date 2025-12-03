@@ -78,7 +78,7 @@ int TestSHA256HashUsingConsumerProducer() {
 
 	// Create a producer buffer and write the input data
 	StormByte::Buffer::Producer producer;
-	producer.Write(input_data);
+	(void)producer.Write(input_data);
 	producer.Close();
 
 	// Create a consumer buffer from the producer

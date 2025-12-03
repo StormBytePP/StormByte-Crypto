@@ -153,7 +153,7 @@ ExpectedCryptoBuffer ECDSA::Sign(const Buffer::FIFO& message, const std::string&
 					[](char c) { return static_cast<std::byte>(c); });
 
 		StormByte::Buffer::FIFO buffer;
-		buffer.Write(signatureBuffer);
+		(void)buffer.Write(signatureBuffer);
 		return buffer;
 	} catch (const std::exception& e) {
 		return StormByte::Unexpected<Exception>("ECDSA signing failed: " + std::string(e.what()));
@@ -215,7 +215,7 @@ StormByte::Buffer::Consumer ECDSA::Sign(Buffer::Consumer consumer, const std::st
 				for (size_t i = 0; i < signatureChunk.size(); ++i) {
 					byteData.push_back(static_cast<std::byte>(signatureChunk[i]));
 				}
-				producer->Write(byteData);
+				(void)producer->Write(byteData);
 				// Clean periodically (every 16 chunks to balance memory vs performance)
 				if (++chunksProcessed % 16 == 0) {
 					consumer.Clean();
