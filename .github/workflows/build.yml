@@ -107,13 +107,30 @@ jobs:
             -DENABLE_LIB_ONLY=ON
           build-type: ${{ env.BUILD_TYPE }}
 
-      - name: Copy DLLs
-        run: | # I need somehow a for loop here for many "category"s
-          Copy-Item -Path "${{ github.workspace }}\build\thirdparty\Bzip2\src\bz2.dll" -Destination "${{ github.workspace }}\build\test\${{ category }}\bz2-1.dll" -Force # Somehow bz2-1.dll is needed
-          Copy-Item -Path "${{ github.workspace }}\build\thirdparty\StormByte\base\lib\StormByte.dll" -Destination "${{ github.workspace }}\build\test\${{ category }}" -Force
-          Copy-Item -Path "${{ github.workspace }}\build\thirdparty\StormByte\buffer\lib\StormByte-Buffer.dll" -Destination "${{ github.workspace }}\build\test\${{ category }}" -Force
-          Copy-Item -Path "${{ github.workspace }}\build\thirdparty\StormByte\logger\lib\StormByte-Logger.dll" -Destination "${{ github.workspace }}\build\test\${{ category }}" -Force
-          Copy-Item -Path "${{ github.workspace }}\build\lib\StormByte-Crypto.dll" -Destination "${{ github.workspace }}\build\test\${{ category }}" -Force
+      - name: Copy DLLs (per-category)
+        shell: powershell
+        run: |
+            $workspace = $Env:GITHUB_WORKSPACE
+            $build = Join-Path $workspace 'build'
+            $testRoot = Join-Path $build 'test'
+
+            $categories = @('compressors','encrypters/asymmetric','encrypters/symmetric','hashers','shared_secret_generators','signers')
+            foreach ($cat in $categories) {
+              $dest = Join-Path $testRoot $cat
+              if (-not (Test-Path $dest)) { New-Item -ItemType Directory -Path $dest -Force | Out-Null }
+
+              $bz2src = Join-Path $build 'thirdparty\Bzip2\src\bz2.dll'
+              $stormBase = Join-Path $build 'thirdparty\StormByte\base\lib\StormByte.dll'
+              $stormBuffer = Join-Path $build 'thirdparty\StormByte\buffer\lib\StormByte-Buffer.dll'
+              $stormLogger = Join-Path $build 'thirdparty\StormByte\logger\lib\StormByte-Logger.dll'
+              $crypto = Join-Path $build 'lib\StormByte-Crypto.dll'
+
+              if (Test-Path $bz2src) { Copy-Item -Path $bz2src -Destination (Join-Path $dest 'bz2-1.dll') -Force -ErrorAction SilentlyContinue }
+              if (Test-Path $stormBase) { Copy-Item -Path $stormBase -Destination $dest -Force -ErrorAction SilentlyContinue }
+              if (Test-Path $stormBuffer) { Copy-Item -Path $stormBuffer -Destination $dest -Force -ErrorAction SilentlyContinue }
+              if (Test-Path $stormLogger) { Copy-Item -Path $stormLogger -Destination $dest -Force -ErrorAction SilentlyContinue }
+              if (Test-Path $crypto) { Copy-Item -Path $crypto -Destination $dest -Force -ErrorAction SilentlyContinue }
+            }
 
       - name: Run unit tests
         run: ctest --output-on-failure --test-dir ${{ github.workspace }}\build\test
