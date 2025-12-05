@@ -97,6 +97,34 @@ int TestSHA256HashUsingConsumerProducer() {
 	RETURN_TEST(fn_name, 0);
 }
 
+int test_stream_and_block_equality() {
+	const std::string fn_name = "test_stream_and_block_equality";
+	const std::string input_data = "Data to hash for stream and block equality test";
+
+	Hasher sha256(Algorithm::Hash::SHA256);
+
+	// Hash using block method
+	auto block_hash_result = sha256.Hash(input_data);
+	ASSERT_TRUE(fn_name, block_hash_result.has_value());
+	std::string block_hash = block_hash_result.value();
+
+	// Hash using stream method
+	StormByte::Buffer::Producer producer;
+	(void)producer.Write(input_data);
+	producer.Close();
+	StormByte::Buffer::Consumer consumer(producer.Consumer());
+	auto stream_hash_consumer = sha256.Hash(consumer);
+	ASSERT_TRUE(fn_name, stream_hash_consumer.IsWritable() || !stream_hash_consumer.Empty());
+	auto stream_hash_result = ReadAllFromConsumer(stream_hash_consumer);
+	ASSERT_FALSE(fn_name, stream_hash_result.Empty());
+	std::string stream_hash = DeserializeString(stream_hash_result);
+
+	// Compare both hashes
+	ASSERT_EQUAL(fn_name, block_hash, stream_hash);
+
+	RETURN_TEST(fn_name, 0);
+}
+
 int main() {
 	int result = 0;
 
@@ -104,6 +132,7 @@ int main() {
 	result += TestSHA256CollisionResistance();
 	result += TestSHA256ProducesDifferentContent();
 	result += TestSHA256HashUsingConsumerProducer();
+	result += test_stream_and_block_equality();
 
 	if (result == 0) {
 		std::cout << "All tests passed!" << std::endl;
