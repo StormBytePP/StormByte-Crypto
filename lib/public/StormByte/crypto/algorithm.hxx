@@ -37,7 +37,6 @@ namespace StormByte::Crypto::Algorithm {
 	enum class STORMBYTE_CRYPTO_PUBLIC Compress {
 		None = 0,			///< No compression
 		Bzip2,				///< Bzip2 compression
-		Gzip,				///< Gzip compression
 		Zlib,				///< Zlib (Deflate) compression
 	};
 
