@@ -104,7 +104,7 @@ StormByte::Buffer::FIFO buffer;
 (void)buffer.Write(convertedData);
 return buffer;
 } catch (const CryptoPP::HashVerificationFilter::HashVerificationFailed& e) {
-return StormByte::Unexpected<StormByte::Crypto::Exception>("Authentication failed: data may be corrupted or password is incorrect");
+return StormByte::Unexpected<StormByte::Crypto::Exception>("Authentication failed: {}", e.what());
 } catch (const std::exception& e) {
 return StormByte::Unexpected<StormByte::Crypto::Exception>(e.what());
 }
