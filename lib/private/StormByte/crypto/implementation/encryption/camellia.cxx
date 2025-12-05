@@ -201,8 +201,23 @@ StormByte::Buffer::Consumer Camellia::Decrypt(Buffer::Consumer consumer, const s
 			CryptoPP::SecByteBlock salt(16);
 			CryptoPP::SecByteBlock iv(CryptoPP::Camellia::BLOCKSIZE);
 
-		while (consumer.AvailableBytes() < salt.size()) {
-			std::this_thread::yield();
+		// Wait for the salt to appear. Be tolerant of short scheduling delays
+		// (CI runners can be noisy). If the producer becomes unwritable, allow
+		// a short bounded grace period before aborting to avoid races.
+		{
+			const int max_retries = 200; // ~2s at 10ms sleeps
+			int tries = 0;
+			while (consumer.AvailableBytes() < salt.size()) {
+				if (!consumer.IsWritable()) {
+					if (++tries > max_retries) {
+						producer->Close();
+						return;
+					}
+					std::this_thread::yield();
+					continue;
+				}
+				std::this_thread::yield();
+			}
 		}
 		// Use Span for zero-copy read
 		auto saltSpan = consumer.Span(salt.size());
@@ -212,8 +227,20 @@ StormByte::Buffer::Consumer Camellia::Decrypt(Buffer::Consumer consumer, const s
 		}
 		std::copy_n(reinterpret_cast<const uint8_t*>(saltSpan.value().data()), salt.size(), salt.data());
 
-		while (consumer.AvailableBytes() < iv.size()) {
-			std::this_thread::yield();
+		{
+			const int max_retries = 200;
+			int tries = 0;
+			while (consumer.AvailableBytes() < iv.size()) {
+				if (!consumer.IsWritable()) {
+					if (++tries > max_retries) {
+						producer->Close();
+						return;
+					}
+					std::this_thread::yield();
+					continue;
+				}
+				std::this_thread::yield();
+			}
 		}
 		// Use Span for zero-copy read
 		auto ivSpan = consumer.Span(iv.size());

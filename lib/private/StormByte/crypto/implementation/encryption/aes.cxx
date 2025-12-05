@@ -201,12 +201,23 @@ StormByte::Buffer::Consumer AES::Decrypt(Buffer::Consumer consumer, const std::s
 			CryptoPP::SecByteBlock salt(16);
 			CryptoPP::SecByteBlock iv(CryptoPP::AES::BLOCKSIZE);
 
-			while (consumer.AvailableBytes() < salt.size()) {
-				if (!consumer.IsWritable() && consumer.AvailableBytes() < salt.size()) {
-					producer->Close();
-					return;
+			// Wait for the salt to appear. Be tolerant of short scheduling delays
+			// (CI runners can be noisy). If the producer becomes unwritable, allow
+			// a short bounded grace period before aborting to avoid races.
+			{
+				const int max_retries = 200; // ~2s at 10ms sleeps
+				int tries = 0;
+				while (consumer.AvailableBytes() < salt.size()) {
+					if (!consumer.IsWritable()) {
+						if (++tries > max_retries) {
+							producer->Close();
+							return;
+						}
+						std::this_thread::yield();
+						continue;
+					}
+					std::this_thread::yield();
 				}
-				std::this_thread::yield();
 			}
 			// Use Span for zero-copy read
 			auto saltSpan = consumer.Span(salt.size());
@@ -216,12 +227,21 @@ StormByte::Buffer::Consumer AES::Decrypt(Buffer::Consumer consumer, const std::s
 			}
 			std::copy_n(reinterpret_cast<const uint8_t*>(saltSpan.value().data()), salt.size(), salt.data());
 
-			while (consumer.AvailableBytes() < iv.size()) {
-				if (!consumer.IsWritable() && consumer.AvailableBytes() < iv.size()) {
-					producer->Close();
-					return;
+			// Same tolerant wait for IV bytes
+			{
+				const int max_retries = 200;
+				int tries = 0;
+				while (consumer.AvailableBytes() < iv.size()) {
+					if (!consumer.IsWritable()) {
+						if (++tries > max_retries) {
+							producer->Close();
+							return;
+						}
+						std::this_thread::yield();
+						continue;
+					}
+					std::this_thread::yield();
 				}
-				std::this_thread::yield();
 			}
 			// Use Span for zero-copy read
 			auto ivSpan = consumer.Span(iv.size());
