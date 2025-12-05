@@ -95,7 +95,7 @@ StormByte::Buffer::Consumer Zlib::Compress(Buffer::Consumer consumer) noexcept {
 				}
 
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				auto spanResult = consumer.Span(bytesToRead);
+				auto spanResult = consumer.Extract(bytesToRead);
 				if (!spanResult.has_value()) { producer->Close(); return; }
 
 				const auto& inputSpan = spanResult.value();
@@ -158,7 +158,7 @@ StormByte::Buffer::Consumer Zlib::Decompress(Buffer::Consumer consumer) noexcept
 				}
 
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				auto spanResult = consumer.Span(bytesToRead);
+				auto spanResult = consumer.Extract(bytesToRead);
 				if (!spanResult.has_value()) { producer->Close(); return; }
 
 				const auto& compressedSpan = spanResult.value();

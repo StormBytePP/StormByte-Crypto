@@ -91,7 +91,7 @@ continue;
 }
 
 size_t bytesToRead = std::min(availableBytes, chunkSize);
-auto spanResult = consumer.Span(bytesToRead);
+auto spanResult = consumer.Extract(bytesToRead);
 if (!spanResult.has_value()) {
 producer->Close();
 return;
@@ -163,7 +163,7 @@ continue;
 }
 
 size_t bytesToRead = std::min(availableBytes, chunkSize);
-auto spanResult = consumer.Span(bytesToRead);
+auto spanResult = consumer.Extract(bytesToRead);
 if (!spanResult.has_value()) {
 producer->Close();
 return;

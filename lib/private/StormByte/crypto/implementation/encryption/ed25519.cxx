@@ -105,7 +105,7 @@ ExpectedCryptoString Ed25519::Sign(const std::string& message, const std::string
 }
 
 ExpectedCryptoBuffer Ed25519::Sign(const Buffer::FIFO& message, const std::string& privateKey) noexcept {
-	auto spanResult = const_cast<Buffer::FIFO&>(message).Span(0);
+	auto spanResult = const_cast<Buffer::FIFO&>(message).Extract(0);
 	if (!spanResult.has_value()) {
 		return StormByte::Unexpected<StormByte::Crypto::Exception>("Failed to get span from message buffer");
 	}
@@ -132,7 +132,7 @@ StormByte::Buffer::Consumer Ed25519::Sign(Buffer::Consumer consumer, const std::
 		try {
 			// Extract all data from consumer
 			auto allDataFifo = consumer.ExtractUntilEoF();
-			auto spanResult = allDataFifo.Span(0);
+			auto spanResult = allDataFifo.Extract(0);
 			if (!spanResult.has_value()) {
 				producer->Close();
 				return;
@@ -199,7 +199,7 @@ bool Ed25519::Verify(const std::string& message, const std::string& signature, c
 }
 
 bool Ed25519::Verify(const Buffer::FIFO& message, const std::string& signature, const std::string& publicKey) noexcept {
-	auto spanResult = const_cast<Buffer::FIFO&>(message).Span(0);
+	auto spanResult = const_cast<Buffer::FIFO&>(message).Extract(0);
 	if (!spanResult.has_value()) {
 		return false;
 	}
@@ -212,7 +212,7 @@ bool Ed25519::Verify(Buffer::Consumer consumer, const std::string& signature, co
 	try {
 		// Extract all data from consumer
 		auto allDataFifo = consumer.ExtractUntilEoF();
-		auto spanResult = allDataFifo.Span(0);
+		auto spanResult = allDataFifo.Extract(0);
 		if (!spanResult.has_value()) {
 			return false;
 		}

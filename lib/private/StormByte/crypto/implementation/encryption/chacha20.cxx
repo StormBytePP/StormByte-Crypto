@@ -155,7 +155,7 @@ StormByte::Buffer::Consumer ChaCha20::Encrypt(Buffer::Consumer consumer, const s
 
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
 				// Use Span for zero-copy read
-				auto spanResult = consumer.Span(bytesToRead);
+				auto spanResult = consumer.Extract(bytesToRead);
 				if (!spanResult.has_value()) {
 					producer->Close();
 					return;
@@ -228,7 +228,7 @@ StormByte::Buffer::Consumer ChaCha20::Decrypt(Buffer::Consumer consumer, const s
 				}
 				std::this_thread::yield();
 			}
-			auto saltSpan = consumer.Span(salt.size());
+			auto saltSpan = consumer.Extract(salt.size());
 			if (!saltSpan.has_value()) {
 				producer->Close();
 				return;
@@ -243,7 +243,7 @@ StormByte::Buffer::Consumer ChaCha20::Decrypt(Buffer::Consumer consumer, const s
 				}
 				std::this_thread::yield();
 			}
-			auto ivSpan = consumer.Span(iv.size());
+			auto ivSpan = consumer.Extract(iv.size());
 			if (!ivSpan.has_value()) {
 				producer->Close();
 				return;
@@ -272,7 +272,7 @@ StormByte::Buffer::Consumer ChaCha20::Decrypt(Buffer::Consumer consumer, const s
 
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
 				// Use Span for zero-copy read
-				auto spanResult = consumer.Span(bytesToRead);
+				auto spanResult = consumer.Extract(bytesToRead);
 				if (!spanResult.has_value()) {
 					producer->Close();
 					return;

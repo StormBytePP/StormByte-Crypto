@@ -197,7 +197,7 @@ StormByte::Buffer::Consumer ECC::Encrypt(Buffer::Consumer consumer, const std::s
 
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
 				// Use Span for zero-copy read
-			auto spanResult = consumer.Span(bytesToRead);
+			auto spanResult = consumer.Extract(bytesToRead);
 				if (!spanResult.has_value()) {
 					producer->Close();
 					return;
@@ -322,7 +322,7 @@ StormByte::Buffer::Consumer ECC::Decrypt(Buffer::Consumer consumer, const std::s
 
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
 				// Use Span for zero-copy read
-			auto spanResult = consumer.Span(bytesToRead);
+			auto spanResult = consumer.Extract(bytesToRead);
 				if (!spanResult.has_value()) {
 					producer->Close();
 					return;

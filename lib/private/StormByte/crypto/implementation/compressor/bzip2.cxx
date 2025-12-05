@@ -125,7 +125,7 @@ StormByte::Buffer::Consumer BZip2::Compress(Buffer::Consumer consumer) noexcept 
 				}
 
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				auto spanResult = consumer.Span(bytesToRead);
+				auto spanResult = consumer.Extract(bytesToRead);
 				if (!spanResult.has_value()) {
 					BZ2_bzCompressEnd(&stream);
 					producer->Close();
@@ -232,7 +232,7 @@ StormByte::Buffer::Consumer BZip2::Decompress(Buffer::Consumer consumer) noexcep
 				}
 
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				auto spanResult = consumer.Span(bytesToRead);
+				auto spanResult = consumer.Extract(bytesToRead);
 				if (!spanResult.has_value()) {
 					BZ2_bzDecompressEnd(&stream);
 					producer->Close();

@@ -145,7 +145,7 @@ continue;
 }
 
 size_t bytesToRead = std::min(availableBytes, chunkSize);
-auto spanResult = consumer.Span(bytesToRead);
+auto spanResult = consumer.Extract(bytesToRead);
 if (!spanResult.has_value()) {
 producer->Close();
 return;
@@ -212,7 +212,7 @@ return;
 }
 std::this_thread::yield();
 }
-auto saltSpan = consumer.Span(salt.size());
+auto saltSpan = consumer.Extract(salt.size());
 if (!saltSpan.has_value()) {
 producer->Close();
 return;
@@ -226,7 +226,7 @@ return;
 }
 std::this_thread::yield();
 }
-auto ivSpan = consumer.Span(iv.size());
+auto ivSpan = consumer.Extract(iv.size());
 if (!ivSpan.has_value()) {
 producer->Close();
 return;
@@ -251,7 +251,7 @@ continue;
 }
 
 size_t bytesToRead = std::min(availableBytes, chunkSize);
-auto spanResult = consumer.Span(bytesToRead);
+auto spanResult = consumer.Extract(bytesToRead);
 if (!spanResult.has_value()) {
 producer->Close();
 return;

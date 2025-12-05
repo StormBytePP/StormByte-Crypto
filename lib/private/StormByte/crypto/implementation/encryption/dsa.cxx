@@ -201,7 +201,7 @@ StormByte::Buffer::Consumer DSA::Sign(Buffer::Consumer consumer, const std::stri
 
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
 				// Use Span for zero-copy read
-				auto spanResult = consumer.Span(bytesToRead);
+				auto spanResult = consumer.Extract(bytesToRead);
 				if (!spanResult.has_value()) {
 					producer->Close();
 					return;
@@ -342,7 +342,7 @@ bool DSA::Verify(Buffer::Consumer consumer, const std::string& signature, const 
 
 			size_t bytesToRead = std::min(availableBytes, chunkSize);
 			// Use Span for zero-copy read
-			auto spanResult = consumer.Span(bytesToRead);
+			auto spanResult = consumer.Extract(bytesToRead);
 			if (!spanResult.has_value()) {
 				return false; // Error reading data
 			}

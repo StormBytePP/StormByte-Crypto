@@ -135,11 +135,13 @@ StormByte::Buffer::Consumer Camellia::Encrypt(Buffer::Consumer consumer, const s
 	// Now start async encryption with the derived key and IV
 	std::thread([consumer, producer, key = std::move(key), iv = std::move(iv)]() mutable {
 		try {
+			(void)consumer.AvailableBytes();
 			constexpr size_t chunkSize = 4096;
 			CryptoPP::CBC_Mode<CryptoPP::Camellia>::Encryption encryption(key, key.size(), iv);
 			std::vector<uint8_t> encryptedChunk;
 
 			while (!consumer.EoF()) {
+				(void)consumer.AvailableBytes();
 				size_t availableBytes = consumer.AvailableBytes();
 				if (availableBytes == 0) {
 					std::this_thread::yield();
@@ -147,17 +149,17 @@ StormByte::Buffer::Consumer Camellia::Encrypt(Buffer::Consumer consumer, const s
 				}
 
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				// Use Span for zero-copy read
-			auto spanResult = consumer.Span(bytesToRead);
-				if (!spanResult.has_value()) {
+				// Use Read() to obtain an owned copy to avoid span lifetime races across threads
+				auto readResult = consumer.Extract(bytesToRead);
+				if (!readResult.has_value()) {
 					producer->Close();
 					return;
 				}
 
-				const auto& inputSpan = spanResult.value();
+				const auto& inputVec = readResult.value();
 				encryptedChunk.clear();
 
-				CryptoPP::StringSource ss(reinterpret_cast<const uint8_t*>(inputSpan.data()), inputSpan.size(), true,
+				CryptoPP::StringSource ss(reinterpret_cast<const uint8_t*>(inputVec.data()), inputVec.size(), true,
 										new CryptoPP::StreamTransformationFilter(encryption,
 																		new CryptoPP::VectorSink(encryptedChunk)));
 
@@ -197,58 +199,31 @@ StormByte::Buffer::Consumer Camellia::Decrypt(Buffer::Consumer consumer, const s
 
 	std::thread([consumer, producer, password]() mutable {
 		try {
+			(void)consumer.AvailableBytes();
 			constexpr size_t chunkSize = 4096;
 			CryptoPP::SecByteBlock salt(16);
 			CryptoPP::SecByteBlock iv(CryptoPP::Camellia::BLOCKSIZE);
 
-		// Wait for the salt to appear. Be tolerant of short scheduling delays
-		// (CI runners can be noisy). If the producer becomes unwritable, allow
-		// a short bounded grace period before aborting to avoid races.
-		{
-			const int max_retries = 200; // ~2s at 10ms sleeps
-			int tries = 0;
-			while (consumer.AvailableBytes() < salt.size()) {
-				if (!consumer.IsWritable()) {
-					if (++tries > max_retries) {
-						producer->Close();
-						return;
-					}
-					std::this_thread::yield();
-					continue;
-				}
-				std::this_thread::yield();
+			// Block until salt is available. Use Read() to obtain an owned buffer
+			// so the memory won't be freed while we copy it out.
+			auto saltRead = consumer.Extract(salt.size());
+			if (!saltRead.has_value()) {
+				producer->Close();
+				return;
 			}
-		}
-		// Use Span for zero-copy read
-		auto saltSpan = consumer.Span(salt.size());
-		if (!saltSpan.has_value()) {
-			producer->Close();
-			return;
-		}
-		std::copy_n(reinterpret_cast<const uint8_t*>(saltSpan.value().data()), salt.size(), salt.data());
+			const auto& saltVec = saltRead.value();
+			std::copy_n(reinterpret_cast<const uint8_t*>(saltVec.data()), salt.size(), salt.data());
 
-		{
-			const int max_retries = 200;
-			int tries = 0;
-			while (consumer.AvailableBytes() < iv.size()) {
-				if (!consumer.IsWritable()) {
-					if (++tries > max_retries) {
-						producer->Close();
-						return;
-					}
-					std::this_thread::yield();
-					continue;
-				}
-				std::this_thread::yield();
+			// Block until IV is available and copy into local SecByteBlock.
+			auto ivRead = consumer.Extract(iv.size());
+			if (!ivRead.has_value()) {
+				producer->Close();
+				return;
 			}
-		}
-		// Use Span for zero-copy read
-		auto ivSpan = consumer.Span(iv.size());
-		if (!ivSpan.has_value()) {
-			producer->Close();
-			return;
-		}
-		std::copy_n(reinterpret_cast<const uint8_t*>(ivSpan.value().data()), iv.size(), iv.data());			CryptoPP::SecByteBlock key(CryptoPP::Camellia::DEFAULT_KEYLENGTH);
+			const auto& ivVec = ivRead.value();
+			std::copy_n(reinterpret_cast<const uint8_t*>(ivVec.data()), iv.size(), iv.data());
+
+			CryptoPP::SecByteBlock key(CryptoPP::Camellia::DEFAULT_KEYLENGTH);
 			CryptoPP::PKCS5_PBKDF2_HMAC<CryptoPP::SHA256> pbkdf2;
 			pbkdf2.DeriveKey(key, key.size(), 0, reinterpret_cast<const uint8_t*>(password.data()),
 							password.size(), salt, salt.size(), 10000);
@@ -257,6 +232,7 @@ StormByte::Buffer::Consumer Camellia::Decrypt(Buffer::Consumer consumer, const s
 			std::vector<uint8_t> decryptedChunk;
 
 			while (!consumer.EoF()) {
+				(void)consumer.AvailableBytes();
 				size_t availableBytes = consumer.AvailableBytes();
 				if (availableBytes == 0) {
 					std::this_thread::yield();
@@ -264,17 +240,17 @@ StormByte::Buffer::Consumer Camellia::Decrypt(Buffer::Consumer consumer, const s
 				}
 
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				// Use Span for zero-copy read
-			auto spanResult = consumer.Span(bytesToRead);
-				if (!spanResult.has_value()) {
+				// Use Read() to obtain an owned copy to avoid span lifetime races across threads
+				auto readResult = consumer.Extract(bytesToRead);
+				if (!readResult.has_value()) {
 					producer->Close();
 					return;
 				}
 
-				const auto& encryptedSpan = spanResult.value();
+				const auto& encryptedVec = readResult.value();
 				decryptedChunk.clear();
 
-				CryptoPP::StringSource ss(reinterpret_cast<const uint8_t*>(encryptedSpan.data()), encryptedSpan.size(), true,
+				CryptoPP::StringSource ss(reinterpret_cast<const uint8_t*>(encryptedVec.data()), encryptedVec.size(), true,
 										new CryptoPP::StreamTransformationFilter(decryption,
 																		new CryptoPP::VectorSink(decryptedChunk)));
 

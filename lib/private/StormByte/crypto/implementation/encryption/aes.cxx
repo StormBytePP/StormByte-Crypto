@@ -147,17 +147,16 @@ StormByte::Buffer::Consumer AES::Encrypt(Buffer::Consumer consumer, const std::s
 				}
 
 			size_t bytesToRead = std::min(availableBytes, chunkSize);
-			// Use Span for zero-copy read
-			auto spanResult = consumer.Span(bytesToRead);
-				if (!spanResult.has_value()) {
+				// Use Read() to obtain an owned copy to avoid span lifetime races across threads
+				auto readResult = consumer.Extract(bytesToRead);
+				if (!readResult.has_value()) {
 					producer->Close();
 					return;
 				}
 
-				const auto& inputSpan = spanResult.value();
+				const auto& inputVec = readResult.value();
 				encryptedChunk.clear();
-
-				CryptoPP::StringSource ss(reinterpret_cast<const uint8_t*>(inputSpan.data()), inputSpan.size(), true,
+				CryptoPP::StringSource ss(reinterpret_cast<const uint8_t*>(inputVec.data()), inputVec.size(), true,
 										new CryptoPP::StreamTransformationFilter(encryption,
 																		new CryptoPP::VectorSink(encryptedChunk)));
 
@@ -219,13 +218,15 @@ StormByte::Buffer::Consumer AES::Decrypt(Buffer::Consumer consumer, const std::s
 					std::this_thread::yield();
 				}
 			}
-			// Use Span for zero-copy read
-			auto saltSpan = consumer.Span(salt.size());
-			if (!saltSpan.has_value()) {
-				producer->Close();
-				return;
-			}
-			std::copy_n(reinterpret_cast<const uint8_t*>(saltSpan.value().data()), salt.size(), salt.data());
+				// Block until salt is available. Use Read() to obtain an owned buffer
+				// so the memory won't be freed while we copy it out.
+				auto saltRead = consumer.Extract(salt.size());
+				if (!saltRead.has_value()) {
+					producer->Close();
+					return;
+				}
+				const auto& saltVec = saltRead.value();
+				std::copy_n(reinterpret_cast<const uint8_t*>(saltVec.data()), salt.size(), salt.data());
 
 			// Same tolerant wait for IV bytes
 			{
@@ -243,13 +244,14 @@ StormByte::Buffer::Consumer AES::Decrypt(Buffer::Consumer consumer, const std::s
 					std::this_thread::yield();
 				}
 			}
-			// Use Span for zero-copy read
-			auto ivSpan = consumer.Span(iv.size());
-			if (!ivSpan.has_value()) {
-				producer->Close();
-				return;
-			}
-			std::copy_n(reinterpret_cast<const uint8_t*>(ivSpan.value().data()), iv.size(), iv.data());
+				// Block until IV is available and copy into local SecByteBlock.
+				auto ivRead = consumer.Extract(iv.size());
+				if (!ivRead.has_value()) {
+					producer->Close();
+					return;
+				}
+				const auto& ivVec = ivRead.value();
+				std::copy_n(reinterpret_cast<const uint8_t*>(ivVec.data()), iv.size(), iv.data());
 
 			CryptoPP::SecByteBlock key(CryptoPP::AES::DEFAULT_KEYLENGTH);
 			CryptoPP::PKCS5_PBKDF2_HMAC<CryptoPP::SHA256> pbkdf2;
@@ -267,17 +269,16 @@ StormByte::Buffer::Consumer AES::Decrypt(Buffer::Consumer consumer, const std::s
 				}
 
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				// Use Span for zero-copy read
-			auto spanResult = consumer.Span(bytesToRead);
-				if (!spanResult.has_value()) {
+				// Use Read() to obtain an owned copy to avoid span lifetime races across threads
+				auto readResult = consumer.Extract(bytesToRead);
+				if (!readResult.has_value()) {
 					producer->Close();
 					return;
 				}
 
-				const auto& encryptedSpan = spanResult.value();
+				const auto& encryptedVec = readResult.value();
 				decryptedChunk.clear();
-
-				CryptoPP::StringSource ss(reinterpret_cast<const uint8_t*>(encryptedSpan.data()), encryptedSpan.size(), true,
+				CryptoPP::StringSource ss(reinterpret_cast<const uint8_t*>(encryptedVec.data()), encryptedVec.size(), true,
 										new CryptoPP::StreamTransformationFilter(decryption,
 																		new CryptoPP::VectorSink(decryptedChunk)));
 

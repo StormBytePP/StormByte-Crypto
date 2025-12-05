@@ -117,7 +117,7 @@ return EncryptHelper(dataSpan, password);
 }
 
 ExpectedCryptoBuffer AES_GCM::Encrypt(const Buffer::FIFO& data, const std::string& password) noexcept {
-auto spanResult = const_cast<Buffer::FIFO&>(data).Span(0);
+auto spanResult = const_cast<Buffer::FIFO&>(data).Extract(0);
 if (!spanResult.has_value()) {
 return StormByte::Unexpected<StormByte::Crypto::Exception>("Failed to get span from input buffer");
 }
@@ -133,7 +133,7 @@ std::thread([consumer, producer, password]() mutable {
 try {
 // Extract all data from consumer (more efficient than manual loop)
 auto allDataFifo = consumer.ExtractUntilEoF();
-auto spanResult = allDataFifo.Span(0);
+auto spanResult = allDataFifo.Extract(0);
 if (!spanResult.has_value()) {
 producer->Close();
 return;
@@ -171,7 +171,7 @@ return DecryptHelper(dataSpan, password);
 }
 
 ExpectedCryptoBuffer AES_GCM::Decrypt(const Buffer::FIFO& encryptedData, const std::string& password) noexcept {
-auto spanResult = const_cast<Buffer::FIFO&>(encryptedData).Span(0);
+auto spanResult = const_cast<Buffer::FIFO&>(encryptedData).Extract(0);
 if (!spanResult.has_value()) {
 return StormByte::Unexpected<StormByte::Crypto::Exception>("Failed to get span from input buffer");
 }
@@ -187,7 +187,7 @@ std::thread([consumer, producer, password]() mutable {
 try {
 // Extract all data from consumer (more efficient than manual loop)
 auto allDataFifo = consumer.ExtractUntilEoF();
-auto spanResult = allDataFifo.Span(0);
+auto spanResult = allDataFifo.Extract(0);
 if (!spanResult.has_value()) {
 producer->Close();
 return;

@@ -162,7 +162,7 @@ StormByte::Buffer::Consumer RSA::Encrypt(Buffer::Consumer consumer, const std::s
 				}
 
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				auto readResult = consumer.Read(bytesToRead);
+				auto readResult = consumer.Extract(bytesToRead);
 				if (!readResult.has_value()) {
 					producer->Close();
 					return;
@@ -285,7 +285,7 @@ StormByte::Buffer::Consumer RSA::Decrypt(Buffer::Consumer consumer, const std::s
 
 			size_t bytesToRead = std::min(availableBytes, chunkSize);
 			// Use Span for zero-copy read
-			auto spanResult = consumer.Span(bytesToRead);
+			auto spanResult = consumer.Extract(bytesToRead);
 			if (!spanResult.has_value()) {
 				producer->Close();
 				return;
@@ -424,7 +424,7 @@ StormByte::Buffer::Consumer RSA::Sign(Buffer::Consumer consumer, const std::stri
 
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
 				// Use Span for zero-copy read
-				auto spanResult = consumer.Span(bytesToRead);
+				auto spanResult = consumer.Extract(bytesToRead);
 				if (!spanResult.has_value()) {
 					producer->Close();
 					return;
@@ -562,7 +562,7 @@ bool RSA::Verify(Buffer::Consumer consumer, const std::string& signature, const 
 
 			size_t bytesToRead = std::min(availableBytes, chunkSize);
 			// Use Span for zero-copy read
-			auto spanResult = consumer.Span(bytesToRead);
+			auto spanResult = consumer.Extract(bytesToRead);
 			if (!spanResult.has_value()) {
 				return false; // Error reading data
 			}
