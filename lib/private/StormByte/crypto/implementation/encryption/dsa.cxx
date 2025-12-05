@@ -169,7 +169,7 @@ ExpectedCryptoBuffer DSA::Sign(const Buffer::FIFO& message, const std::string& p
 
 // Signing with Buffer::Consumer
 StormByte::Buffer::Consumer DSA::Sign(Buffer::Consumer consumer, const std::string& privateKey) noexcept {
-	auto producer = std::make_shared<StormByte::Buffer::Producer>();
+	StormByte::Buffer::Producer producer;
 
 	std::thread([consumer, producer, privateKey]() mutable {
 		try {
@@ -178,7 +178,7 @@ StormByte::Buffer::Consumer DSA::Sign(Buffer::Consumer consumer, const std::stri
 			// Deserialize and validate the private key
 			CryptoPP::DSA::PrivateKey key = DeserializePrivateKey(privateKey);
 			if (!key.Validate(rng, 3)) {
-				producer->Close();
+				producer.Close();
 				return;
 			}
 
@@ -203,7 +203,7 @@ StormByte::Buffer::Consumer DSA::Sign(Buffer::Consumer consumer, const std::stri
 				// Use Span for zero-copy read
 				auto spanResult = consumer.Extract(bytesToRead);
 				if (!spanResult.has_value()) {
-					producer->Close();
+					producer.Close();
 					return;
 				}
 
@@ -226,7 +226,7 @@ StormByte::Buffer::Consumer DSA::Sign(Buffer::Consumer consumer, const std::stri
 
 				// Write in larger batches to reduce reallocation overhead
 				if (batchBuffer.size() >= chunkSize) {
-					(void)producer->Write(std::move(batchBuffer));
+					(void)producer.Write(std::move(batchBuffer));
 					batchBuffer.clear();
 					batchBuffer.reserve(chunkSize * 2);
 					// Clean consumed data periodically (only when batch is written)
@@ -235,15 +235,15 @@ StormByte::Buffer::Consumer DSA::Sign(Buffer::Consumer consumer, const std::stri
 			}
 			// Write any remaining data
 			if (!batchBuffer.empty()) {
-				(void)producer->Write(std::move(batchBuffer));
+				(void)producer.Write(std::move(batchBuffer));
 			}
-			producer->Close(); // Mark processing complete // Update status (EOF or Error)
+			producer.Close(); // Mark processing complete // Update status (EOF or Error)
 		} catch (...) {
-			producer->Close();
+			producer.Close();
 		}
 	}).detach();
 
-	return producer->Consumer();
+	return producer.Consumer();
 }
 
 // Verification with std::string

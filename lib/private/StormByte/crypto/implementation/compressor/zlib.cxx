@@ -78,7 +78,7 @@ ExpectedCompressorBuffer Zlib::Compress(const StormByte::Buffer::FIFO& input) no
 }
 
 StormByte::Buffer::Consumer Zlib::Compress(Buffer::Consumer consumer) noexcept {
-	SharedProducerBuffer producer = std::make_shared<StormByte::Buffer::Producer>();
+	StormByte::Buffer::Producer producer;
 
 	std::thread([consumer, producer]() mutable {
 		try {
@@ -96,7 +96,7 @@ StormByte::Buffer::Consumer Zlib::Compress(Buffer::Consumer consumer) noexcept {
 
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
 				auto spanResult = consumer.Extract(bytesToRead);
-				if (!spanResult.has_value()) { producer->Close(); return; }
+				if (!spanResult.has_value()) { producer.Close(); return; }
 
 				const auto& inputSpan = spanResult.value();
 				if (inputSpan.empty()) continue;
@@ -106,7 +106,7 @@ StormByte::Buffer::Consumer Zlib::Compress(Buffer::Consumer consumer) noexcept {
 				if (!compressedString.empty()) {
 					std::vector<std::byte> chunkData(compressedString.size());
 					std::transform(compressedString.begin(), compressedString.end(), chunkData.begin(), [](char c) { return static_cast<std::byte>(c); });
-					(void)producer->Write(chunkData);
+					(void)producer.Write(chunkData);
 					compressedString.clear();
 				}
 			}
@@ -114,15 +114,15 @@ StormByte::Buffer::Consumer Zlib::Compress(Buffer::Consumer consumer) noexcept {
 			if (!compressedString.empty()) {
 				std::vector<std::byte> byteData(compressedString.size());
 				std::transform(compressedString.begin(), compressedString.end(), byteData.begin(), [](char c) { return static_cast<std::byte>(c); });
-				(void)producer->Write(byteData);
+				(void)producer.Write(byteData);
 			}
-			producer->Close();
+			producer.Close();
 		} catch (...) {
-			producer->Close();
+			producer.Close();
 		}
 	}).detach();
 
-	return producer->Consumer();
+	return producer.Consumer();
 }
 
 // Public Decompress Methods
@@ -141,7 +141,7 @@ ExpectedCompressorBuffer Zlib::Decompress(const StormByte::Buffer::FIFO& input) 
 }
 
 StormByte::Buffer::Consumer Zlib::Decompress(Buffer::Consumer consumer) noexcept {
-	SharedProducerBuffer producer = std::make_shared<StormByte::Buffer::Producer>();
+	StormByte::Buffer::Producer producer;
 
 	std::thread([consumer, producer]() mutable {
 		try {
@@ -159,7 +159,7 @@ StormByte::Buffer::Consumer Zlib::Decompress(Buffer::Consumer consumer) noexcept
 
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
 				auto spanResult = consumer.Extract(bytesToRead);
-				if (!spanResult.has_value()) { producer->Close(); return; }
+				if (!spanResult.has_value()) { producer.Close(); return; }
 
 				const auto& compressedSpan = spanResult.value();
 				if (compressedSpan.empty()) continue;
@@ -169,7 +169,7 @@ StormByte::Buffer::Consumer Zlib::Decompress(Buffer::Consumer consumer) noexcept
 				if (!decompressedString.empty()) {
 					std::vector<std::byte> chunkData(decompressedString.size());
 					std::transform(decompressedString.begin(), decompressedString.end(), chunkData.begin(), [](char c) { return static_cast<std::byte>(c); });
-					(void)producer->Write(chunkData);
+					(void)producer.Write(chunkData);
 					decompressedString.clear();
 				}
 			}
@@ -177,13 +177,13 @@ StormByte::Buffer::Consumer Zlib::Decompress(Buffer::Consumer consumer) noexcept
 			if (!decompressedString.empty()) {
 				std::vector<std::byte> byteData(decompressedString.size());
 				std::transform(decompressedString.begin(), decompressedString.end(), byteData.begin(), [](char c) { return static_cast<std::byte>(c); });
-				(void)producer->Write(byteData);
+				(void)producer.Write(byteData);
 			}
-			producer->Close();
+			producer.Close();
 		} catch (...) {
-			producer->Close();
+			producer.Close();
 		}
 	}).detach();
 
-	return producer->Consumer();
+	return producer.Consumer();
 }

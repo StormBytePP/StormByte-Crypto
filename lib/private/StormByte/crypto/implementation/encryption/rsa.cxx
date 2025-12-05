@@ -135,7 +135,7 @@ ExpectedCryptoBuffer RSA::Encrypt(const Buffer::FIFO& input, const std::string& 
 }
 
 StormByte::Buffer::Consumer RSA::Encrypt(Buffer::Consumer consumer, const std::string& publicKey) noexcept {
-	SharedProducerBuffer producer = std::make_shared<StormByte::Buffer::Producer>();
+	StormByte::Buffer::Producer producer;
 
 	std::thread([consumer, producer, publicKey]() mutable {
 		try {
@@ -144,7 +144,7 @@ StormByte::Buffer::Consumer RSA::Encrypt(Buffer::Consumer consumer, const std::s
 			// Deserialize and validate the public key
 			CryptoPP::RSA::PublicKey key = DeserializePublicKey(publicKey);
 			if (!key.Validate(rng, 3)) {
-				producer->Close();
+				producer.Close();
 				return;
 			}
 
@@ -164,7 +164,7 @@ StormByte::Buffer::Consumer RSA::Encrypt(Buffer::Consumer consumer, const std::s
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
 				auto readResult = consumer.Extract(bytesToRead);
 				if (!readResult.has_value()) {
-					producer->Close();
+					producer.Close();
 					return;
 				}
 
@@ -180,15 +180,15 @@ StormByte::Buffer::Consumer RSA::Encrypt(Buffer::Consumer consumer, const std::s
 				for (size_t i = 0; i < encryptedChunk.size(); ++i) {
 					byteData.push_back(static_cast<std::byte>(encryptedChunk[i]));
 				}
-				(void)producer->Write(byteData);
+				(void)producer.Write(byteData);
 			}
-			producer->Close(); // Mark processing complete // Pass the status of the consumer to the producer
+			producer.Close(); // Mark processing complete // Pass the status of the consumer to the producer
 		} catch (...) {
-			producer->Close();
+			producer.Close();
 		}
 	}).detach();
 
-	return producer->Consumer();
+	return producer.Consumer();
 }
 
 // Decryption
@@ -254,7 +254,7 @@ ExpectedCryptoBuffer RSA::Decrypt(const Buffer::FIFO& encryptedBuffer, const std
 }
 
 StormByte::Buffer::Consumer RSA::Decrypt(Buffer::Consumer consumer, const std::string& privateKey) noexcept {
-	SharedProducerBuffer producer = std::make_shared<StormByte::Buffer::Producer>();
+	StormByte::Buffer::Producer producer;
 
 	std::thread([consumer, producer, privateKey]() mutable {
 		try {
@@ -263,7 +263,7 @@ StormByte::Buffer::Consumer RSA::Decrypt(Buffer::Consumer consumer, const std::s
 			// Deserialize and validate the private key
 			CryptoPP::RSA::PrivateKey key = DeserializePrivateKey(privateKey);
 			if (!key.Validate(rng, 3)) {
-				producer->Close();
+				producer.Close();
 				return;
 			}
 
@@ -287,7 +287,7 @@ StormByte::Buffer::Consumer RSA::Decrypt(Buffer::Consumer consumer, const std::s
 			// Use Span for zero-copy read
 			auto spanResult = consumer.Extract(bytesToRead);
 			if (!spanResult.has_value()) {
-				producer->Close();
+				producer.Close();
 				return;
 			}
 
@@ -305,7 +305,7 @@ StormByte::Buffer::Consumer RSA::Decrypt(Buffer::Consumer consumer, const std::s
 
 			// Write in larger batches to reduce reallocation overhead
 			if (batchBuffer.size() >= chunkSize) {
-				(void)producer->Write(std::move(batchBuffer));
+				(void)producer.Write(std::move(batchBuffer));
 				batchBuffer.clear();
 				batchBuffer.reserve(chunkSize * 2);
 				// Clean consumed data periodically (only when batch is written)
@@ -314,15 +314,15 @@ StormByte::Buffer::Consumer RSA::Decrypt(Buffer::Consumer consumer, const std::s
 		}
 		// Write any remaining data
 		if (!batchBuffer.empty()) {
-			(void)producer->Write(std::move(batchBuffer));
+			(void)producer.Write(std::move(batchBuffer));
 		}
-		producer->Close(); // Mark processing complete // Pass the status of the consumer to the producer
+		producer.Close(); // Mark processing complete // Pass the status of the consumer to the producer
 		} catch (...) {
-			producer->Close();
+			producer.Close();
 		}
 	}).detach();
 
-	return producer->Consumer();
+	return producer.Consumer();
 }
 
 // Signing
@@ -393,7 +393,7 @@ ExpectedCryptoBuffer RSA::Sign(const Buffer::FIFO& message, const std::string& p
 }
 
 StormByte::Buffer::Consumer RSA::Sign(Buffer::Consumer consumer, const std::string& privateKey) noexcept {
-	SharedProducerBuffer producer = std::make_shared<StormByte::Buffer::Producer>();
+	StormByte::Buffer::Producer producer;
 
 	std::thread([consumer, producer, privateKey]() mutable {
 		try {
@@ -402,7 +402,7 @@ StormByte::Buffer::Consumer RSA::Sign(Buffer::Consumer consumer, const std::stri
 			// Deserialize and validate the private key
 			CryptoPP::RSA::PrivateKey key = DeserializePrivateKey(privateKey);
 			if (!key.Validate(rng, 3)) {
-				producer->Close();
+				producer.Close();
 				return;
 			}
 
@@ -426,7 +426,7 @@ StormByte::Buffer::Consumer RSA::Sign(Buffer::Consumer consumer, const std::stri
 				// Use Span for zero-copy read
 				auto spanResult = consumer.Extract(bytesToRead);
 				if (!spanResult.has_value()) {
-					producer->Close();
+					producer.Close();
 					return;
 				}
 
@@ -449,22 +449,22 @@ StormByte::Buffer::Consumer RSA::Sign(Buffer::Consumer consumer, const std::stri
 
 				// Write in larger batches to reduce reallocation overhead
 				if (batchBuffer.size() >= chunkSize) {
-					(void)producer->Write(std::move(batchBuffer));
+					(void)producer.Write(std::move(batchBuffer));
 					batchBuffer.clear();
 					batchBuffer.reserve(chunkSize * 2);
 				}
 			}
 			// Write any remaining data
 			if (!batchBuffer.empty()) {
-				(void)producer->Write(std::move(batchBuffer));
+				(void)producer.Write(std::move(batchBuffer));
 			}
-			producer->Close(); // Mark processing complete // Pass the status of the consumer to the producer
+			producer.Close(); // Mark processing complete // Pass the status of the consumer to the producer
 		} catch (...) {
-			producer->Close();
+			producer.Close();
 		}
 	}).detach();
 
-	return producer->Consumer();
+	return producer.Consumer();
 }
 
 // Verification

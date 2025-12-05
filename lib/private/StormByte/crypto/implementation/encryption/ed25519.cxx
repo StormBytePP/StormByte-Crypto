@@ -126,7 +126,7 @@ ExpectedCryptoBuffer Ed25519::Sign(const Buffer::FIFO& message, const std::strin
 }
 
 StormByte::Buffer::Consumer Ed25519::Sign(Buffer::Consumer consumer, const std::string& privateKey) noexcept {
-	auto producer = std::make_shared<Buffer::Producer>();
+	StormByte::Buffer::Producer producer;
 	
 	std::thread([consumer, producer, privateKey]() mutable {
 		try {
@@ -134,7 +134,7 @@ StormByte::Buffer::Consumer Ed25519::Sign(Buffer::Consumer consumer, const std::
 			auto allDataFifo = consumer.ExtractUntilEoF();
 			auto spanResult = allDataFifo.Extract(0);
 			if (!spanResult.has_value()) {
-				producer->Close();
+				producer.Close();
 				return;
 			}
 			
@@ -143,7 +143,7 @@ StormByte::Buffer::Consumer Ed25519::Sign(Buffer::Consumer consumer, const std::
 			auto signatureResult = Sign(message, privateKey);
 			
 			if (!signatureResult.has_value()) {
-				producer->Close();
+				producer.Close();
 				return;
 			}
 			
@@ -151,14 +151,14 @@ StormByte::Buffer::Consumer Ed25519::Sign(Buffer::Consumer consumer, const std::
 			const std::string& sig = signatureResult.value();
 			std::vector<std::byte> sigBytes(reinterpret_cast<const std::byte*>(sig.data()),
 											reinterpret_cast<const std::byte*>(sig.data()) + sig.size());
-			(void)producer->Write(std::move(sigBytes));
-			producer->Close();
+			(void)producer.Write(std::move(sigBytes));
+			producer.Close();
 		} catch (...) {
-			producer->Close();
+			producer.Close();
 		}
 	}).detach();
 	
-	return producer->Consumer();
+	return producer.Consumer();
 }
 
 bool Ed25519::Verify(const std::string& message, const std::string& signature, const std::string& publicKey) noexcept {

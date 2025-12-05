@@ -126,7 +126,7 @@ return EncryptHelper(dataSpan, password);
 }
 
 StormByte::Buffer::Consumer AES_GCM::Encrypt(StormByte::Buffer::Consumer consumer, const std::string& password) noexcept {
-SharedProducerBuffer producer = std::make_shared<StormByte::Buffer::Producer>();
+StormByte::Buffer::Producer producer;
 
 // Start async encryption
 std::thread([consumer, producer, password]() mutable {
@@ -135,7 +135,7 @@ try {
 auto allDataFifo = consumer.ExtractUntilEoF();
 auto spanResult = allDataFifo.Extract(0);
 if (!spanResult.has_value()) {
-producer->Close();
+producer.Close();
 return;
 }
 
@@ -144,25 +144,25 @@ std::span<const std::byte> dataSpan(spanResult.value().data(), spanResult.value(
 auto encrypted = EncryptHelper(dataSpan, password);
 
 if (!encrypted.has_value()) {
-producer->Close();
+producer.Close();
 return;
 }
 
 // Write result
 auto extracted = encrypted.value().Extract(0);
 if (!extracted.has_value()) {
-producer->Close();
+producer.Close();
 return;
 }
-(void)producer->Write(std::move(extracted.value()));
-producer->Close();
+(void)producer.Write(std::move(extracted.value()));
+producer.Close();
 
 } catch (...) {
-producer->Close();
+producer.Close();
 }
 }).detach();
 
-return producer->Consumer();
+return producer.Consumer();
 }
 
 ExpectedCryptoBuffer AES_GCM::Decrypt(const std::string& encryptedData, const std::string& password) noexcept {
@@ -180,7 +180,7 @@ return DecryptHelper(dataSpan, password);
 }
 
 StormByte::Buffer::Consumer AES_GCM::Decrypt(StormByte::Buffer::Consumer consumer, const std::string& password) noexcept {
-SharedProducerBuffer producer = std::make_shared<StormByte::Buffer::Producer>();
+StormByte::Buffer::Producer producer;
 
 // Start async decryption
 std::thread([consumer, producer, password]() mutable {
@@ -189,7 +189,7 @@ try {
 auto allDataFifo = consumer.ExtractUntilEoF();
 auto spanResult = allDataFifo.Extract(0);
 if (!spanResult.has_value()) {
-producer->Close();
+producer.Close();
 return;
 }
 
@@ -198,25 +198,25 @@ std::span<const std::byte> dataSpan(spanResult.value().data(), spanResult.value(
 auto decrypted = DecryptHelper(dataSpan, password);
 
 if (!decrypted.has_value()) {
-producer->Close();
+producer.Close();
 return;
 }
 
 // Write result
 auto extracted = decrypted.value().Extract(0);
 if (!extracted.has_value()) {
-producer->Close();
+producer.Close();
 return;
 }
-(void)producer->Write(std::move(extracted.value()));
-producer->Close();
+(void)producer.Write(std::move(extracted.value()));
+producer.Close();
 
 } catch (...) {
-producer->Close();
+producer.Close();
 }
 }).detach();
 
-return producer->Consumer();
+return producer.Consumer();
 }
 
 ExpectedCryptoString AES_GCM::RandomPassword(size_t size) noexcept {

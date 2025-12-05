@@ -165,7 +165,7 @@ ExpectedCryptoBuffer ECC::Encrypt(const Buffer::FIFO& input, const std::string& 
 }
 
 StormByte::Buffer::Consumer ECC::Encrypt(Buffer::Consumer consumer, const std::string& publicKey) noexcept {
-	SharedProducerBuffer producer = std::make_shared<StormByte::Buffer::Producer>();
+	StormByte::Buffer::Producer producer;
 
 	std::thread([consumer, producer, publicKey]() mutable {
 		try {
@@ -175,7 +175,7 @@ StormByte::Buffer::Consumer ECC::Encrypt(Buffer::Consumer consumer, const std::s
 			// Deserialize, initialize, and validate the public key
 			ECIES::PublicKey key = DeserializePublicKey(publicKey);
 			if (!key.Validate(rng, 3)) {
-				producer->Close();
+				producer.Close();
 				return;
 			}
 
@@ -199,7 +199,7 @@ StormByte::Buffer::Consumer ECC::Encrypt(Buffer::Consumer consumer, const std::s
 				// Use Span for zero-copy read
 			auto spanResult = consumer.Extract(bytesToRead);
 				if (!spanResult.has_value()) {
-					producer->Close();
+					producer.Close();
 					return;
 				}
 
@@ -215,19 +215,19 @@ StormByte::Buffer::Consumer ECC::Encrypt(Buffer::Consumer consumer, const std::s
 				for (size_t i = 0; i < encryptedChunk.size(); ++i) {
 					byteData.push_back(static_cast<std::byte>(encryptedChunk[i]));
 				}
-				(void)producer->Write(byteData);
+				(void)producer.Write(byteData);
 				// Clean periodically (every 16 chunks to balance memory vs performance)
 				if (++chunksProcessed % 16 == 0) {
 					consumer.Clean();
 				}
 			}
-			producer->Close(); // Mark processing complete // Update status (EOF or Error)
+			producer.Close(); // Mark processing complete // Update status (EOF or Error)
 		} catch (...) {
-			producer->Close();
+			producer.Close();
 		}
 	}).detach();
 
-	return producer->Consumer();
+	return producer.Consumer();
 }
 
 ExpectedCryptoString ECC::Decrypt(const std::string& message, const std::string& privateKey) noexcept {
@@ -291,7 +291,7 @@ ExpectedCryptoBuffer ECC::Decrypt(const Buffer::FIFO& encryptedBuffer, const std
 }
 
 StormByte::Buffer::Consumer ECC::Decrypt(Buffer::Consumer consumer, const std::string& privateKey) noexcept {
-	SharedProducerBuffer producer = std::make_shared<StormByte::Buffer::Producer>();
+	StormByte::Buffer::Producer producer;
 
 	std::thread([consumer, producer, privateKey]() mutable {
 		try {
@@ -300,7 +300,7 @@ StormByte::Buffer::Consumer ECC::Decrypt(Buffer::Consumer consumer, const std::s
 			// Deserialize, initialize, and validate the private key
 			ECIES::PrivateKey key = DeserializePrivateKey(privateKey);
 			if (!key.Validate(rng, 3)) {
-				producer->Close();
+				producer.Close();
 				return;
 			}
 
@@ -324,7 +324,7 @@ StormByte::Buffer::Consumer ECC::Decrypt(Buffer::Consumer consumer, const std::s
 				// Use Span for zero-copy read
 			auto spanResult = consumer.Extract(bytesToRead);
 				if (!spanResult.has_value()) {
-					producer->Close();
+					producer.Close();
 					return;
 				}
 
@@ -340,13 +340,13 @@ StormByte::Buffer::Consumer ECC::Decrypt(Buffer::Consumer consumer, const std::s
 				for (size_t i = 0; i < decryptedChunk.size(); ++i) {
 					byteData.push_back(static_cast<std::byte>(decryptedChunk[i]));
 				}
-				(void)producer->Write(byteData);
+				(void)producer.Write(byteData);
 			}
-			producer->Close(); // Mark processing complete // Update status (EOF or Error)
+			producer.Close(); // Mark processing complete // Update status (EOF or Error)
 		} catch (...) {
-			producer->Close();
+			producer.Close();
 		}
 	}).detach();
 
-	return producer->Consumer();
+	return producer.Consumer();
 }

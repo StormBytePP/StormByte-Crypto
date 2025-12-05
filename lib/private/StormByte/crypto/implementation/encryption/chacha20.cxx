@@ -110,7 +110,7 @@ ExpectedCryptoBuffer ChaCha20::Encrypt(const StormByte::Buffer::FIFO& input, con
 }
 
 StormByte::Buffer::Consumer ChaCha20::Encrypt(Buffer::Consumer consumer, const std::string& password) noexcept {
-	SharedProducerBuffer producer = std::make_shared<StormByte::Buffer::Producer>();
+	StormByte::Buffer::Producer producer;
 
 	// Generate and write header synchronously before starting async processing
 	CryptoPP::AutoSeededRandomPool rng;
@@ -133,7 +133,7 @@ StormByte::Buffer::Consumer ChaCha20::Encrypt(Buffer::Consumer consumer, const s
 	for (size_t i = 0; i < iv.size(); ++i) {
 		headerBytes.push_back(static_cast<std::byte>(iv[i]));
 	}
-	(void)producer->Write(std::move(headerBytes));
+	(void)producer.Write(std::move(headerBytes));
 
 	// Now start async encryption with the derived key and IV
 	std::thread([consumer, producer, key = std::move(key), iv = std::move(iv)]() mutable {
@@ -157,7 +157,7 @@ StormByte::Buffer::Consumer ChaCha20::Encrypt(Buffer::Consumer consumer, const s
 				// Use Span for zero-copy read
 				auto spanResult = consumer.Extract(bytesToRead);
 				if (!spanResult.has_value()) {
-					producer->Close();
+					producer.Close();
 					return;
 				}
 
@@ -176,7 +176,7 @@ StormByte::Buffer::Consumer ChaCha20::Encrypt(Buffer::Consumer consumer, const s
 
 				// Write in larger batches
 				if (batchBuffer.size() >= chunkSize) {
-					(void)producer->Write(std::move(batchBuffer));
+					(void)producer.Write(std::move(batchBuffer));
 					batchBuffer.clear();
 					batchBuffer.reserve(chunkSize * 2);
 					// Clean consumed data periodically
@@ -185,15 +185,15 @@ StormByte::Buffer::Consumer ChaCha20::Encrypt(Buffer::Consumer consumer, const s
 			}
 			// Write any remaining data
 			if (!batchBuffer.empty()) {
-				(void)producer->Write(std::move(batchBuffer));
+				(void)producer.Write(std::move(batchBuffer));
 			}
-			producer->Close();
+			producer.Close();
 		} catch (...) {
-			producer->Close();
+			producer.Close();
 		}
 	}).detach();
 
-	return producer->Consumer();
+	return producer.Consumer();
 }
 
 // Decrypt Function Overloads
@@ -212,7 +212,7 @@ ExpectedCryptoBuffer ChaCha20::Decrypt(const StormByte::Buffer::FIFO& input, con
 }
 
 StormByte::Buffer::Consumer ChaCha20::Decrypt(Buffer::Consumer consumer, const std::string& password) noexcept {
-	SharedProducerBuffer producer = std::make_shared<StormByte::Buffer::Producer>();
+	StormByte::Buffer::Producer producer;
 
 	std::thread([consumer, producer, password]() mutable {
 		try {
@@ -223,14 +223,14 @@ StormByte::Buffer::Consumer ChaCha20::Decrypt(Buffer::Consumer consumer, const s
 			// Read salt
 			while (consumer.AvailableBytes() < salt.size()) {
 				if (!consumer.IsWritable() && consumer.AvailableBytes() < salt.size()) {
-					producer->Close();
+					producer.Close();
 					return;
 				}
 				std::this_thread::yield();
 			}
 			auto saltSpan = consumer.Extract(salt.size());
 			if (!saltSpan.has_value()) {
-				producer->Close();
+				producer.Close();
 				return;
 			}
 			std::copy_n(reinterpret_cast<const uint8_t*>(saltSpan.value().data()), salt.size(), salt.data());
@@ -238,14 +238,14 @@ StormByte::Buffer::Consumer ChaCha20::Decrypt(Buffer::Consumer consumer, const s
 			// Read IV
 			while (consumer.AvailableBytes() < iv.size()) {
 				if (!consumer.IsWritable() && consumer.AvailableBytes() < iv.size()) {
-					producer->Close();
+					producer.Close();
 					return;
 				}
 				std::this_thread::yield();
 			}
 			auto ivSpan = consumer.Extract(iv.size());
 			if (!ivSpan.has_value()) {
-				producer->Close();
+				producer.Close();
 				return;
 			}
 			std::copy_n(reinterpret_cast<const uint8_t*>(ivSpan.value().data()), iv.size(), iv.data());
@@ -274,7 +274,7 @@ StormByte::Buffer::Consumer ChaCha20::Decrypt(Buffer::Consumer consumer, const s
 				// Use Span for zero-copy read
 				auto spanResult = consumer.Extract(bytesToRead);
 				if (!spanResult.has_value()) {
-					producer->Close();
+					producer.Close();
 					return;
 				}
 
@@ -293,7 +293,7 @@ StormByte::Buffer::Consumer ChaCha20::Decrypt(Buffer::Consumer consumer, const s
 
 				// Write in larger batches
 				if (batchBuffer.size() >= chunkSize) {
-					(void)producer->Write(std::move(batchBuffer));
+					(void)producer.Write(std::move(batchBuffer));
 					batchBuffer.clear();
 					batchBuffer.reserve(chunkSize * 2);
 					// Clean consumed data periodically
@@ -302,15 +302,15 @@ StormByte::Buffer::Consumer ChaCha20::Decrypt(Buffer::Consumer consumer, const s
 			}
 			// Write any remaining data
 			if (!batchBuffer.empty()) {
-				(void)producer->Write(std::move(batchBuffer));
+				(void)producer.Write(std::move(batchBuffer));
 			}
-			producer->Close();
+			producer.Close();
 		} catch (...) {
-			producer->Close();
+			producer.Close();
 		}
 	}).detach();
 
-	return producer->Consumer();
+	return producer.Consumer();
 }
 
 // RandomPassword Function

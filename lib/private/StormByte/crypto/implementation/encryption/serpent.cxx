@@ -105,7 +105,7 @@ return EncryptHelper(dataSpan, password);
 }
 
 StormByte::Buffer::Consumer Serpent::Encrypt(Buffer::Consumer consumer, const std::string& password) noexcept {
-SharedProducerBuffer producer = std::make_shared<StormByte::Buffer::Producer>();
+StormByte::Buffer::Producer producer;
 
 // Generate and write header synchronously
 CryptoPP::AutoSeededRandomPool rng;
@@ -127,7 +127,7 @@ headerBytes.push_back(static_cast<std::byte>(salt[i]));
 for (size_t i = 0; i < iv.size(); ++i) {
 headerBytes.push_back(static_cast<std::byte>(iv[i]));
 }
-(void)producer->Write(std::move(headerBytes));
+(void)producer.Write(std::move(headerBytes));
 
 std::thread([consumer, producer, key = std::move(key), iv = std::move(iv)]() mutable {
 try {
@@ -147,7 +147,7 @@ continue;
 size_t bytesToRead = std::min(availableBytes, chunkSize);
 auto spanResult = consumer.Extract(bytesToRead);
 if (!spanResult.has_value()) {
-producer->Close();
+producer.Close();
 return;
 }
 
@@ -163,22 +163,22 @@ batchBuffer.push_back(static_cast<std::byte>(encryptedChunk[i]));
 }
 
 if (batchBuffer.size() >= chunkSize) {
-(void)producer->Write(std::move(batchBuffer));
+(void)producer.Write(std::move(batchBuffer));
 batchBuffer.clear();
 batchBuffer.reserve(chunkSize * 2);
 consumer.Clean();
 }
 }
 if (!batchBuffer.empty()) {
-(void)producer->Write(std::move(batchBuffer));
+(void)producer.Write(std::move(batchBuffer));
 }
-producer->Close();
+producer.Close();
 } catch (...) {
-producer->Close();
+producer.Close();
 }
 }).detach();
 
-return producer->Consumer();
+return producer.Consumer();
 }
 
 // Decrypt Function Overloads
@@ -197,7 +197,7 @@ return DecryptHelper(dataSpan, password);
 }
 
 StormByte::Buffer::Consumer Serpent::Decrypt(Buffer::Consumer consumer, const std::string& password) noexcept {
-SharedProducerBuffer producer = std::make_shared<StormByte::Buffer::Producer>();
+StormByte::Buffer::Producer producer;
 
 std::thread([consumer, producer, password]() mutable {
 try {
@@ -207,28 +207,28 @@ CryptoPP::SecByteBlock iv(CryptoPP::Serpent::BLOCKSIZE);
 
 while (consumer.AvailableBytes() < salt.size()) {
 if (!consumer.IsWritable() && consumer.AvailableBytes() < salt.size()) {
-producer->Close();
+producer.Close();
 return;
 }
 std::this_thread::yield();
 }
 auto saltSpan = consumer.Extract(salt.size());
 if (!saltSpan.has_value()) {
-producer->Close();
+producer.Close();
 return;
 }
 std::copy_n(reinterpret_cast<const uint8_t*>(saltSpan.value().data()), salt.size(), salt.data());
 
 while (consumer.AvailableBytes() < iv.size()) {
 if (!consumer.IsWritable() && consumer.AvailableBytes() < iv.size()) {
-producer->Close();
+producer.Close();
 return;
 }
 std::this_thread::yield();
 }
 auto ivSpan = consumer.Extract(iv.size());
 if (!ivSpan.has_value()) {
-producer->Close();
+producer.Close();
 return;
 }
 std::copy_n(reinterpret_cast<const uint8_t*>(ivSpan.value().data()), iv.size(), iv.data());
@@ -253,7 +253,7 @@ continue;
 size_t bytesToRead = std::min(availableBytes, chunkSize);
 auto spanResult = consumer.Extract(bytesToRead);
 if (!spanResult.has_value()) {
-producer->Close();
+producer.Close();
 return;
 }
 
@@ -269,22 +269,22 @@ batchBuffer.push_back(static_cast<std::byte>(decryptedChunk[i]));
 }
 
 if (batchBuffer.size() >= chunkSize) {
-(void)producer->Write(std::move(batchBuffer));
+(void)producer.Write(std::move(batchBuffer));
 batchBuffer.clear();
 batchBuffer.reserve(chunkSize * 2);
 consumer.Clean();
 }
 }
 if (!batchBuffer.empty()) {
-(void)producer->Write(std::move(batchBuffer));
+(void)producer.Write(std::move(batchBuffer));
 }
-producer->Close();
+producer.Close();
 } catch (...) {
-producer->Close();
+producer.Close();
 }
 }).detach();
 
-return producer->Consumer();
+return producer.Consumer();
 }
 
 ExpectedCryptoString Serpent::RandomPassword(const size_t& passwordSize) noexcept {

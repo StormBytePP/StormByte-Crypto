@@ -68,7 +68,7 @@ return ComputeSHA3_256(dataSpan);
 }
 
 StormByte::Buffer::Consumer SHA3_256::Hash(Buffer::Consumer consumer) noexcept {
-SharedProducerBuffer producer = std::make_shared<StormByte::Buffer::Producer>();
+StormByte::Buffer::Producer producer;
 
 std::thread([consumer, producer]() mutable {
 try {
@@ -93,7 +93,7 @@ continue;
 size_t bytesToRead = std::min(availableBytes, chunkSize);
 auto spanResult = consumer.Extract(bytesToRead);
 if (!spanResult.has_value()) {
-producer->Close();
+producer.Close();
 return;
 }
 
@@ -114,14 +114,14 @@ byteData.reserve(hashOutput.size());
 for (size_t i = 0; i < hashOutput.size(); ++i) {
 byteData.push_back(static_cast<std::byte>(hashOutput[i]));
 }
-(void)producer->Write(byteData);
-producer->Close();
+(void)producer.Write(byteData);
+producer.Close();
 } catch (...) {
-producer->Close();
+producer.Close();
 }
 }).detach();
 
-return producer->Consumer();
+return producer.Consumer();
 }
 
 // SHA3-512
@@ -140,7 +140,7 @@ return ComputeSHA3_512(dataSpan);
 }
 
 StormByte::Buffer::Consumer SHA3_512::Hash(Buffer::Consumer consumer) noexcept {
-SharedProducerBuffer producer = std::make_shared<StormByte::Buffer::Producer>();
+StormByte::Buffer::Producer producer;
 
 std::thread([consumer, producer]() mutable {
 try {
@@ -165,7 +165,7 @@ continue;
 size_t bytesToRead = std::min(availableBytes, chunkSize);
 auto spanResult = consumer.Extract(bytesToRead);
 if (!spanResult.has_value()) {
-producer->Close();
+producer.Close();
 return;
 }
 
@@ -186,12 +186,12 @@ byteData.reserve(hashOutput.size());
 for (size_t i = 0; i < hashOutput.size(); ++i) {
 byteData.push_back(static_cast<std::byte>(hashOutput[i]));
 }
-(void)producer->Write(byteData);
-producer->Close();
+(void)producer.Write(byteData);
+producer.Close();
 } catch (...) {
-producer->Close();
+producer.Close();
 }
 }).detach();
 
-return producer->Consumer();
+return producer.Consumer();
 }

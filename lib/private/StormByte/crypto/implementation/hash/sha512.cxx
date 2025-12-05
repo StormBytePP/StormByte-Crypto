@@ -57,7 +57,7 @@ ExpectedHashString SHA512::Hash(const StormByte::Buffer::FIFO& buffer) noexcept 
 }
 
 StormByte::Buffer::Consumer SHA512::Hash(Buffer::Consumer consumer) noexcept {
-	SharedProducerBuffer producer = std::make_shared<StormByte::Buffer::Producer>();
+	StormByte::Buffer::Producer producer;
 
 	std::thread([consumer, producer]() mutable {
 		try {
@@ -83,7 +83,7 @@ StormByte::Buffer::Consumer SHA512::Hash(Buffer::Consumer consumer) noexcept {
 				// Use Span for zero-copy read
 			auto spanResult = consumer.Extract(bytesToRead);
 				if (!spanResult.has_value()) {
-					producer->Close();
+					producer.Close();
 					return;
 				}
 
@@ -104,12 +104,12 @@ StormByte::Buffer::Consumer SHA512::Hash(Buffer::Consumer consumer) noexcept {
 			for (size_t i = 0; i < hashOutput.size(); ++i) {
 				byteData.push_back(static_cast<std::byte>(hashOutput[i]));
 			}
-			(void)producer->Write(byteData);
-			producer->Close();
+			(void)producer.Write(byteData);
+			producer.Close();
 		} catch (...) {
-			producer->Close();
+			producer.Close();
 		}
 	}).detach();
 
-	return producer->Consumer();
+	return producer.Consumer();
 }

@@ -99,7 +99,7 @@ ExpectedCompressorBuffer BZip2::Compress(const StormByte::Buffer::FIFO& input) n
 
 StormByte::Buffer::Consumer BZip2::Compress(Buffer::Consumer consumer) noexcept {
 	// Create a producer buffer to store the compressed data
-	SharedProducerBuffer producer = std::make_shared<StormByte::Buffer::Producer>();
+	StormByte::Buffer::Producer producer;
 
 	// Launch a detached thread to handle compression
 	std::thread([consumer, producer]() mutable {
@@ -111,7 +111,7 @@ StormByte::Buffer::Consumer BZip2::Compress(Buffer::Consumer consumer) noexcept 
 			bz_stream stream;
 			std::memset(&stream, 0, sizeof(stream));
 			if (BZ2_bzCompressInit(&stream, 9, 0, 30) != BZ_OK) {
-				producer->Close();
+				producer.Close();
 				return;
 			}
 
@@ -128,7 +128,7 @@ StormByte::Buffer::Consumer BZip2::Compress(Buffer::Consumer consumer) noexcept 
 				auto spanResult = consumer.Extract(bytesToRead);
 				if (!spanResult.has_value()) {
 					BZ2_bzCompressEnd(&stream);
-					producer->Close();
+					producer.Close();
 					return;
 				}
 
@@ -146,7 +146,7 @@ StormByte::Buffer::Consumer BZip2::Compress(Buffer::Consumer consumer) noexcept 
 					int result = BZ2_bzCompress(&stream, BZ_RUN);
 					if (result < 0) {
 						BZ2_bzCompressEnd(&stream);
-						producer->Close();
+						producer.Close();
 						return;
 					}
 
@@ -155,7 +155,7 @@ StormByte::Buffer::Consumer BZip2::Compress(Buffer::Consumer consumer) noexcept 
 						std::vector<std::byte> byteData(produced);
 						std::transform(compressedBuffer.begin(), compressedBuffer.begin() + produced, byteData.begin(),
 							[](uint8_t b) { return static_cast<std::byte>(b); });
-						(void)producer->Write(byteData);
+						(void)producer.Write(byteData);
 					}
 				} while (stream.avail_in > 0);
 			}
@@ -173,19 +173,19 @@ StormByte::Buffer::Consumer BZip2::Compress(Buffer::Consumer consumer) noexcept 
 					std::vector<std::byte> byteData(produced);
 					std::transform(compressedBuffer.begin(), compressedBuffer.begin() + produced, byteData.begin(),
 						[](uint8_t b) { return static_cast<std::byte>(b); });
-					(void)producer->Write(byteData);
+					(void)producer.Write(byteData);
 				}
 			} while (result != BZ_STREAM_END);
 
 			BZ2_bzCompressEnd(&stream);
-			producer->Close();
+			producer.Close();
 		} catch (...) {
-			producer->Close();
+			producer.Close();
 		}
 	}).detach();
 
 	// Return a consumer buffer for the producer
-	return producer->Consumer();
+	return producer.Consumer();
 }
 
 // Public Decompress Methods
@@ -206,7 +206,7 @@ ExpectedCompressorBuffer BZip2::Decompress(const StormByte::Buffer::FIFO& input)
 
 StormByte::Buffer::Consumer BZip2::Decompress(Buffer::Consumer consumer) noexcept {
 	// Create a producer buffer to store the decompressed data
-	SharedProducerBuffer producer = std::make_shared<StormByte::Buffer::Producer>();
+	StormByte::Buffer::Producer producer;
 
 	// Launch a detached thread to handle decompression
 	std::thread([consumer, producer]() mutable {
@@ -218,7 +218,7 @@ StormByte::Buffer::Consumer BZip2::Decompress(Buffer::Consumer consumer) noexcep
 			bz_stream stream;
 			std::memset(&stream, 0, sizeof(stream));
 			if (BZ2_bzDecompressInit(&stream, 0, 0) != BZ_OK) {
-				producer->Close();
+				producer.Close();
 				return;
 			}
 
@@ -235,7 +235,7 @@ StormByte::Buffer::Consumer BZip2::Decompress(Buffer::Consumer consumer) noexcep
 				auto spanResult = consumer.Extract(bytesToRead);
 				if (!spanResult.has_value()) {
 					BZ2_bzDecompressEnd(&stream);
-					producer->Close();
+					producer.Close();
 					return;
 				}
 
@@ -253,7 +253,7 @@ StormByte::Buffer::Consumer BZip2::Decompress(Buffer::Consumer consumer) noexcep
 					int result = BZ2_bzDecompress(&stream);
 					if (result < 0) {
 						BZ2_bzDecompressEnd(&stream);
-						producer->Close();
+						producer.Close();
 						return;
 					}
 
@@ -262,7 +262,7 @@ StormByte::Buffer::Consumer BZip2::Decompress(Buffer::Consumer consumer) noexcep
 						std::vector<std::byte> byteData(produced);
 						std::transform(decompressedBuffer.begin(), decompressedBuffer.begin() + produced, byteData.begin(),
 							[](uint8_t b) { return static_cast<std::byte>(b); });
-						(void)producer->Write(byteData);
+						(void)producer.Write(byteData);
 					}
 
 					if (result == BZ_STREAM_END) break;
@@ -270,12 +270,12 @@ StormByte::Buffer::Consumer BZip2::Decompress(Buffer::Consumer consumer) noexcep
 			}
 
 			BZ2_bzDecompressEnd(&stream);
-			producer->Close();
+			producer.Close();
 		} catch (...) {
-			producer->Close();
+			producer.Close();
 		}
 	}).detach();
 
 	// Return a consumer buffer for the producer
-	return producer->Consumer();
+	return producer.Consumer();
 }

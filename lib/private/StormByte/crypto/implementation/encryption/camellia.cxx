@@ -106,7 +106,7 @@ ExpectedCryptoBuffer Camellia::Encrypt(const StormByte::Buffer::FIFO& input, con
 }
 
 StormByte::Buffer::Consumer Camellia::Encrypt(Buffer::Consumer consumer, const std::string& password) noexcept {
-	SharedProducerBuffer producer = std::make_shared<StormByte::Buffer::Producer>();
+	StormByte::Buffer::Producer producer;
 
 	// Generate and write header synchronously before starting async processing
 	// This prevents race condition where consumer is used before header exists
@@ -130,7 +130,7 @@ StormByte::Buffer::Consumer Camellia::Encrypt(Buffer::Consumer consumer, const s
 	for (size_t i = 0; i < iv.size(); ++i) {
 		headerBytes.push_back(static_cast<std::byte>(iv[i]));
 	}
-	(void)producer->Write(std::move(headerBytes));
+	(void)producer.Write(std::move(headerBytes));
 
 	// Now start async encryption with the derived key and IV
 	std::thread([consumer, producer, key = std::move(key), iv = std::move(iv)]() mutable {
@@ -152,7 +152,7 @@ StormByte::Buffer::Consumer Camellia::Encrypt(Buffer::Consumer consumer, const s
 				// Use Read() to obtain an owned copy to avoid span lifetime races across threads
 				auto readResult = consumer.Extract(bytesToRead);
 				if (!readResult.has_value()) {
-					producer->Close();
+					producer.Close();
 					return;
 				}
 
@@ -168,15 +168,15 @@ StormByte::Buffer::Consumer Camellia::Encrypt(Buffer::Consumer consumer, const s
 				for (size_t i = 0; i < encryptedChunk.size(); ++i) {
 					byteData.push_back(static_cast<std::byte>(encryptedChunk[i]));
 				}
-				(void)producer->Write(byteData);
+				(void)producer.Write(byteData);
 			}
-			producer->Close(); // Mark processing complete // Update status (EOF or Error)
+			producer.Close(); // Mark processing complete // Update status (EOF or Error)
 		} catch (...) {
-			producer->Close();
+			producer.Close();
 		}
 	}).detach();
 
-	return producer->Consumer();
+	return producer.Consumer();
 }
 
 // Decrypt Function Overloads
@@ -195,7 +195,7 @@ ExpectedCryptoBuffer Camellia::Decrypt(const StormByte::Buffer::FIFO& input, con
 }
 
 StormByte::Buffer::Consumer Camellia::Decrypt(Buffer::Consumer consumer, const std::string& password) noexcept {
-	SharedProducerBuffer producer = std::make_shared<StormByte::Buffer::Producer>();
+	StormByte::Buffer::Producer producer;
 
 	std::thread([consumer, producer, password]() mutable {
 		try {
@@ -208,7 +208,7 @@ StormByte::Buffer::Consumer Camellia::Decrypt(Buffer::Consumer consumer, const s
 			// so the memory won't be freed while we copy it out.
 			auto saltRead = consumer.Extract(salt.size());
 			if (!saltRead.has_value()) {
-				producer->Close();
+				producer.Close();
 				return;
 			}
 			const auto& saltVec = saltRead.value();
@@ -217,7 +217,7 @@ StormByte::Buffer::Consumer Camellia::Decrypt(Buffer::Consumer consumer, const s
 			// Block until IV is available and copy into local SecByteBlock.
 			auto ivRead = consumer.Extract(iv.size());
 			if (!ivRead.has_value()) {
-				producer->Close();
+				producer.Close();
 				return;
 			}
 			const auto& ivVec = ivRead.value();
@@ -243,7 +243,7 @@ StormByte::Buffer::Consumer Camellia::Decrypt(Buffer::Consumer consumer, const s
 				// Use Read() to obtain an owned copy to avoid span lifetime races across threads
 				auto readResult = consumer.Extract(bytesToRead);
 				if (!readResult.has_value()) {
-					producer->Close();
+					producer.Close();
 					return;
 				}
 
@@ -259,15 +259,15 @@ StormByte::Buffer::Consumer Camellia::Decrypt(Buffer::Consumer consumer, const s
 				for (size_t i = 0; i < decryptedChunk.size(); ++i) {
 					byteData.push_back(static_cast<std::byte>(decryptedChunk[i]));
 				}
-				(void)producer->Write(byteData);
+				(void)producer.Write(byteData);
 			}
-			producer->Close(); // Mark processing complete // Update status (EOF or Error)
+			producer.Close(); // Mark processing complete // Update status (EOF or Error)
 		} catch (...) {
-			producer->Close();
+			producer.Close();
 		}
 	}).detach();
 
-	return producer->Consumer();
+	return producer.Consumer();
 }
 
 // RandomPassword Function

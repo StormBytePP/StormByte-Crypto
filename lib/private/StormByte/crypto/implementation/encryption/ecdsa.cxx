@@ -162,7 +162,7 @@ ExpectedCryptoBuffer ECDSA::Sign(const Buffer::FIFO& message, const std::string&
 
 // Signing with Buffer::Consumer
 StormByte::Buffer::Consumer ECDSA::Sign(Buffer::Consumer consumer, const std::string& privateKey) noexcept {
-	auto producer = std::make_shared<StormByte::Buffer::Producer>();
+	StormByte::Buffer::Producer producer;
 
 	std::thread([consumer, producer, privateKey]() mutable {
 		try {
@@ -173,7 +173,7 @@ StormByte::Buffer::Consumer ECDSA::Sign(Buffer::Consumer consumer, const std::st
 			// Deserialize and validate the private key
 			CryptoECDSA::PrivateKey key = DeserializePrivateKey(privateKey);
 			if (!key.Validate(rng, 3)) {
-				producer->Close();
+				producer.Close();
 				return;
 			}
 
@@ -194,7 +194,7 @@ StormByte::Buffer::Consumer ECDSA::Sign(Buffer::Consumer consumer, const std::st
 				// Use Span for zero-copy read
 			auto spanResult = consumer.Extract(bytesToRead);
 				if (!spanResult.has_value()) {
-					producer->Close();
+					producer.Close();
 					return;
 				}
 
@@ -215,19 +215,19 @@ StormByte::Buffer::Consumer ECDSA::Sign(Buffer::Consumer consumer, const std::st
 				for (size_t i = 0; i < signatureChunk.size(); ++i) {
 					byteData.push_back(static_cast<std::byte>(signatureChunk[i]));
 				}
-				(void)producer->Write(byteData);
+				(void)producer.Write(byteData);
 				// Clean periodically (every 16 chunks to balance memory vs performance)
 				if (++chunksProcessed % 16 == 0) {
 					consumer.Clean();
 				}
 			}
-			producer->Close(); // Mark processing complete // Update status (EOF or Error)
+			producer.Close(); // Mark processing complete // Update status (EOF or Error)
 		} catch (...) {
-			producer->Close();
+			producer.Close();
 		}
 	}).detach();
 
-	return producer->Consumer();
+	return producer.Consumer();
 }
 
 // Verification
