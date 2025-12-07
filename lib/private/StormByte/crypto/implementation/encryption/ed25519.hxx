@@ -30,12 +30,12 @@ namespace StormByte::Crypto::Implementation::Encryption::Ed25519 {
 	STORMBYTE_CRYPTO_PRIVATE ExpectedCryptoBuffer Sign(const Buffer::FIFO& message, const std::string& privateKey) noexcept;
 
 	/**
-	 * @brief Signs data asynchronously using the Consumer/Producer model.
-	 * @param consumer The Consumer buffer containing the input data to sign.
+	 * @brief Signs data asynchronously using the Buffer::Consumer/Buffer::Producer model.
+	 * @param Buffer::Consumer The Buffer::Consumer buffer containing the input data to sign.
 	 * @param privateKey The Ed25519 private key to use for signing.
-	 * @return A Consumer buffer containing the signature.
+	 * @return A Buffer::Consumer buffer containing the signature.
 	 */
-	STORMBYTE_CRYPTO_PRIVATE StormByte::Buffer::Consumer Sign(Buffer::Consumer consumer, const std::string& privateKey) noexcept;
+	STORMBYTE_CRYPTO_PRIVATE Buffer::Consumer Sign(Buffer::Consumer consumer, const std::string& privateKey) noexcept;
 
 	/**
 	 * @brief Verifies a signature using the Ed25519 public key.
@@ -56,8 +56,8 @@ namespace StormByte::Crypto::Implementation::Encryption::Ed25519 {
 	STORMBYTE_CRYPTO_PRIVATE bool Verify(const Buffer::FIFO& message, const std::string& signature, const std::string& publicKey) noexcept;
 
 	/**
-	 * @brief Verifies a signature asynchronously using the Consumer/Producer model.
-	 * @param consumer The Consumer buffer containing the input data to verify.
+	 * @brief Verifies a signature asynchronously using the Buffer::Consumer/Buffer::Producer model.
+	 * @param Buffer::Consumer The Buffer::Consumer buffer containing the input data to verify.
 	 * @param signature The signature to verify.
 	 * @param publicKey The Ed25519 public key to use for verification.
 	 * @return True if the signature is valid, false otherwise.

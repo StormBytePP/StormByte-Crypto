@@ -8,190 +8,189 @@
 #include <thread>
 #include <span>
 
+using StormByte::Buffer::DataType;
+using StormByte::Buffer::FIFO;
+using StormByte::Buffer::Consumer;
+using StormByte::Buffer::Producer;
+using namespace StormByte::Crypto;
 using namespace StormByte::Crypto::Implementation::Hash;
 
 namespace {
-ExpectedHashString ComputeSHA3_256(std::span<const std::byte> dataSpan) noexcept {
-try {
-std::vector<uint8_t> data;
-std::transform(dataSpan.begin(), dataSpan.end(), std::back_inserter(data),
-[](std::byte b) { return static_cast<uint8_t>(b); });
+	ExpectedHashString ComputeSHA3_256(std::span<const std::byte> dataSpan) noexcept {
+		try {
+			std::vector<uint8_t> data;
+			std::transform(
+				dataSpan.begin(),
+				dataSpan.end(),
+				std::back_inserter(data),
+				[](std::byte b) { return static_cast<uint8_t>(b); }
+			);
 
-CryptoPP::SHA3_256 hash;
-std::string hashOutput;
+			CryptoPP::SHA3_256 hash;
+			std::string hashOutput;
 
-CryptoPP::StringSource ss(data.data(), data.size(), true,
-new CryptoPP::HashFilter(hash,
-new CryptoPP::HexEncoder(
-new CryptoPP::StringSink(hashOutput))));
+			CryptoPP::StringSource ss(
+				data.data(),
+				data.size(),
+				true,
+				new CryptoPP::HashFilter(
+					hash,
+					new CryptoPP::HexEncoder(new CryptoPP::StringSink(hashOutput))
+				)
+			);
 
-return hashOutput;
-} catch (const std::exception& e) {
-return StormByte::Unexpected<StormByte::Crypto::Exception>("SHA3-256 hashing failed: {}", e.what());
-}
-}
+			return hashOutput;
+		} catch (const std::exception& e) {
+			return Unexpected(HasherException("SHA3-256 hashing failed: {}", e.what()));
+		}
+	}
 
-ExpectedHashString ComputeSHA3_512(std::span<const std::byte> dataSpan) noexcept {
-try {
-std::vector<uint8_t> data;
-std::transform(dataSpan.begin(), dataSpan.end(), std::back_inserter(data),
-[](std::byte b) { return static_cast<uint8_t>(b); });
+	ExpectedHashString ComputeSHA3_512(std::span<const std::byte> dataSpan) noexcept {
+		try {
+			std::vector<uint8_t> data;
+			std::transform(
+				dataSpan.begin(),
+				dataSpan.end(),
+				std::back_inserter(data),
+				[](std::byte b) { return static_cast<uint8_t>(b); }
+			);
 
-CryptoPP::SHA3_512 hash;
-std::string hashOutput;
+			CryptoPP::SHA3_512 hash;
+			std::string hashOutput;
 
-CryptoPP::StringSource ss(data.data(), data.size(), true,
-new CryptoPP::HashFilter(hash,
-new CryptoPP::HexEncoder(
-new CryptoPP::StringSink(hashOutput))));
+			CryptoPP::StringSource ss(
+				data.data(),
+				data.size(),
+				true,
+				new CryptoPP::HashFilter(
+					hash,
+					new CryptoPP::HexEncoder(new CryptoPP::StringSink(hashOutput))
+				)
+			);
 
-return hashOutput;
-} catch (const std::exception& e) {
-return StormByte::Unexpected<StormByte::Crypto::Exception>("SHA3-512 hashing failed: {}", e.what());
-}
-}
+			return hashOutput;
+		} catch (const std::exception& e) {
+		return Unexpected(HasherException("SHA3-512 hashing failed: {}", e.what()));
+		}
+	}
 }
 
 // SHA3-256
 ExpectedHashString SHA3_256::Hash(const std::string& input) noexcept {
-std::span<const std::byte> dataSpan(reinterpret_cast<const std::byte*>(input.data()), input.size());
-return ComputeSHA3_256(dataSpan);
+	std::span<const std::byte> dataSpan(reinterpret_cast<const std::byte*>(input.data()), input.size());
+	return ComputeSHA3_256(dataSpan);
 }
 
-ExpectedHashString SHA3_256::Hash(const StormByte::Buffer::FIFO& buffer) noexcept {
-auto data = const_cast<StormByte::Buffer::FIFO&>(buffer).Extract(0);
-if (!data.has_value()) {
-return StormByte::Unexpected<StormByte::Crypto::Exception>("Failed to extract data from buffer");
-}
-std::span<const std::byte> dataSpan(data.value().data(), data.value().size());
-return ComputeSHA3_256(dataSpan);
-}
-
-StormByte::Buffer::Consumer SHA3_256::Hash(Buffer::Consumer consumer) noexcept {
-StormByte::Buffer::Producer producer;
-
-std::thread([consumer, producer]() mutable {
-try {
-CryptoPP::SHA3_256 hash;
-std::string hashOutput;
-CryptoPP::HexEncoder encoder(new CryptoPP::StringSink(hashOutput));
-
-constexpr size_t chunkSize = 4096;
-std::vector<uint8_t> chunkBuffer(chunkSize);
-size_t chunksProcessed = 0;
-
-while (!consumer.EoF()) {
-size_t availableBytes = consumer.AvailableBytes();
-if (availableBytes == 0) {
-if (!consumer.IsWritable()) {
-break;
-}
-std::this_thread::yield();
-continue;
+ExpectedHashString SHA3_256::Hash(const FIFO& buffer) noexcept {
+	DataType data;
+	auto read_ok = buffer.Read(data);
+	if (!read_ok.has_value()) {
+		return Unexpected(HasherException("Failed to extract data from buffer"));
+	}
+	std::span<const std::byte> dataSpan(data.data(), data.size());
+	return ComputeSHA3_256(dataSpan);
 }
 
-size_t bytesToRead = std::min(availableBytes, chunkSize);
-auto spanResult = consumer.Extract(bytesToRead);
-if (!spanResult.has_value()) {
-producer.Close();
-return;
-}
+Consumer SHA3_256::Hash(Consumer consumer) noexcept {
+	Producer producer;
 
-const auto& inputSpan = spanResult.value();
-hash.Update(reinterpret_cast<const CryptoPP::byte*>(inputSpan.data()), inputSpan.size());
+	std::thread([consumer, producer]() mutable {
+		try {
+			CryptoPP::SHA3_256 hash;
+			std::string hashOutput;
+			CryptoPP::HexEncoder encoder(new CryptoPP::StringSink(hashOutput));
 
-if (++chunksProcessed % 16 == 0) {
-consumer.Clean();
-}
-}
+			constexpr size_t chunkSize = 4096;
+			std::vector<uint8_t> chunkBuffer(chunkSize);
 
-hash.Final(reinterpret_cast<CryptoPP::byte*>(chunkBuffer.data()));
-encoder.Put(chunkBuffer.data(), hash.DigestSize());
-encoder.MessageEnd();
+			while (!consumer.EoF()) {
+				size_t availableBytes = consumer.AvailableBytes();
+				if (availableBytes == 0) {
+					std::this_thread::yield();
+					continue;
+				}
 
-std::vector<std::byte> byteData;
-byteData.reserve(hashOutput.size());
-for (size_t i = 0; i < hashOutput.size(); ++i) {
-byteData.push_back(static_cast<std::byte>(hashOutput[i]));
-}
-(void)producer.Write(byteData);
-producer.Close();
-} catch (...) {
-producer.Close();
-}
-}).detach();
+				size_t bytesToRead = std::min(availableBytes, chunkSize);
+				DataType data;
+				auto spanResult = consumer.Extract(bytesToRead, data);
+				if (!spanResult.has_value()) {
+					producer.SetError();
+					return;
+				}
 
-return producer.Consumer();
+				hash.Update(reinterpret_cast<const CryptoPP::byte*>(data.data()), data.size());
+			}
+
+			hash.Final(reinterpret_cast<CryptoPP::byte*>(chunkBuffer.data()));
+			encoder.Put(chunkBuffer.data(), hash.DigestSize());
+			encoder.MessageEnd();
+
+			(void)producer.Write(std::move(hashOutput));
+			producer.Close();
+		} catch (...) {
+			producer.SetError();
+		}
+	}).detach();
+
+	return producer.Consumer();
 }
 
 // SHA3-512
 ExpectedHashString SHA3_512::Hash(const std::string& input) noexcept {
-std::span<const std::byte> dataSpan(reinterpret_cast<const std::byte*>(input.data()), input.size());
-return ComputeSHA3_512(dataSpan);
+	std::span<const std::byte> dataSpan(reinterpret_cast<const std::byte*>(input.data()), input.size());
+	return ComputeSHA3_512(dataSpan);
 }
 
-ExpectedHashString SHA3_512::Hash(const StormByte::Buffer::FIFO& buffer) noexcept {
-auto data = const_cast<StormByte::Buffer::FIFO&>(buffer).Extract(0);
-if (!data.has_value()) {
-return StormByte::Unexpected<StormByte::Crypto::Exception>("Failed to extract data from buffer");
-}
-std::span<const std::byte> dataSpan(data.value().data(), data.value().size());
-return ComputeSHA3_512(dataSpan);
-}
-
-StormByte::Buffer::Consumer SHA3_512::Hash(Buffer::Consumer consumer) noexcept {
-StormByte::Buffer::Producer producer;
-
-std::thread([consumer, producer]() mutable {
-try {
-CryptoPP::SHA3_512 hash;
-std::string hashOutput;
-CryptoPP::HexEncoder encoder(new CryptoPP::StringSink(hashOutput));
-
-constexpr size_t chunkSize = 4096;
-std::vector<uint8_t> chunkBuffer(chunkSize);
-size_t chunksProcessed = 0;
-
-while (!consumer.EoF()) {
-size_t availableBytes = consumer.AvailableBytes();
-if (availableBytes == 0) {
-if (!consumer.IsWritable()) {
-break;
-}
-std::this_thread::yield();
-continue;
+ExpectedHashString SHA3_512::Hash(const FIFO& buffer) noexcept {
+	DataType data;
+	auto read_ok = buffer.Read(data);
+	if (!read_ok.has_value()) {
+		return Unexpected(HasherException("Failed to extract data from buffer"));
+	}
+	std::span<const std::byte> dataSpan(data.data(), data.size());
+	return ComputeSHA3_512(dataSpan);
 }
 
-size_t bytesToRead = std::min(availableBytes, chunkSize);
-auto spanResult = consumer.Extract(bytesToRead);
-if (!spanResult.has_value()) {
-producer.Close();
-return;
-}
+Consumer SHA3_512::Hash(Consumer consumer) noexcept {
+	Producer producer;
 
-const auto& inputSpan = spanResult.value();
-hash.Update(reinterpret_cast<const CryptoPP::byte*>(inputSpan.data()), inputSpan.size());
+	std::thread([consumer, producer]() mutable {
+		try {
+			CryptoPP::SHA3_512 hash;
+			std::string hashOutput;
+			CryptoPP::HexEncoder encoder(new CryptoPP::StringSink(hashOutput));
 
-if (++chunksProcessed % 16 == 0) {
-consumer.Clean();
-}
-}
+			constexpr size_t chunkSize = 4096;
+			std::vector<uint8_t> chunkBuffer(chunkSize);
 
-hash.Final(reinterpret_cast<CryptoPP::byte*>(chunkBuffer.data()));
-encoder.Put(chunkBuffer.data(), hash.DigestSize());
-encoder.MessageEnd();
+			while (!consumer.EoF()) {
+				size_t availableBytes = consumer.AvailableBytes();
+				if (availableBytes == 0) {
+					std::this_thread::yield();
+					continue;
+				}
 
-std::vector<std::byte> byteData;
-byteData.reserve(hashOutput.size());
-for (size_t i = 0; i < hashOutput.size(); ++i) {
-byteData.push_back(static_cast<std::byte>(hashOutput[i]));
-}
-(void)producer.Write(byteData);
-producer.Close();
-} catch (...) {
-producer.Close();
-}
-}).detach();
+				size_t bytesToRead = std::min(availableBytes, chunkSize);
+				DataType data;
+				auto spanResult = consumer.Extract(bytesToRead, data);
+				if (!spanResult.has_value()) {
+					producer.SetError();
+					return;
+				}
+				
+				hash.Update(reinterpret_cast<const CryptoPP::byte*>(data.data()), data.size());
+			}
 
-return producer.Consumer();
+			hash.Final(reinterpret_cast<CryptoPP::byte*>(chunkBuffer.data()));
+			encoder.Put(chunkBuffer.data(), hash.DigestSize());
+			encoder.MessageEnd();
+
+			(void)producer.Write(std::move(hashOutput));
+			producer.Close();
+		} catch (...) {
+			producer.SetError();
+		}
+	}).detach();
+
+	return producer.Consumer();
 }

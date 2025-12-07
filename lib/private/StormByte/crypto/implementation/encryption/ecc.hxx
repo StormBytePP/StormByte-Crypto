@@ -31,13 +31,13 @@ namespace StormByte::Crypto::Implementation::Encryption::ECC {
 	STORMBYTE_CRYPTO_PRIVATE ExpectedCryptoBuffer Encrypt(const Buffer::FIFO& message, const std::string& publicKey) noexcept;
 
 	/**
-	 * @brief Encrypts data asynchronously using the Consumer/Producer model.
+	 * @brief Encrypts data asynchronously using the Buffer::Consumer/Buffer::Producer model.
 	 * 
-	 * @param consumer The Consumer buffer containing the input data.
+	 * @param Buffer::Consumer The Buffer::Consumer buffer containing the input data.
 	 * @param publicKey The ECC public key to use for encryption.
-	 * @return A Consumer buffer containing the encrypted data.
+	 * @return A Buffer::Consumer buffer containing the encrypted data.
 	 */
-	STORMBYTE_CRYPTO_PRIVATE StormByte::Buffer::Consumer Encrypt(const Buffer::Consumer consumer, const std::string& publicKey) noexcept;
+	STORMBYTE_CRYPTO_PRIVATE Buffer::Consumer Encrypt(const Buffer::Consumer consumer, const std::string& publicKey) noexcept;
 
 	/**
 	 * @brief Encrypts a message using the ECC public key.
@@ -53,14 +53,14 @@ namespace StormByte::Crypto::Implementation::Encryption::ECC {
 	 * @param privateKey The ECC private key to use for decryption.
 	 * @return ExpectedCryptoString containing the decrypted message or an error.
 	 */
-	STORMBYTE_CRYPTO_PRIVATE ExpectedCryptoBuffer Decrypt(const StormByte::Buffer::FIFO& encryptedBuffer, const std::string& privateKey) noexcept;
+	STORMBYTE_CRYPTO_PRIVATE ExpectedCryptoBuffer Decrypt(const Buffer::FIFO& encryptedBuffer, const std::string& privateKey) noexcept;
 
 	/**
-	 * @brief Decrypts data asynchronously using the Consumer/Producer model.
+	 * @brief Decrypts data asynchronously using the Buffer::Consumer/Buffer::Producer model.
 	 * 
-	 * @param consumer The Consumer buffer containing the encrypted data.
+	 * @param Buffer::Consumer The Buffer::Consumer buffer containing the encrypted data.
 	 * @param privateKey The ECC private key to use for decryption.
-	 * @return A Consumer buffer containing the decrypted data.
+	 * @return A Buffer::Consumer buffer containing the decrypted data.
 	 */
-	STORMBYTE_CRYPTO_PRIVATE StormByte::Buffer::Consumer Decrypt(const Buffer::Consumer consumer, const std::string& privateKey) noexcept;
+	STORMBYTE_CRYPTO_PRIVATE Buffer::Consumer Decrypt(const Buffer::Consumer consumer, const std::string& privateKey) noexcept;
 }

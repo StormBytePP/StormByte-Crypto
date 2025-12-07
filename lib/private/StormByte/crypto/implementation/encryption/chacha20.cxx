@@ -1,3 +1,4 @@
+#include <StormByte/crypto/random.hxx>
 #include <StormByte/crypto/implementation/encryption/chacha20.hxx>
 
 #include <algorithm>
@@ -6,12 +7,16 @@
 #include <hex.h>
 #include <filters.h>
 #include <format>
-#include <osrng.h>
 #include <secblock.h>
 #include <thread>
 #include <pwdbased.h>
 #include <span>
 
+using StormByte::Buffer::DataType;
+using StormByte::Buffer::FIFO;
+using StormByte::Buffer::Consumer;
+using StormByte::Buffer::Producer;
+using namespace StormByte::Crypto;
 using namespace StormByte::Crypto::Implementation::Encryption;
 
 namespace {
@@ -20,36 +25,45 @@ namespace {
 			// ChaCha20 requires a 256-bit (32-byte) key and a 96-bit (12-byte) IV/nonce
 			CryptoPP::SecByteBlock salt(16);
 			CryptoPP::SecByteBlock iv(12); // ChaCha20 uses 96-bit nonce
-			CryptoPP::AutoSeededRandomPool rng;
-			rng.GenerateBlock(salt, salt.size());
-			rng.GenerateBlock(iv, iv.size());
+			RNG().GenerateBlock(salt, salt.size());
+			RNG().GenerateBlock(iv, iv.size());
 
 			// Derive 256-bit key from password
 			CryptoPP::SecByteBlock key(32);
 			CryptoPP::PKCS5_PBKDF2_HMAC<CryptoPP::SHA256> pbkdf2;
-			pbkdf2.DeriveKey(key, key.size(), 0, reinterpret_cast<const uint8_t*>(password.data()),
-							password.size(), salt, salt.size(), 10000);
+			pbkdf2.DeriveKey(
+				key,
+				key.size(),
+				0,
+				reinterpret_cast<const uint8_t*>(password.data()),
+				password.size(),
+				salt,
+				salt.size(),
+				10000
+			);
 
 			std::vector<uint8_t> encryptedData;
 			CryptoPP::ChaCha::Encryption encryption(key, key.size(), iv);
-			CryptoPP::StringSource ss(reinterpret_cast<const uint8_t*>(dataSpan.data()), dataSpan.size_bytes(), true,
-									new CryptoPP::StreamTransformationFilter(encryption,
-																			new CryptoPP::VectorSink(encryptedData),
-																			CryptoPP::StreamTransformationFilter::NO_PADDING));
+			CryptoPP::StringSource ss(
+				reinterpret_cast<const uint8_t*>(dataSpan.data()),
+				dataSpan.size_bytes(),
+				true,
+				new CryptoPP::StreamTransformationFilter(
+					encryption,
+					new CryptoPP::VectorSink(encryptedData),
+					CryptoPP::StreamTransformationFilter::NO_PADDING
+				)
+			);
 
 			// Prepend salt and IV to encrypted data
 			encryptedData.insert(encryptedData.begin(), salt.begin(), salt.end());
 			encryptedData.insert(encryptedData.begin() + salt.size(), iv.begin(), iv.end());
 
-			std::vector<std::byte> convertedData(encryptedData.size());
-			std::transform(encryptedData.begin(), encryptedData.end(), convertedData.begin(),
-						[](uint8_t byte) { return static_cast<std::byte>(byte); });
-
-			StormByte::Buffer::FIFO buffer;
-			(void)buffer.Write(convertedData);
+			FIFO buffer;
+			(void)buffer.Write(std::move(encryptedData));
 			return buffer;
 		} catch (const std::exception& e) {
-			return StormByte::Unexpected<StormByte::Crypto::Exception>(e.what());
+			return Unexpected(CrypterException(e.what()));
 		}
 	}
 
@@ -71,25 +85,35 @@ namespace {
 			// Derive 256-bit key from password
 			CryptoPP::SecByteBlock key(32);
 			CryptoPP::PKCS5_PBKDF2_HMAC<CryptoPP::SHA256> pbkdf2;
-			pbkdf2.DeriveKey(key, key.size(), 0, reinterpret_cast<const uint8_t*>(password.data()),
-							password.size(), salt, salt.size(), 10000);
+			pbkdf2.DeriveKey(
+				key,
+				key.size(),
+				0,
+				reinterpret_cast<const uint8_t*>(password.data()),
+				password.size(),
+				salt,
+				salt.size(),
+				10000
+			);
 
 			std::vector<uint8_t> decryptedData;
 			CryptoPP::ChaCha::Decryption decryption(key, key.size(), iv);
-			CryptoPP::StringSource ss(reinterpret_cast<const uint8_t*>(encryptedSpan.data()), encryptedSpan.size_bytes(), true,
-									new CryptoPP::StreamTransformationFilter(decryption,
-																			new CryptoPP::VectorSink(decryptedData),
-																			CryptoPP::StreamTransformationFilter::NO_PADDING));
+			CryptoPP::StringSource ss(
+				reinterpret_cast<const uint8_t*>(encryptedSpan.data()),
+				encryptedSpan.size_bytes(),
+				true,
+				new CryptoPP::StreamTransformationFilter(
+					decryption,
+					new CryptoPP::VectorSink(decryptedData),
+					CryptoPP::StreamTransformationFilter::NO_PADDING
+				)
+			);
 
-			std::vector<std::byte> convertedData(decryptedData.size());
-			std::transform(decryptedData.begin(), decryptedData.end(), convertedData.begin(),
-				[](uint8_t byte) { return static_cast<std::byte>(byte); });
-
-			StormByte::Buffer::FIFO buffer;
-			(void)buffer.Write(convertedData);
+			FIFO buffer;
+			(void)buffer.Write(std::move(decryptedData));
 			return buffer;
 		} catch (const std::exception& e) {
-			return StormByte::Unexpected<StormByte::Crypto::Exception>(e.what());
+			return Unexpected(CrypterException(e.what()));
 		}
 	}
 }
@@ -100,29 +124,37 @@ ExpectedCryptoBuffer ChaCha20::Encrypt(const std::string& input, const std::stri
 	return EncryptHelper(dataSpan, password);
 }
 
-ExpectedCryptoBuffer ChaCha20::Encrypt(const StormByte::Buffer::FIFO& input, const std::string& password) noexcept {
-	auto data = const_cast<StormByte::Buffer::FIFO&>(input).Extract(0);
-	if (!data.has_value()) {
-		return StormByte::Unexpected<StormByte::Crypto::Exception>("Failed to extract data from input buffer");
+ExpectedCryptoBuffer ChaCha20::Encrypt(const FIFO& input, const std::string& password) noexcept {
+	DataType data;
+	auto read_ok = input.Read(data);
+	if (!read_ok.has_value()) {
+		return Unexpected(CrypterException("Failed to extract data from input buffer"));
 	}
-	std::span<const std::byte> dataSpan(data.value().data(), data.value().size());
+	std::span<const std::byte> dataSpan(data.data(), data.size());
 	return EncryptHelper(dataSpan, password);
 }
 
-StormByte::Buffer::Consumer ChaCha20::Encrypt(Buffer::Consumer consumer, const std::string& password) noexcept {
-	StormByte::Buffer::Producer producer;
+Consumer ChaCha20::Encrypt(Consumer consumer, const std::string& password) noexcept {
+	Producer producer;
 
 	// Generate and write header synchronously before starting async processing
-	CryptoPP::AutoSeededRandomPool rng;
 	CryptoPP::SecByteBlock salt(16);
 	CryptoPP::SecByteBlock iv(12); // ChaCha20 nonce
-	rng.GenerateBlock(salt, salt.size());
-	rng.GenerateBlock(iv, iv.size());
+	RNG().GenerateBlock(salt, salt.size());
+	RNG().GenerateBlock(iv, iv.size());
 
 	CryptoPP::SecByteBlock key(32);
 	CryptoPP::PKCS5_PBKDF2_HMAC<CryptoPP::SHA256> pbkdf2;
-	pbkdf2.DeriveKey(key, key.size(), 0, reinterpret_cast<const uint8_t*>(password.data()),
-					password.size(), salt, salt.size(), 10000);
+	pbkdf2.DeriveKey(
+		key,
+		key.size(),
+		0,
+		reinterpret_cast<const uint8_t*>(password.data()),
+		password.size(),
+		salt,
+		salt.size(),
+		10000
+	);
 
 	// Write salt and IV to output
 	std::vector<std::byte> headerBytes;
@@ -140,56 +172,39 @@ StormByte::Buffer::Consumer ChaCha20::Encrypt(Buffer::Consumer consumer, const s
 		try {
 			constexpr size_t chunkSize = 4096;
 			CryptoPP::ChaCha::Encryption encryption(key, key.size(), iv);
-			std::vector<uint8_t> encryptedChunk;
-
-			// Batch writes to reduce internal reallocations
-			std::vector<std::byte> batchBuffer;
-			batchBuffer.reserve(chunkSize * 2);
 
 			while (!consumer.EoF()) {
 				size_t availableBytes = consumer.AvailableBytes();
 				if (availableBytes == 0) {
-					std::this_thread::sleep_for(std::chrono::milliseconds(10));
+					std::this_thread::yield();
 					continue;
 				}
 
+				std::vector<uint8_t> encryptedChunk;
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				// Use Span for zero-copy read
-				auto spanResult = consumer.Extract(bytesToRead);
+				DataType data;
+				auto spanResult = consumer.Extract(bytesToRead, data);
 				if (!spanResult.has_value()) {
-					producer.Close();
+					producer.SetError();
 					return;
 				}
 
-				const auto& inputSpan = spanResult.value();
-				encryptedChunk.clear();
+				CryptoPP::StringSource ss(
+					reinterpret_cast<const uint8_t*>(data.data()),
+					data.size(),
+					true,
+					new CryptoPP::StreamTransformationFilter(
+						encryption,
+						new CryptoPP::VectorSink(encryptedChunk),
+						CryptoPP::StreamTransformationFilter::NO_PADDING
+					)
+				);
 
-				CryptoPP::StringSource ss(reinterpret_cast<const uint8_t*>(inputSpan.data()), inputSpan.size(), true,
-										new CryptoPP::StreamTransformationFilter(encryption,
-																		new CryptoPP::VectorSink(encryptedChunk),
-																		CryptoPP::StreamTransformationFilter::NO_PADDING));
-
-				// Accumulate into batch buffer
-				for (size_t i = 0; i < encryptedChunk.size(); ++i) {
-					batchBuffer.push_back(static_cast<std::byte>(encryptedChunk[i]));
-				}
-
-				// Write in larger batches
-				if (batchBuffer.size() >= chunkSize) {
-					(void)producer.Write(std::move(batchBuffer));
-					batchBuffer.clear();
-					batchBuffer.reserve(chunkSize * 2);
-					// Clean consumed data periodically
-					consumer.Clean();
-				}
-			}
-			// Write any remaining data
-			if (!batchBuffer.empty()) {
-				(void)producer.Write(std::move(batchBuffer));
+				(void)producer.Write(std::move(encryptedChunk));
 			}
 			producer.Close();
 		} catch (...) {
-			producer.Close();
+			producer.SetError();
 		}
 	}).detach();
 
@@ -202,17 +217,18 @@ ExpectedCryptoBuffer ChaCha20::Decrypt(const std::string& input, const std::stri
 	return DecryptHelper(dataSpan, password);
 }
 
-ExpectedCryptoBuffer ChaCha20::Decrypt(const StormByte::Buffer::FIFO& input, const std::string& password) noexcept {
-	auto data = const_cast<StormByte::Buffer::FIFO&>(input).Extract(0);
-	if (!data.has_value()) {
-		return StormByte::Unexpected<StormByte::Crypto::Exception>("Failed to extract data from input buffer");
+ExpectedCryptoBuffer ChaCha20::Decrypt(const FIFO& input, const std::string& password) noexcept {
+	DataType data;
+	auto read_ok = input.Read(data);
+	if (!read_ok.has_value()) {
+		return Unexpected(CrypterException("Failed to extract data from input buffer"));
 	}
-	std::span<const std::byte> dataSpan(data.value().data(), data.value().size());
+	std::span<const std::byte> dataSpan(data.data(), data.size());
 	return DecryptHelper(dataSpan, password);
 }
 
-StormByte::Buffer::Consumer ChaCha20::Decrypt(Buffer::Consumer consumer, const std::string& password) noexcept {
-	StormByte::Buffer::Producer producer;
+Consumer ChaCha20::Decrypt(Consumer consumer, const std::string& password) noexcept {
+	Producer producer;
 
 	std::thread([consumer, producer, password]() mutable {
 		try {
@@ -221,47 +237,38 @@ StormByte::Buffer::Consumer ChaCha20::Decrypt(Buffer::Consumer consumer, const s
 			CryptoPP::SecByteBlock iv(12); // ChaCha20 nonce
 
 			// Read salt
-			while (consumer.AvailableBytes() < salt.size()) {
-				if (!consumer.IsWritable() && consumer.AvailableBytes() < salt.size()) {
-					producer.Close();
-					return;
-				}
-				std::this_thread::yield();
-			}
-			auto saltSpan = consumer.Extract(salt.size());
+			DataType saltData;
+			auto saltSpan = consumer.Extract(salt.size(), saltData);
 			if (!saltSpan.has_value()) {
-				producer.Close();
+				producer.SetError();
 				return;
 			}
-			std::copy_n(reinterpret_cast<const uint8_t*>(saltSpan.value().data()), salt.size(), salt.data());
+			std::copy_n(reinterpret_cast<const uint8_t*>(saltData.data()), salt.size(), salt.data());
 
 			// Read IV
-			while (consumer.AvailableBytes() < iv.size()) {
-				if (!consumer.IsWritable() && consumer.AvailableBytes() < iv.size()) {
-					producer.Close();
-					return;
-				}
-				std::this_thread::yield();
-			}
-			auto ivSpan = consumer.Extract(iv.size());
+			DataType ivData;
+			auto ivSpan = consumer.Extract(iv.size(), ivData);
 			if (!ivSpan.has_value()) {
-				producer.Close();
+				producer.SetError();
 				return;
 			}
-			std::copy_n(reinterpret_cast<const uint8_t*>(ivSpan.value().data()), iv.size(), iv.data());
+			std::copy_n(reinterpret_cast<const uint8_t*>(ivData.data()), iv.size(), iv.data());
 
 			// Derive key
 			CryptoPP::SecByteBlock key(32);
 			CryptoPP::PKCS5_PBKDF2_HMAC<CryptoPP::SHA256> pbkdf2;
-			pbkdf2.DeriveKey(key, key.size(), 0, reinterpret_cast<const uint8_t*>(password.data()),
-							password.size(), salt, salt.size(), 10000);
+			pbkdf2.DeriveKey(
+				key,
+				key.size(),
+				0,
+				reinterpret_cast<const uint8_t*>(password.data()),
+				password.size(),
+				salt,
+				salt.size(),
+				10000
+			);
 
 			CryptoPP::ChaCha::Decryption decryption(key, key.size(), iv);
-			std::vector<uint8_t> decryptedChunk;
-
-			// Batch writes to reduce internal reallocations
-			std::vector<std::byte> batchBuffer;
-			batchBuffer.reserve(chunkSize * 2);
 
 			while (!consumer.EoF()) {
 				size_t availableBytes = consumer.AvailableBytes();
@@ -270,43 +277,31 @@ StormByte::Buffer::Consumer ChaCha20::Decrypt(Buffer::Consumer consumer, const s
 					continue;
 				}
 
+				std::vector<uint8_t> decryptedChunk;
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				// Use Span for zero-copy read
-				auto spanResult = consumer.Extract(bytesToRead);
+				DataType data;
+				auto spanResult = consumer.Extract(bytesToRead, data);
 				if (!spanResult.has_value()) {
-					producer.Close();
+					producer.SetError();
 					return;
 				}
 
-				const auto& encryptedSpan = spanResult.value();
-				decryptedChunk.clear();
+				CryptoPP::StringSource ss(
+					reinterpret_cast<const uint8_t*>(data.data()),
+					data.size(),
+					true,
+					new CryptoPP::StreamTransformationFilter(
+						decryption,
+						new CryptoPP::VectorSink(decryptedChunk),
+						CryptoPP::StreamTransformationFilter::NO_PADDING
+					)
+				);
 
-				CryptoPP::StringSource ss(reinterpret_cast<const uint8_t*>(encryptedSpan.data()), encryptedSpan.size(), true,
-										new CryptoPP::StreamTransformationFilter(decryption,
-																		new CryptoPP::VectorSink(decryptedChunk),
-																		CryptoPP::StreamTransformationFilter::NO_PADDING));
-
-				// Accumulate into batch buffer
-				for (size_t i = 0; i < decryptedChunk.size(); ++i) {
-					batchBuffer.push_back(static_cast<std::byte>(decryptedChunk[i]));
-				}
-
-				// Write in larger batches
-				if (batchBuffer.size() >= chunkSize) {
-					(void)producer.Write(std::move(batchBuffer));
-					batchBuffer.clear();
-					batchBuffer.reserve(chunkSize * 2);
-					// Clean consumed data periodically
-					consumer.Clean();
-				}
-			}
-			// Write any remaining data
-			if (!batchBuffer.empty()) {
-				(void)producer.Write(std::move(batchBuffer));
+				(void)producer.Write(std::move(decryptedChunk));
 			}
 			producer.Close();
 		} catch (...) {
-			producer.Close();
+			producer.SetError();
 		}
 	}).detach();
 
@@ -316,9 +311,8 @@ StormByte::Buffer::Consumer ChaCha20::Decrypt(Buffer::Consumer consumer, const s
 // RandomPassword Function
 ExpectedCryptoString ChaCha20::RandomPassword(const size_t& passwordSize) noexcept {
 	try {
-		CryptoPP::AutoSeededRandomPool rng;
 		CryptoPP::SecByteBlock password(passwordSize);
-		rng.GenerateBlock(password, passwordSize);
+		RNG().GenerateBlock(password, passwordSize);
 
 		std::string passwordString;
 		CryptoPP::HexEncoder encoder(new CryptoPP::StringSink(passwordString));

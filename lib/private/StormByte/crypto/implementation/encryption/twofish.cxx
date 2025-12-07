@@ -1,3 +1,4 @@
+#include <StormByte/crypto/random.hxx>
 #include <StormByte/crypto/implementation/encryption/twofish.hxx>
 
 #include <algorithm>
@@ -7,299 +8,306 @@
 #include <modes.h>
 #include <filters.h>
 #include <format>
-#include <osrng.h>
 #include <secblock.h>
 #include <thread>
 #include <pwdbased.h>
 #include <span>
 
+using StormByte::Buffer::DataType;
+using StormByte::Buffer::FIFO;
+using StormByte::Buffer::Consumer;
+using StormByte::Buffer::Producer;
+using namespace StormByte::Crypto;
 using namespace StormByte::Crypto::Implementation::Encryption;
 
 namespace {
-ExpectedCryptoBuffer EncryptHelper(std::span<const std::byte> dataSpan, const std::string& password) noexcept {
-try {
-CryptoPP::SecByteBlock salt(16);
-CryptoPP::SecByteBlock iv(CryptoPP::Twofish::BLOCKSIZE);
-CryptoPP::AutoSeededRandomPool rng;
-rng.GenerateBlock(salt, salt.size());
-rng.GenerateBlock(iv, iv.size());
+	ExpectedCryptoBuffer EncryptHelper(std::span<const std::byte> dataSpan, const std::string& password) noexcept {
+		try {
+			CryptoPP::SecByteBlock salt(16);
+			CryptoPP::SecByteBlock iv(CryptoPP::Twofish::BLOCKSIZE);
+			RNG().GenerateBlock(salt, salt.size());
+			RNG().GenerateBlock(iv, iv.size());
 
-CryptoPP::SecByteBlock key(CryptoPP::Twofish::DEFAULT_KEYLENGTH);
-CryptoPP::PKCS5_PBKDF2_HMAC<CryptoPP::SHA256> pbkdf2;
-pbkdf2.DeriveKey(key, key.size(), 0, reinterpret_cast<const uint8_t*>(password.data()),
-password.size(), salt, salt.size(), 10000);
+			CryptoPP::SecByteBlock key(CryptoPP::Twofish::DEFAULT_KEYLENGTH);
+			CryptoPP::PKCS5_PBKDF2_HMAC<CryptoPP::SHA256> pbkdf2;
+			pbkdf2.DeriveKey(
+				key,
+				key.size(),
+				0,
+				reinterpret_cast<const uint8_t*>(password.data()),
+				password.size(),
+				salt,
+				salt.size(),
+				10000
+			);
 
-std::vector<uint8_t> encryptedData;
-CryptoPP::CBC_Mode<CryptoPP::Twofish>::Encryption encryption(key, key.size(), iv);
-CryptoPP::StringSource ss(reinterpret_cast<const uint8_t*>(dataSpan.data()), dataSpan.size_bytes(), true,
-new CryptoPP::StreamTransformationFilter(encryption,
-new CryptoPP::VectorSink(encryptedData)));
+			std::vector<uint8_t> encryptedData;
+			CryptoPP::CBC_Mode<CryptoPP::Twofish>::Encryption encryption(key, key.size(), iv);
+			CryptoPP::StringSource ss(
+				reinterpret_cast<const uint8_t*>(dataSpan.data()),
+				dataSpan.size_bytes(),
+				true,
+				new CryptoPP::StreamTransformationFilter(
+					encryption,
+					new CryptoPP::VectorSink(encryptedData)
+				)
+			);
 
-encryptedData.insert(encryptedData.begin(), salt.begin(), salt.end());
-encryptedData.insert(encryptedData.begin() + salt.size(), iv.begin(), iv.end());
+			encryptedData.insert(encryptedData.begin(), salt.begin(), salt.end());
+			encryptedData.insert(encryptedData.begin() + salt.size(), iv.begin(), iv.end());
 
-std::vector<std::byte> convertedData(encryptedData.size());
-std::transform(encryptedData.begin(), encryptedData.end(), convertedData.begin(),
-[](uint8_t byte) { return static_cast<std::byte>(byte); });
+			FIFO buffer;
+			(void)buffer.Write(std::move(encryptedData));
+			return buffer;
+		} catch (const std::exception& e) {
+			return Unexpected(CrypterException(e.what()));
+		}
+	}
 
-StormByte::Buffer::FIFO buffer;
-(void)buffer.Write(convertedData);
-return buffer;
-} catch (const std::exception& e) {
-return StormByte::Unexpected<StormByte::Crypto::Exception>(e.what());
-}
-}
+	ExpectedCryptoBuffer DecryptHelper(std::span<const std::byte> encryptedSpan, const std::string& password) noexcept {
+		try {
+			const size_t saltSize = 16;
+			const size_t ivSize = CryptoPP::Twofish::BLOCKSIZE;
 
-ExpectedCryptoBuffer DecryptHelper(std::span<const std::byte> encryptedSpan, const std::string& password) noexcept {
-try {
-const size_t saltSize = 16;
-const size_t ivSize = CryptoPP::Twofish::BLOCKSIZE;
+			if (encryptedSpan.size_bytes() < saltSize + ivSize) {
+				return Unexpected(CrypterException("Encrypted data too short to contain salt and IV"));
+			}
 
-if (encryptedSpan.size_bytes() < saltSize + ivSize) {
-return StormByte::Unexpected<StormByte::Crypto::Exception>("Encrypted data too short to contain salt and IV");
-}
+			CryptoPP::SecByteBlock salt(saltSize), iv(ivSize);
+			std::memcpy(salt.data(), encryptedSpan.data(), saltSize);
+			std::memcpy(iv.data(), encryptedSpan.data() + saltSize, ivSize);
 
-CryptoPP::SecByteBlock salt(saltSize), iv(ivSize);
-std::memcpy(salt.data(), encryptedSpan.data(), saltSize);
-std::memcpy(iv.data(), encryptedSpan.data() + saltSize, ivSize);
+			encryptedSpan = encryptedSpan.subspan(saltSize + ivSize);
 
-encryptedSpan = encryptedSpan.subspan(saltSize + ivSize);
+			CryptoPP::SecByteBlock key(CryptoPP::Twofish::DEFAULT_KEYLENGTH);
+			CryptoPP::PKCS5_PBKDF2_HMAC<CryptoPP::SHA256> pbkdf2;
+			pbkdf2.DeriveKey(
+				key,
+				key.size(),
+				0,
+				reinterpret_cast<const uint8_t*>(password.data()),
+				password.size(),
+				salt,
+				salt.size(),
+				10000
+			);
 
-CryptoPP::SecByteBlock key(CryptoPP::Twofish::DEFAULT_KEYLENGTH);
-CryptoPP::PKCS5_PBKDF2_HMAC<CryptoPP::SHA256> pbkdf2;
-pbkdf2.DeriveKey(key, key.size(), 0, reinterpret_cast<const uint8_t*>(password.data()),
-password.size(), salt, salt.size(), 10000);
+			std::vector<uint8_t> decryptedData;
+			CryptoPP::CBC_Mode<CryptoPP::Twofish>::Decryption decryption(key, key.size(), iv);
+			CryptoPP::StringSource ss(
+				reinterpret_cast<const uint8_t*>(encryptedSpan.data()),
+				encryptedSpan.size_bytes(),
+				true,
+				new CryptoPP::StreamTransformationFilter(
+					decryption,
+					new CryptoPP::VectorSink(decryptedData)
+				)
+			);
 
-std::vector<uint8_t> decryptedData;
-CryptoPP::CBC_Mode<CryptoPP::Twofish>::Decryption decryption(key, key.size(), iv);
-CryptoPP::StringSource ss(reinterpret_cast<const uint8_t*>(encryptedSpan.data()), encryptedSpan.size_bytes(), true,
-new CryptoPP::StreamTransformationFilter(decryption,
-new CryptoPP::VectorSink(decryptedData)));
-
-std::vector<std::byte> convertedData(decryptedData.size());
-std::transform(decryptedData.begin(), decryptedData.end(), convertedData.begin(),
-[](uint8_t byte) { return static_cast<std::byte>(byte); });
-
-StormByte::Buffer::FIFO buffer;
-(void)buffer.Write(convertedData);
-return buffer;
-} catch (const std::exception& e) {
-return StormByte::Unexpected<StormByte::Crypto::Exception>(e.what());
-}
-}
+			FIFO buffer;
+			(void)buffer.Write(std::move(decryptedData));
+			return buffer;
+		} catch (const std::exception& e) {
+			return Unexpected(CrypterException(e.what()));
+		}
+	}
 }
 
 // Encrypt Function Overloads
 ExpectedCryptoBuffer Twofish::Encrypt(const std::string& input, const std::string& password) noexcept {
-std::span<const std::byte> dataSpan(reinterpret_cast<const std::byte*>(input.data()), input.size());
-return EncryptHelper(dataSpan, password);
+	std::span<const std::byte> dataSpan(reinterpret_cast<const std::byte*>(input.data()), input.size());
+	return EncryptHelper(dataSpan, password);
 }
 
-ExpectedCryptoBuffer Twofish::Encrypt(const StormByte::Buffer::FIFO& input, const std::string& password) noexcept {
-auto data = const_cast<StormByte::Buffer::FIFO&>(input).Extract(0);
-if (!data.has_value()) {
-return StormByte::Unexpected<StormByte::Crypto::Exception>("Failed to extract data from input buffer");
-}
-std::span<const std::byte> dataSpan(data.value().data(), data.value().size());
-return EncryptHelper(dataSpan, password);
-}
-
-StormByte::Buffer::Consumer Twofish::Encrypt(Buffer::Consumer consumer, const std::string& password) noexcept {
-StormByte::Buffer::Producer producer;
-
-// Generate and write header synchronously
-CryptoPP::AutoSeededRandomPool rng;
-CryptoPP::SecByteBlock salt(16);
-CryptoPP::SecByteBlock iv(CryptoPP::Twofish::BLOCKSIZE);
-rng.GenerateBlock(salt, salt.size());
-rng.GenerateBlock(iv, iv.size());
-
-CryptoPP::SecByteBlock key(CryptoPP::Twofish::DEFAULT_KEYLENGTH);
-CryptoPP::PKCS5_PBKDF2_HMAC<CryptoPP::SHA256> pbkdf2;
-pbkdf2.DeriveKey(key, key.size(), 0, reinterpret_cast<const uint8_t*>(password.data()),
-password.size(), salt, salt.size(), 10000);
-
-std::vector<std::byte> headerBytes;
-headerBytes.reserve(salt.size() + iv.size());
-for (size_t i = 0; i < salt.size(); ++i) {
-headerBytes.push_back(static_cast<std::byte>(salt[i]));
-}
-for (size_t i = 0; i < iv.size(); ++i) {
-headerBytes.push_back(static_cast<std::byte>(iv[i]));
-}
-(void)producer.Write(std::move(headerBytes));
-
-std::thread([consumer, producer, key = std::move(key), iv = std::move(iv)]() mutable {
-try {
-constexpr size_t chunkSize = 4096;
-CryptoPP::CBC_Mode<CryptoPP::Twofish>::Encryption encryption(key, key.size(), iv);
-std::vector<uint8_t> encryptedChunk;
-std::vector<std::byte> batchBuffer;
-batchBuffer.reserve(chunkSize * 2);
-
-while (!consumer.EoF()) {
-size_t availableBytes = consumer.AvailableBytes();
-if (availableBytes == 0) {
-std::this_thread::sleep_for(std::chrono::milliseconds(10));
-continue;
+ExpectedCryptoBuffer Twofish::Encrypt(const FIFO& input, const std::string& password) noexcept {
+	DataType data;
+	auto read_ok = input.Read(data);
+	if (!read_ok.has_value()) {
+	return Unexpected(CrypterException("Failed to extract data from input buffer"));
+	}
+	std::span<const std::byte> dataSpan(data.data(), data.size());
+	return EncryptHelper(dataSpan, password);
 }
 
-size_t bytesToRead = std::min(availableBytes, chunkSize);
-auto spanResult = consumer.Extract(bytesToRead);
-if (!spanResult.has_value()) {
-producer.Close();
-return;
-}
+Consumer Twofish::Encrypt(Consumer consumer, const std::string& password) noexcept {
+	Producer producer;
 
-const auto& inputSpan = spanResult.value();
-encryptedChunk.clear();
+	// Generate and write header synchronously
+	CryptoPP::SecByteBlock salt(16);
+	CryptoPP::SecByteBlock iv(CryptoPP::Twofish::BLOCKSIZE);
+	RNG().GenerateBlock(salt, salt.size());
+	RNG().GenerateBlock(iv, iv.size());
 
-CryptoPP::StringSource ss(reinterpret_cast<const uint8_t*>(inputSpan.data()), inputSpan.size(), true,
-new CryptoPP::StreamTransformationFilter(encryption,
-new CryptoPP::VectorSink(encryptedChunk)));
+	CryptoPP::SecByteBlock key(CryptoPP::Twofish::DEFAULT_KEYLENGTH);
+	CryptoPP::PKCS5_PBKDF2_HMAC<CryptoPP::SHA256> pbkdf2;
+	pbkdf2.DeriveKey(
+		key,
+		key.size(),
+		0,
+		reinterpret_cast<const uint8_t*>(password.data()),
+		password.size(),
+		salt,
+		salt.size(),
+		10000
+	);
 
-for (size_t i = 0; i < encryptedChunk.size(); ++i) {
-batchBuffer.push_back(static_cast<std::byte>(encryptedChunk[i]));
-}
+	std::vector<std::byte> headerBytes;
+	headerBytes.reserve(salt.size() + iv.size());
+	for (size_t i = 0; i < salt.size(); ++i) {
+		headerBytes.push_back(static_cast<std::byte>(salt[i]));
+	}
+	for (size_t i = 0; i < iv.size(); ++i) {
+		headerBytes.push_back(static_cast<std::byte>(iv[i]));
+	}
+	(void)producer.Write(std::move(headerBytes));
 
-if (batchBuffer.size() >= chunkSize) {
-(void)producer.Write(std::move(batchBuffer));
-batchBuffer.clear();
-batchBuffer.reserve(chunkSize * 2);
-consumer.Clean();
-}
-}
-if (!batchBuffer.empty()) {
-(void)producer.Write(std::move(batchBuffer));
-}
-producer.Close();
-} catch (...) {
-producer.Close();
-}
-}).detach();
+	std::thread([consumer, producer, key = std::move(key), iv = std::move(iv)]() mutable {
+		try {
+		constexpr size_t chunkSize = 4096;
+		CryptoPP::CBC_Mode<CryptoPP::Twofish>::Encryption encryption(key, key.size(), iv);
 
-return producer.Consumer();
+		while (!consumer.EoF()) {
+			size_t availableBytes = consumer.AvailableBytes();
+			if (availableBytes == 0) {
+				std::this_thread::yield();
+				continue;
+			}
+
+			std::vector<uint8_t> encryptedChunk;
+			size_t bytesToRead = std::min(availableBytes, chunkSize);
+			DataType data;
+			auto spanResult = consumer.Extract(bytesToRead, data);
+			if (!spanResult.has_value()) {
+				producer.SetError();
+				return;
+			}
+
+			CryptoPP::StringSource ss(
+				reinterpret_cast<const uint8_t*>(data.data()),
+				data.size(),
+				true,
+				new CryptoPP::StreamTransformationFilter(
+					encryption,
+					new CryptoPP::VectorSink(encryptedChunk)
+				)
+			);
+
+			(void)producer.Write(std::move(encryptedChunk));
+		}
+		producer.Close();
+		} catch (...) {
+		producer.SetError();
+		}
+	}).detach();
+
+	return producer.Consumer();
 }
 
 // Decrypt Function Overloads
 ExpectedCryptoBuffer Twofish::Decrypt(const std::string& input, const std::string& password) noexcept {
-std::span<const std::byte> dataSpan(reinterpret_cast<const std::byte*>(input.data()), input.size());
-return DecryptHelper(dataSpan, password);
+	std::span<const std::byte> dataSpan(reinterpret_cast<const std::byte*>(input.data()), input.size());
+	return DecryptHelper(dataSpan, password);
 }
 
-ExpectedCryptoBuffer Twofish::Decrypt(const StormByte::Buffer::FIFO& input, const std::string& password) noexcept {
-auto data = const_cast<StormByte::Buffer::FIFO&>(input).Extract(0);
-if (!data.has_value()) {
-return StormByte::Unexpected<StormByte::Crypto::Exception>("Failed to extract data from input buffer");
-}
-std::span<const std::byte> dataSpan(data.value().data(), data.value().size());
-return DecryptHelper(dataSpan, password);
-}
-
-StormByte::Buffer::Consumer Twofish::Decrypt(Buffer::Consumer consumer, const std::string& password) noexcept {
-StormByte::Buffer::Producer producer;
-
-std::thread([consumer, producer, password]() mutable {
-try {
-constexpr size_t chunkSize = 4096;
-CryptoPP::SecByteBlock salt(16);
-CryptoPP::SecByteBlock iv(CryptoPP::Twofish::BLOCKSIZE);
-
-while (consumer.AvailableBytes() < salt.size()) {
-if (!consumer.IsWritable() && consumer.AvailableBytes() < salt.size()) {
-producer.Close();
-return;
-}
-std::this_thread::yield();
-}
-auto saltSpan = consumer.Extract(salt.size());
-if (!saltSpan.has_value()) {
-producer.Close();
-return;
-}
-std::copy_n(reinterpret_cast<const uint8_t*>(saltSpan.value().data()), salt.size(), salt.data());
-
-while (consumer.AvailableBytes() < iv.size()) {
-if (!consumer.IsWritable() && consumer.AvailableBytes() < iv.size()) {
-producer.Close();
-return;
-}
-std::this_thread::yield();
-}
-auto ivSpan = consumer.Extract(iv.size());
-if (!ivSpan.has_value()) {
-producer.Close();
-return;
-}
-std::copy_n(reinterpret_cast<const uint8_t*>(ivSpan.value().data()), iv.size(), iv.data());
-
-CryptoPP::SecByteBlock key(CryptoPP::Twofish::DEFAULT_KEYLENGTH);
-CryptoPP::PKCS5_PBKDF2_HMAC<CryptoPP::SHA256> pbkdf2;
-pbkdf2.DeriveKey(key, key.size(), 0, reinterpret_cast<const uint8_t*>(password.data()),
-password.size(), salt, salt.size(), 10000);
-
-CryptoPP::CBC_Mode<CryptoPP::Twofish>::Decryption decryption(key, key.size(), iv);
-std::vector<uint8_t> decryptedChunk;
-std::vector<std::byte> batchBuffer;
-batchBuffer.reserve(chunkSize * 2);
-
-while (!consumer.EoF()) {
-size_t availableBytes = consumer.AvailableBytes();
-if (availableBytes == 0) {
-std::this_thread::yield();
-continue;
+ExpectedCryptoBuffer Twofish::Decrypt(const FIFO& input, const std::string& password) noexcept {
+	DataType data;
+	auto read_ok = input.Read(data);
+	if (!read_ok.has_value()) {
+	return Unexpected(CrypterException("Failed to extract data from input buffer"));
+	}
+	std::span<const std::byte> dataSpan(data.data(), data.size());
+	return DecryptHelper(dataSpan, password);
 }
 
-size_t bytesToRead = std::min(availableBytes, chunkSize);
-auto spanResult = consumer.Extract(bytesToRead);
-if (!spanResult.has_value()) {
-producer.Close();
-return;
-}
+Consumer Twofish::Decrypt(Consumer consumer, const std::string& password) noexcept {
+	Producer producer;
 
-const auto& encryptedSpan = spanResult.value();
-decryptedChunk.clear();
+	std::thread([consumer, producer, password]() mutable {
+		try {
+		constexpr size_t chunkSize = 4096;
+		CryptoPP::SecByteBlock salt(16);
+		CryptoPP::SecByteBlock iv(CryptoPP::Twofish::BLOCKSIZE);
 
-CryptoPP::StringSource ss(reinterpret_cast<const uint8_t*>(encryptedSpan.data()), encryptedSpan.size(), true,
-new CryptoPP::StreamTransformationFilter(decryption,
-new CryptoPP::VectorSink(decryptedChunk)));
+		DataType saltData;
+		auto saltSpan = consumer.Extract(salt.size(), saltData);
+		if (!saltSpan.has_value()) {
+			producer.SetError();
+			return;
+		}
+		std::copy_n(reinterpret_cast<const uint8_t*>(saltData.data()), salt.size(), salt.data());
 
-for (size_t i = 0; i < decryptedChunk.size(); ++i) {
-batchBuffer.push_back(static_cast<std::byte>(decryptedChunk[i]));
-}
+		DataType ivData;
+		auto ivSpan = consumer.Extract(iv.size(), ivData);
+		if (!ivSpan.has_value()) {
+			producer.SetError();
+			return;
+		}
+		std::copy_n(reinterpret_cast<const uint8_t*>(ivData.data()), iv.size(), iv.data());
 
-if (batchBuffer.size() >= chunkSize) {
-(void)producer.Write(std::move(batchBuffer));
-batchBuffer.clear();
-batchBuffer.reserve(chunkSize * 2);
-consumer.Clean();
-}
-}
-if (!batchBuffer.empty()) {
-(void)producer.Write(std::move(batchBuffer));
-}
-producer.Close();
-} catch (...) {
-producer.Close();
-}
-}).detach();
+		CryptoPP::SecByteBlock key(CryptoPP::Twofish::DEFAULT_KEYLENGTH);
+		CryptoPP::PKCS5_PBKDF2_HMAC<CryptoPP::SHA256> pbkdf2;
+		pbkdf2.DeriveKey(
+			key,
+			key.size(),
+			0,
+			reinterpret_cast<const uint8_t*>(password.data()),
+			password.size(),
+			salt,
+			salt.size(),
+			10000
+		);
 
-return producer.Consumer();
+		CryptoPP::CBC_Mode<CryptoPP::Twofish>::Decryption decryption(key, key.size(), iv);
+
+		while (!consumer.EoF()) {
+			size_t availableBytes = consumer.AvailableBytes();
+			if (availableBytes == 0) {
+				std::this_thread::yield();
+				continue;
+			}
+
+			std::vector<uint8_t> decryptedChunk;
+			size_t bytesToRead = std::min(availableBytes, chunkSize);
+			DataType data;
+			auto spanResult = consumer.Extract(bytesToRead, data);
+			if (!spanResult.has_value()) {
+				producer.SetError();
+				return;
+			}
+
+			CryptoPP::StringSource ss(
+				reinterpret_cast<const uint8_t*>(data.data()),
+				data.size(),
+				true,
+				new CryptoPP::StreamTransformationFilter(
+					decryption,
+					new CryptoPP::VectorSink(decryptedChunk)
+				)
+			);
+
+			(void)producer.Write(std::move(decryptedChunk));
+		}
+		producer.Close();
+		} catch (...) {
+		producer.SetError();
+		}
+	}).detach();
+
+	return producer.Consumer();
 }
 
 ExpectedCryptoString Twofish::RandomPassword(const size_t& passwordSize) noexcept {
-try {
-CryptoPP::AutoSeededRandomPool rng;
-CryptoPP::SecByteBlock password(passwordSize);
-rng.GenerateBlock(password, passwordSize);
+	try {
+		CryptoPP::SecByteBlock password(passwordSize);
+		RNG().GenerateBlock(password, passwordSize);
 
-std::string passwordString;
-CryptoPP::HexEncoder encoder(new CryptoPP::StringSink(passwordString));
-encoder.Put(password.data(), password.size());
-encoder.MessageEnd();
+		std::string passwordString;
+		CryptoPP::HexEncoder encoder(new CryptoPP::StringSink(passwordString));
+		encoder.Put(password.data(), password.size());
+		encoder.MessageEnd();
 
-return passwordString;
-} catch (const std::exception& e) {
-return StormByte::Unexpected<Exception>("Failed to generate random password: {}", e.what());
-}
+		return passwordString;
+	} catch (const std::exception& e) {
+		return Unexpected(CrypterException("Failed to generate random password: {}", e.what()));
+	}
 }

@@ -22,10 +22,10 @@ namespace StormByte::Crypto::Implementation::Hash::Blake2b {
 	STORMBYTE_CRYPTO_PRIVATE ExpectedHashString 		Hash(const Buffer::FIFO& buffer) noexcept;
 
 	/**
-	 * @brief Hashes data asynchronously using the Consumer/Producer model.
+	 * @brief Hashes data asynchronously using the Buffer::Consumer/Buffer::Producer model.
 	 * 
-	 * @param consumer The Consumer buffer containing the input data.
-	 * @return A Consumer buffer containing the hash result.
+	 * @param Buffer::Consumer The Buffer::Consumer buffer containing the input data.
+	 * @return A Buffer::Consumer buffer containing the hash result.
 	 */
-	STORMBYTE_CRYPTO_PRIVATE StormByte::Buffer::Consumer 	Hash(Buffer::Consumer consumer) noexcept;
+	STORMBYTE_CRYPTO_PRIVATE Buffer::Consumer 	Hash(Buffer::Consumer consumer) noexcept;
 }

@@ -1,8 +1,8 @@
+#include <StormByte/crypto/random.hxx>
 #include <StormByte/crypto/implementation/encryption/ecdh.hxx>
 
 #include <cryptlib.h>
 #include <eccrypto.h>
-#include <osrng.h>
 #include <oids.h>
 #include <base64.h>
 #include <string>
@@ -30,8 +30,6 @@ namespace {
 
 ExpectedKeyPair ECDH::GenerateKeyPair(const std::string& curveName) noexcept {
 	try {
-		CryptoPP::AutoSeededRandomPool rng;
-
 		// Select the curve
 		CryptoPP::OID curve;
 		if (curveName == "secp256r1") {
@@ -41,7 +39,7 @@ ExpectedKeyPair ECDH::GenerateKeyPair(const std::string& curveName) noexcept {
 		} else if (curveName == "secp521r1") {
 			curve = CryptoPP::ASN1::secp521r1();
 		} else {
-			return StormByte::Unexpected<Exception>("Unknown curve name: " + curveName);
+			return Unexpected(KeyPairException("Unknown curve name: {}", curveName));
 		}
 
 		// Initialize ECDH domain
@@ -51,7 +49,7 @@ ExpectedKeyPair ECDH::GenerateKeyPair(const std::string& curveName) noexcept {
 		// Generate private and public keys
 		CryptoPP::SecByteBlock privateKey(ecdhDomain.PrivateKeyLength());
 		CryptoPP::SecByteBlock publicKey(ecdhDomain.PublicKeyLength());
-		ecdhDomain.GenerateKeyPair(rng, privateKey, publicKey);
+		ecdhDomain.GenerateKeyPair(RNG(), privateKey, publicKey);
 
 		// Serialize keys
 		std::string serializedPrivateKey = SerializeKey(privateKey);
@@ -62,27 +60,26 @@ ExpectedKeyPair ECDH::GenerateKeyPair(const std::string& curveName) noexcept {
 			.Public = serializedPublicKey,
 		};
 	} catch (const std::exception& e) {
-		return StormByte::Unexpected<Exception>("ECDH key generation failed: " + std::string(e.what()));
+		return Unexpected(KeyPairException("ECDH key generation failed: {}", e.what()));
 	}
 }
 
 ExpectedCryptoString ECDH::DeriveSharedSecret(const std::string& privateKey, const std::string& peerPublicKey) noexcept {
 	try {
-		CryptoPP::AutoSeededRandomPool rng;
-
 		// Deserialize keys
 		CryptoPP::SecByteBlock privateKeyBlock = DeserializeKey(privateKey);
 		CryptoPP::SecByteBlock peerPublicKeyBlock = DeserializeKey(peerPublicKey);
 
 		// Validate deserialized keys
 		if (privateKeyBlock.empty()) {
-			return StormByte::Unexpected<Exception>("Invalid private key: deserialization failed or key is empty");
+			return Unexpected(SecretException("Invalid private key: deserialization failed or key is empty"));
 		}
 		if (peerPublicKeyBlock.empty()) {
-			return StormByte::Unexpected<Exception>("Invalid public key: deserialization failed or key is empty");
+			return Unexpected(SecretException("Invalid public key: deserialization failed or key is empty"));
 		}
 
 		// Select the curve
+		///< @todo Make curve selection dynamic based on key parameters
 		CryptoPP::OID curve = CryptoPP::ASN1::secp256r1();
 
 		// Initialize ECDH domain
@@ -91,22 +88,22 @@ ExpectedCryptoString ECDH::DeriveSharedSecret(const std::string& privateKey, con
 
 		// Validate key lengths
 		if (privateKeyBlock.size() != ecdhDomain.PrivateKeyLength()) {
-			return StormByte::Unexpected<Exception>("Invalid private key length");
+			return Unexpected(SecretException("Invalid private key length"));
 		}
 		if (peerPublicKeyBlock.size() != ecdhDomain.PublicKeyLength()) {
-			return StormByte::Unexpected<Exception>("Invalid public key length");
+			return Unexpected(SecretException("Invalid public key length"));
 		}
 
 		// Derive the shared secret
 		CryptoPP::SecByteBlock sharedSecret(ecdhDomain.AgreedValueLength());
 		if (!ecdhDomain.Agree(sharedSecret, privateKeyBlock, peerPublicKeyBlock)) {
-			return StormByte::Unexpected<Exception>("Failed to derive shared secret");
+			return Unexpected(SecretException("Failed to derive shared secret"));
 		}
 
 		// Serialize the shared secret
 		std::string serializedSharedSecret = SerializeKey(sharedSecret);
 		return serializedSharedSecret;
 	} catch (const std::exception& e) {
-		return StormByte::Unexpected<Exception>("ECDH shared secret derivation failed: " + std::string(e.what()));
+		return Unexpected(SecretException("ECDH shared secret derivation failed: {}", e.what()));
 	}
 }

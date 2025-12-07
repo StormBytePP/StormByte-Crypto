@@ -1,23 +1,21 @@
+#include <StormByte/crypto/random.hxx>
 #include <StormByte/crypto/implementation/encryption/x25519.hxx>
 
-#include <cryptopp/osrng.h>
-#include <cryptopp/xed25519.h>
-#include <cryptopp/hex.h>
-#include <cryptopp/filters.h>
+#include <xed25519.h>
+#include <hex.h>
+#include <filters.h>
 
 using namespace StormByte::Crypto::Implementation::Encryption;
 
 // X25519 key exchange implementation (Curve25519)
 ExpectedKeyPair X25519::GenerateKeyPair() noexcept {
 	try {
-		CryptoPP::AutoSeededRandomPool rng;
-		
 		// Generate X25519 private key
 		CryptoPP::x25519 agreement;
 		CryptoPP::SecByteBlock privateKey(agreement.PrivateKeyLength());
 		CryptoPP::SecByteBlock publicKey(agreement.PublicKeyLength());
 		
-		agreement.GenerateKeyPair(rng, privateKey, publicKey);
+		agreement.GenerateKeyPair(RNG(), privateKey, publicKey);
 		
 		// Convert to hex strings
 		std::string privateKeyStr, publicKeyStr;
@@ -53,10 +51,12 @@ ExpectedCryptoString X25519::DeriveSharedSecret(const std::string& privateKey, c
 		CryptoPP::x25519 agreement;
 		CryptoPP::SecByteBlock sharedSecret(agreement.AgreedValueLength());
 		
-		if (!agreement.Agree(sharedSecret,
-							reinterpret_cast<const uint8_t*>(decodedPrivKey.data()),
-							reinterpret_cast<const uint8_t*>(decodedPubKey.data()))) {
-			return StormByte::Unexpected<StormByte::Crypto::Exception>("Failed to derive shared secret");
+		if (!agreement.Agree(
+			sharedSecret,
+			reinterpret_cast<const uint8_t*>(decodedPrivKey.data()),
+			reinterpret_cast<const uint8_t*>(decodedPubKey.data()))
+		) {
+			return Unexpected(CrypterException("Failed to derive shared secret"));
 		}
 		
 		// Convert shared secret to hex
@@ -67,6 +67,6 @@ ExpectedCryptoString X25519::DeriveSharedSecret(const std::string& privateKey, c
 		
 		return hexSecret;
 	} catch (const std::exception& e) {
-		return StormByte::Unexpected<StormByte::Crypto::Exception>(e.what());
+		return Unexpected(CrypterException(e.what()));
 	}
 }

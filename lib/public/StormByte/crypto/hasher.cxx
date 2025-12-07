@@ -6,6 +6,7 @@
 #include <StormByte/crypto/implementation/hash/sha512.hxx>
 #include <StormByte/crypto/implementation/hash/sha3.hxx>
 
+using StormByte::Buffer::DataType;
 using namespace StormByte::Crypto;
 
 Hasher::Hasher(const Algorithm::Hash& algorithm) noexcept
@@ -45,11 +46,12 @@ StormByte::Expected<std::string, Exception> Hasher::Hash(const Buffer::FIFO& buf
 		case Algorithm::Hash::SHA3_512:
 			return Implementation::Hash::SHA3_512::Hash(buffer);
 		default: {
-			auto data = const_cast<Buffer::FIFO&>(buffer).Extract(0);
-			if (!data.has_value()) {
-				return StormByte::Unexpected<Exception>("Failed to extract data from buffer");
+			DataType data;
+			auto read_ok = buffer.Read(data);
+			if (!read_ok.has_value()) {
+				return Unexpected(HasherException("Failed to extract data from buffer"));
 			}
-			return std::string(reinterpret_cast<const char*>(data.value().data()), data.value().size());
+			return std::string(reinterpret_cast<const char*>(data.data()), data.size());
 		}
 	}
 }

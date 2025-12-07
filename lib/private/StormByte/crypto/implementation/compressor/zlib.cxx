@@ -9,6 +9,11 @@
 #include <vector>
 #include <span>
 
+using StormByte::Buffer::DataType;
+using StormByte::Buffer::FIFO;
+using StormByte::Buffer::Consumer;
+using StormByte::Buffer::Producer;
+using namespace StormByte::Crypto;
 using namespace StormByte::Crypto::Implementation::Compressor;
 
 namespace {
@@ -22,14 +27,9 @@ namespace {
 				new CryptoPP::ZlibCompressor(
 					new CryptoPP::StringSink(compressedString), CryptoPP::ZlibCompressor::MAX_DEFLATE_LEVEL));
 
-			// Convert the compressed string to std::vector<std::byte>
-			std::vector<std::byte> compressedData(compressedString.size());
-			std::transform(compressedString.begin(), compressedString.end(), compressedData.begin(),
-				[](char c) { return static_cast<std::byte>(c); });
-
 			// Create Buffer and write data
-			StormByte::Buffer::FIFO buffer;
-			(void)buffer.Write(compressedData);
+			FIFO buffer;
+			(void)buffer.Write(std::move(compressedString));
 			return buffer;
 		}
 		catch (const CryptoPP::Exception& e) {
@@ -46,14 +46,9 @@ namespace {
 				reinterpret_cast<const uint8_t*>(compressedData.data()), compressedData.size_bytes(), true,
 				new CryptoPP::ZlibDecompressor(new CryptoPP::StringSink(decompressedString)));
 
-			// Convert the decompressed string to std::vector<std::byte>
-			std::vector<std::byte> decompressedData(decompressedString.size());
-			std::transform(decompressedString.begin(), decompressedString.end(), decompressedData.begin(),
-				[](char c) { return static_cast<std::byte>(c); });
-
 			// Create Buffer and write data
-			StormByte::Buffer::FIFO buffer;
-			(void)buffer.Write(decompressedData);
+			FIFO buffer;
+			(void)buffer.Write(std::move(decompressedString));
 			return buffer;
 		}
 		catch (const CryptoPP::Exception& e) {
@@ -68,17 +63,18 @@ ExpectedCompressorBuffer Zlib::Compress(const std::string& input) noexcept {
 	return CompressHelper(dataSpan);
 }
 
-ExpectedCompressorBuffer Zlib::Compress(const StormByte::Buffer::FIFO& input) noexcept {
-	auto data = const_cast<StormByte::Buffer::FIFO&>(input).Extract(0);
-	if (!data.has_value()) {
-		return StormByte::Unexpected<StormByte::Crypto::Exception>("Failed to extract data from input buffer");
+ExpectedCompressorBuffer Zlib::Compress(const FIFO& input) noexcept {
+	DataType data;
+	auto read_ok = input.Read(data);
+	if (!read_ok.has_value()) {
+		return Unexpected(CompressorException("Failed to extract data from input buffer"));
 	}
-	std::span<const std::byte> dataSpan(data.value().data(), data.value().size());
+	std::span<const std::byte> dataSpan(data.data(), data.size());
 	return CompressHelper(dataSpan);
 }
 
-StormByte::Buffer::Consumer Zlib::Compress(Buffer::Consumer consumer) noexcept {
-	StormByte::Buffer::Producer producer;
+Consumer Zlib::Compress(Consumer consumer) noexcept {
+	Producer producer;
 
 	std::thread([consumer, producer]() mutable {
 		try {
@@ -95,30 +91,27 @@ StormByte::Buffer::Consumer Zlib::Compress(Buffer::Consumer consumer) noexcept {
 				}
 
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				auto spanResult = consumer.Extract(bytesToRead);
-				if (!spanResult.has_value()) { producer.Close(); return; }
+				DataType data;
+				auto read_ok = consumer.Extract(bytesToRead, data);
+				if (!read_ok.has_value()) {
+					producer.SetError();
+					return;
+				}
 
-				const auto& inputSpan = spanResult.value();
-				if (inputSpan.empty()) continue;
-
-				compressor.Put(reinterpret_cast<const uint8_t*>(inputSpan.data()), inputSpan.size());
+				compressor.Put(reinterpret_cast<const uint8_t*>(data.data()), data.size());
 				compressor.Flush(true);
 				if (!compressedString.empty()) {
-					std::vector<std::byte> chunkData(compressedString.size());
-					std::transform(compressedString.begin(), compressedString.end(), chunkData.begin(), [](char c) { return static_cast<std::byte>(c); });
-					(void)producer.Write(chunkData);
+					(void)producer.Write(std::move(compressedString));
 					compressedString.clear();
 				}
 			}
 			compressor.MessageEnd();
 			if (!compressedString.empty()) {
-				std::vector<std::byte> byteData(compressedString.size());
-				std::transform(compressedString.begin(), compressedString.end(), byteData.begin(), [](char c) { return static_cast<std::byte>(c); });
-				(void)producer.Write(byteData);
+				(void)producer.Write(std::move(compressedString));
 			}
 			producer.Close();
 		} catch (...) {
-			producer.Close();
+			producer.SetError();
 		}
 	}).detach();
 
@@ -131,17 +124,18 @@ ExpectedCompressorBuffer Zlib::Decompress(const std::string& input) noexcept {
 	return DecompressHelper(dataSpan);
 }
 
-ExpectedCompressorBuffer Zlib::Decompress(const StormByte::Buffer::FIFO& input) noexcept {
-	auto data = const_cast<StormByte::Buffer::FIFO&>(input).Extract(0);
-	if (!data.has_value()) {
-		return StormByte::Unexpected<StormByte::Crypto::Exception>("Failed to extract data from input buffer");
+ExpectedCompressorBuffer Zlib::Decompress(const FIFO& input) noexcept {
+	DataType data;
+	auto read_ok = input.Read(data);
+	if (!read_ok.has_value()) {
+		return Unexpected(CompressorException("Failed to extract data from input buffer"));
 	}
-	std::span<const std::byte> dataSpan(data.value().data(), data.value().size());
+	std::span<const std::byte> dataSpan(data.data(), data.size());
 	return DecompressHelper(dataSpan);
 }
 
-StormByte::Buffer::Consumer Zlib::Decompress(Buffer::Consumer consumer) noexcept {
-	StormByte::Buffer::Producer producer;
+Consumer Zlib::Decompress(Consumer consumer) noexcept {
+	Producer producer;
 
 	std::thread([consumer, producer]() mutable {
 		try {
@@ -158,30 +152,27 @@ StormByte::Buffer::Consumer Zlib::Decompress(Buffer::Consumer consumer) noexcept
 				}
 
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				auto spanResult = consumer.Extract(bytesToRead);
-				if (!spanResult.has_value()) { producer.Close(); return; }
+				DataType data;
+				auto read_ok = consumer.Extract(bytesToRead, data);
+				if (!read_ok.has_value()) {
+					producer.SetError();
+					return;
+				}
 
-				const auto& compressedSpan = spanResult.value();
-				if (compressedSpan.empty()) continue;
-
-				decompressor.Put(reinterpret_cast<const uint8_t*>(compressedSpan.data()), compressedSpan.size());
+				decompressor.Put(reinterpret_cast<const uint8_t*>(data.data()), data.size());
 				decompressor.Flush(true);
 				if (!decompressedString.empty()) {
-					std::vector<std::byte> chunkData(decompressedString.size());
-					std::transform(decompressedString.begin(), decompressedString.end(), chunkData.begin(), [](char c) { return static_cast<std::byte>(c); });
-					(void)producer.Write(chunkData);
+					(void)producer.Write(std::move(decompressedString));
 					decompressedString.clear();
 				}
 			}
 			decompressor.MessageEnd();
 			if (!decompressedString.empty()) {
-				std::vector<std::byte> byteData(decompressedString.size());
-				std::transform(decompressedString.begin(), decompressedString.end(), byteData.begin(), [](char c) { return static_cast<std::byte>(c); });
-				(void)producer.Write(byteData);
+				(void)producer.Write(std::move(decompressedString));
 			}
 			producer.Close();
 		} catch (...) {
-			producer.Close();
+			producer.SetError();
 		}
 	}).detach();
 

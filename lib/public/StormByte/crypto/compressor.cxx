@@ -2,6 +2,7 @@
 #include <StormByte/crypto/implementation/compressor/bzip2.hxx>
 #include <StormByte/crypto/implementation/compressor/zlib.hxx>
 
+using StormByte::Buffer::DataType;
 using namespace StormByte::Crypto;
 
 Compressor::Compressor(const Algorithm::Compress& algorithm) noexcept
@@ -21,14 +22,15 @@ StormByte::Expected<std::string, Exception> Compressor::Compress(const std::stri
 	}
 
 	if (outbuff.has_value()) {
-		auto data = outbuff.value().Extract(0);
-		if (!data.has_value()) {
-			return StormByte::Unexpected<Exception>("Failed to extract data from buffer");
+		DataType data;
+		auto read_ok = outbuff.value().Extract(data);
+		if (!read_ok.has_value()) {
+			return Unexpected(CompressorException("Failed to extract data from buffer"));
 		}
-		std::string result(reinterpret_cast<const char*>(data.value().data()), data.value().size());
+		std::string result(reinterpret_cast<const char*>(data.data()), data.size());
 		return result;
 	} else {
-		return StormByte::Unexpected<Exception>(outbuff.error());
+		return Unexpected(outbuff.error());
 	}
 }
 
@@ -48,7 +50,7 @@ StormByte::Expected<StormByte::Buffer::FIFO, StormByte::Crypto::Exception> Compr
 	if (outbuff.has_value()) {
 		return outbuff.value();
 	} else {
-		return StormByte::Unexpected<Exception>(outbuff.error());
+		return Unexpected(outbuff.error());
 	}
 }
 
@@ -77,14 +79,15 @@ StormByte::Expected<std::string, Exception> Compressor::Decompress(const std::st
 	}
 
 	if (outbuff.has_value()) {
-		auto data = outbuff.value().Extract(0);
-		if (!data.has_value()) {
-			return StormByte::Unexpected<Exception>("Failed to extract data from buffer");
+		DataType data;
+		auto read_ok = outbuff.value().Extract(data);
+		if (!read_ok.has_value()) {
+			return Unexpected(CompressorException("Failed to extract data from buffer"));
 		}
-		std::string result(reinterpret_cast<const char*>(data.value().data()), data.value().size());
+		std::string result(reinterpret_cast<const char*>(data.data()), data.size());
 		return result;
 	} else {
-		return StormByte::Unexpected<Exception>(outbuff.error());
+		return Unexpected(outbuff.error());
 	}
 }
 

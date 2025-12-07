@@ -10,18 +10,18 @@ namespace StormByte::Crypto::Implementation::Encryption::AES_GCM {
  * @return ExpectedCryptoBuffer containing the encrypted data or an error.
  */
 ExpectedCryptoBuffer Encrypt(const std::string& data, const std::string& password) noexcept;	/**
-	 * @brief Encrypts data from a FIFO buffer using AES-GCM.
-	 * @param data The FIFO buffer containing data to encrypt.
+	 * @brief Encrypts data from a Buffer::FIFO buffer using AES-GCM.
+	 * @param data The Buffer::FIFO buffer containing data to encrypt.
 	 * @param password The password to use for encryption.
 	 * @return ExpectedCryptoBuffer containing the encrypted data or an error.
 	 */
 	ExpectedCryptoBuffer Encrypt(const Buffer::FIFO& data, const std::string& password) noexcept;
 
 	/**
-	 * @brief Encrypts data from a Consumer asynchronously using AES-GCM.
-	 * @param consumer The Consumer to read data from.
+	 * @brief Encrypts data from a Buffer::Consumer asynchronously using AES-GCM.
+	 * @param Buffer::Consumer The Buffer::Consumer to read data from.
 	 * @param password The password to use for encryption.
-	 * @return A Consumer that will contain the encrypted data.
+	 * @return A Buffer::Consumer that will contain the encrypted data.
 	 */
 	Buffer::Consumer Encrypt(const Buffer::Consumer consumer, const std::string& password) noexcept;
 
@@ -32,18 +32,18 @@ ExpectedCryptoBuffer Encrypt(const std::string& data, const std::string& passwor
  * @return ExpectedCryptoBuffer containing the decrypted data or an error.
  */
 ExpectedCryptoBuffer Decrypt(const std::string& encryptedData, const std::string& password) noexcept;	/**
-	 * @brief Decrypts data from a FIFO buffer using AES-GCM.
-	 * @param encryptedData The FIFO buffer containing encrypted data.
+	 * @brief Decrypts data from a Buffer::FIFO buffer using AES-GCM.
+	 * @param encryptedData The Buffer::FIFO buffer containing encrypted data.
 	 * @param password The password to use for decryption.
 	 * @return ExpectedCryptoBuffer containing the decrypted data or an error.
 	 */
 	ExpectedCryptoBuffer Decrypt(const Buffer::FIFO& encryptedData, const std::string& password) noexcept;
 
 	/**
-	 * @brief Decrypts data from a Consumer asynchronously using AES-GCM.
-	 * @param consumer The Consumer to read encrypted data from.
+	 * @brief Decrypts data from a Buffer::Consumer asynchronously using AES-GCM.
+	 * @param Buffer::Consumer The Buffer::Consumer to read encrypted data from.
 	 * @param password The password to use for decryption.
-	 * @return A Consumer that will contain the decrypted data.
+	 * @return A Buffer::Consumer that will contain the decrypted data.
 	 */
 	Buffer::Consumer Decrypt(const Buffer::Consumer consumer, const std::string& password) noexcept;
 

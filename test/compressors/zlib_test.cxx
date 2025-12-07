@@ -3,6 +3,7 @@
 #include <StormByte/test_handlers.h>
 #include "helpers.hxx"
 
+using StormByte::Buffer::DataType;
 using namespace StormByte::Crypto;
 
 int TestZlibCompressDecompressString() {
@@ -34,9 +35,10 @@ int TestZlibCompressDecompressBuffer() {
 
 	auto decompressed = compressor.Decompress(compressed.value());
 	ASSERT_TRUE(fn_name, decompressed.has_value());
-	auto data = decompressed->Extract(0);
-	ASSERT_TRUE(fn_name, data.has_value());
-	std::string out(reinterpret_cast<const char*>(data->data()), data->size());
+	DataType data;
+	auto read_ok = decompressed->Read(data);
+	ASSERT_TRUE(fn_name, read_ok.has_value());
+	std::string out(reinterpret_cast<const char*>(data.data()), data.size());
 	ASSERT_TRUE(fn_name, out == src);
 	RETURN_TEST(fn_name, 0);
 }
@@ -70,9 +72,10 @@ int TestZlibStreaming() {
 	auto decompressedFifoExp = decomp.Decompress(compressedFifo);
 	ASSERT_TRUE(fn_name, decompressedFifoExp.has_value());
 	auto& fifo = decompressedFifoExp.value();
-	auto data = fifo.Extract(0);
-	ASSERT_TRUE(fn_name, data.has_value());
-	std::string out(reinterpret_cast<const char*>(data->data()), data->size());
+	DataType data;
+	auto read_ok = fifo.Read(data);
+	ASSERT_TRUE(fn_name, read_ok.has_value());
+	std::string out(reinterpret_cast<const char*>(data.data()), data.size());
 	ASSERT_TRUE(fn_name, out == big);
 	RETURN_TEST(fn_name, 0);
 }

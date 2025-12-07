@@ -8,6 +8,6 @@
  * @brief The namespace containing hashing functions
  */
 namespace StormByte::Crypto::Implementation::Hash {
-	using ExpectedHashBuffer = StormByte::Expected<StormByte::Buffer::FIFO, Exception>;			///< The expected hash buffer type.
+	using ExpectedHashBuffer = StormByte::Expected<Buffer::FIFO, Exception>;			///< The expected hash buffer type.
 	using ExpectedHashString = StormByte::Expected<std::string, Exception>;					///< The expected hash string type.
 }

@@ -6,6 +6,8 @@
 
 #include <thread>
 
+using StormByte::Buffer::DataType;
+
 StormByte::Buffer::FIFO ReadAllFromConsumer(StormByte::Buffer::Consumer consumer) {
 	// Read the decompressed data from the consumer
 	StormByte::Buffer::FIFO data;
@@ -16,22 +18,23 @@ StormByte::Buffer::FIFO ReadAllFromConsumer(StormByte::Buffer::Consumer consumer
 			continue;
 		}
 
-		auto read_result = consumer.Read(available_bytes);
+		DataType d;
+		auto read_result = consumer.Read(available_bytes, d);
 		if (!read_result.has_value()) {
 			return data;
 		}
 
-		const auto& chunk = read_result.value();
-		(void)data.Write(chunk);
+		(void)data.Write(std::move(d));
 	}
 	return data;
 }
 
 std::string DeserializeString(const StormByte::Buffer::FIFO& buffer) {
-	auto data = const_cast<StormByte::Buffer::FIFO&>(buffer).Extract();
-	if (!data.has_value()) {
+	DataType data;
+	auto read_ok = buffer.Read(data);
+	if (!read_ok.has_value()) {
 		return {};
 	}
 
-	return StormByte::String::FromByteVector(data.value());
+	return StormByte::String::FromByteVector(data);
 }

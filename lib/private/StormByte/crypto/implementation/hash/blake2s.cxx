@@ -7,26 +7,40 @@
 #include <thread>
 #include <span>
 
+using StormByte::Buffer::DataType;
+using StormByte::Buffer::FIFO;
+using StormByte::Buffer::Consumer;
+using StormByte::Buffer::Producer;
+using namespace StormByte::Crypto;
 using namespace StormByte::Crypto::Implementation::Hash;
 
 namespace {
 	ExpectedHashString ComputeBlake2s(std::span<const std::byte> dataSpan) noexcept {
 		try {
 			std::vector<uint8_t> data(dataSpan.size());
-			std::transform(dataSpan.begin(), dataSpan.end(), data.begin(),
-						[](std::byte b) { return static_cast<uint8_t>(b); });
+			std::transform(
+				dataSpan.begin(),
+				dataSpan.end(),
+				data.begin(),
+				[](std::byte b) { return static_cast<uint8_t>(b); }
+			);
 
 			CryptoPP::BLAKE2s hash;
 			std::string hashOutput;
 
-			CryptoPP::StringSource ss(data.data(), data.size(), true,
-									new CryptoPP::HashFilter(hash,
-									new CryptoPP::HexEncoder(
-										new CryptoPP::StringSink(hashOutput))));
+			CryptoPP::StringSource ss(
+				data.data(),
+				data.size(),
+				true,
+				new CryptoPP::HashFilter(
+					hash,
+					new CryptoPP::HexEncoder(new CryptoPP::StringSink(hashOutput))
+				)
+			);
 
 			return hashOutput;
 		} catch (const std::exception& e) {
-			return StormByte::Unexpected<StormByte::Crypto::Exception>("Blake2s hashing failed: {}", e.what());
+			return Unexpected(HasherException("Blake2s hashing failed: {}", e.what()));
 		}
 	}
 }
@@ -36,17 +50,18 @@ ExpectedHashString Blake2s::Hash(const std::string& input) noexcept {
 	return ComputeBlake2s(dataSpan);
 }
 
-ExpectedHashString Blake2s::Hash(const Buffer::FIFO& buffer) noexcept {
-	auto data = const_cast<StormByte::Buffer::FIFO&>(buffer).Extract(0);
-	if (!data.has_value()) {
-		return StormByte::Unexpected<StormByte::Crypto::Exception>("Failed to extract data from buffer");
+ExpectedHashString Blake2s::Hash(const FIFO& buffer) noexcept {
+	DataType data;
+	auto read_ok = buffer.Read(data);
+	if (!read_ok.has_value()) {
+		return Unexpected(HasherException("Failed to extract data from buffer"));
 	}
-	std::span<const std::byte> dataSpan(data.value().data(), data.value().size());
+	std::span<const std::byte> dataSpan(data.data(), data.size());
 	return ComputeBlake2s(dataSpan);
 }
 
-StormByte::Buffer::Consumer Blake2s::Hash(Buffer::Consumer consumer) noexcept {
-	StormByte::Buffer::Producer producer;
+Consumer Blake2s::Hash(Consumer consumer) noexcept {
+	Producer producer;
 
 	std::thread([consumer, producer]() mutable {
 		try {
@@ -56,47 +71,33 @@ StormByte::Buffer::Consumer Blake2s::Hash(Buffer::Consumer consumer) noexcept {
 
 			constexpr size_t chunkSize = 4096;
 			std::vector<uint8_t> chunkBuffer(chunkSize);
-			size_t chunksProcessed = 0;
 
 			while (!consumer.EoF()) {
 				size_t availableBytes = consumer.AvailableBytes();
 				if (availableBytes == 0) {
-					if (!consumer.IsWritable()) {
-						break;
-					}
 					std::this_thread::yield();
 					continue;
 				}
 
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				// Use Span for zero-copy read
-			auto spanResult = consumer.Extract(bytesToRead);
+				DataType data;
+				auto spanResult = consumer.Extract(bytesToRead, data);
 				if (!spanResult.has_value()) {
-					producer.Close();
+					producer.SetError();
 					return;
 				}
-
-				const auto& inputSpan = spanResult.value();
-				hash.Update(reinterpret_cast<const CryptoPP::byte*>(inputSpan.data()), inputSpan.size());
-				// Clean periodically (every 16 chunks to balance memory vs performance)
-				if (++chunksProcessed % 16 == 0) {
-					consumer.Clean();
-				}
+				
+				hash.Update(reinterpret_cast<const CryptoPP::byte*>(data.data()), data.size());
 			}
 			// Finalize the hash
 			hash.Final(reinterpret_cast<CryptoPP::byte*>(chunkBuffer.data()));
 			encoder.Put(chunkBuffer.data(), hash.DigestSize());
 			encoder.MessageEnd();
 
-			std::vector<std::byte> byteData;
-			byteData.reserve(hashOutput.size());
-			for (size_t i = 0; i < hashOutput.size(); ++i) {
-				byteData.push_back(static_cast<std::byte>(hashOutput[i]));
-			}
-			(void)producer.Write(byteData);
+			(void)producer.Write(std::move(hashOutput));
 			producer.Close();
 		} catch (...) {
-			producer.Close();
+			producer.SetError();
 		}
 	}).detach();
 

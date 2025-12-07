@@ -4,6 +4,7 @@
 #include <StormByte/crypto/implementation/encryption/rsa.hxx>
 #include <StormByte/crypto/implementation/encryption/ed25519.hxx>
 
+using StormByte::Buffer::DataType;
 using namespace StormByte::Crypto;
 
 Signer::Signer(const Algorithm::Sign& algorithm, const KeyPair& keypair) noexcept
@@ -31,19 +32,19 @@ StormByte::Expected<std::string, Exception> Signer::Sign(const std::string& inpu
 			outstr = Implementation::Encryption::Ed25519::Sign(input, m_keys.PrivateKey().value());
 			break;
 		default:
-			return StormByte::Unexpected<Exception>("Invalid algorithm for signing.");
+			return Unexpected(SignerException("Invalid algorithm for signing."));
 	}
 
 	if (outstr.has_value()) {
 		return outstr.value();
 	} else {
-		return StormByte::Unexpected<Exception>(outstr.error());
+		return Unexpected(outstr.error());
 	}
 }
 
 StormByte::Expected<std::string, Exception> Signer::Sign(const Buffer::FIFO& buffer) const noexcept {
 	if (!m_keys.PrivateKey().has_value()) {
-		return StormByte::Unexpected<Exception>("Private key is not available for signing.");
+		return Unexpected(SignerException("Private key is not available for signing."));
 	}
 	Implementation::Encryption::ExpectedCryptoBuffer outbuff;
 	switch(m_algorithm) {
@@ -60,18 +61,19 @@ StormByte::Expected<std::string, Exception> Signer::Sign(const Buffer::FIFO& buf
 			outbuff = Implementation::Encryption::Ed25519::Sign(buffer, m_keys.PrivateKey().value());
 			break;
 		default:
-			return StormByte::Unexpected<Exception>("Invalid algorithm for signing.");
+			return Unexpected(SignerException("Invalid algorithm for signing."));
 	}
 
 	if (outbuff.has_value()) {
-		auto data = outbuff.value().Extract(0);
-		if (!data.has_value()) {
-			return StormByte::Unexpected<Exception>("Failed to extract data from buffer");
+		DataType data;
+		auto read_ok = outbuff.value().Extract(data);
+		if (!read_ok.has_value()) {
+			return Unexpected(SignerException("Failed to extract data from buffer"));
 		}
-		std::string result(reinterpret_cast<const char*>(data.value().data()), data.value().size());
+		std::string result(reinterpret_cast<const char*>(data.data()), data.size());
 		return result;
 	} else {
-		return StormByte::Unexpected<Exception>(outbuff.error());
+		return Unexpected(outbuff.error());
 	}
 }
 

@@ -6,6 +6,7 @@
 #include <StormByte/crypto/implementation/encryption/serpent.hxx>
 #include <StormByte/crypto/implementation/encryption/twofish.hxx>
 
+using StormByte::Buffer::DataType;
 using namespace StormByte::Crypto;
 
 Symmetric::Symmetric(const Algorithm::Symmetric& algorithm, const size_t& password_size) noexcept
@@ -64,14 +65,15 @@ StormByte::Expected<std::string, Exception> Symmetric::Encrypt(const std::string
 	}
 
 	if (outbuff.has_value()) {
-		auto data = outbuff.value().Extract(0);
-		if (!data.has_value()) {
-			return StormByte::Unexpected<Exception>("Failed to extract data from buffer");
+		DataType data;
+		auto read_ok = outbuff.value().Extract(data);
+		if (!read_ok.has_value()) {
+			return Unexpected(CrypterException("Failed to extract data from buffer"));
 		}
-		std::string result(reinterpret_cast<const char*>(data.value().data()), data.value().size());
+		std::string result(reinterpret_cast<const char*>(data.data()), data.size());
 		return result;
 	} else {
-		return StormByte::Unexpected<Exception>(outbuff.error());
+		return Unexpected(outbuff.error());
 	}
 }StormByte::Expected<StormByte::Buffer::FIFO, StormByte::Crypto::Exception> Symmetric::Encrypt(const Buffer::FIFO& buffer) const noexcept {
 	Implementation::Encryption::ExpectedCryptoBuffer outbuff;
@@ -95,13 +97,13 @@ StormByte::Expected<std::string, Exception> Symmetric::Encrypt(const std::string
 			outbuff = Implementation::Encryption::Twofish::Encrypt(buffer, m_password);
 			break;
 		default:
-			return StormByte::Unexpected<Exception>("Invalid algorithm for encryption.");
+			return Unexpected(CrypterException("Invalid algorithm for encryption."));
 	}
 
 	if (outbuff.has_value()) {
 		return outbuff.value();
 	} else {
-		return StormByte::Unexpected<Exception>(outbuff.error());
+		return Unexpected(outbuff.error());
 	}
 }
 
@@ -150,14 +152,15 @@ StormByte::Expected<std::string, Exception> Symmetric::Decrypt(const std::string
 	}
 
 	if (outbuff.has_value()) {
-		auto data = outbuff.value().Extract(0);
-		if (!data.has_value()) {
-			return StormByte::Unexpected<Exception>("Failed to extract data from buffer");
+		DataType data;
+		auto read_ok = outbuff.value().Extract(data);
+		if (!read_ok.has_value()) {
+			return Unexpected(CrypterException("Failed to extract data from buffer"));
 		}
-		std::string result(reinterpret_cast<const char*>(data.value().data()), data.value().size());
+		std::string result(reinterpret_cast<const char*>(data.data()), data.size());
 		return result;
 	} else {
-		return StormByte::Unexpected<Exception>(outbuff.error());
+		return Unexpected(outbuff.error());
 	}
 }StormByte::Expected<StormByte::Buffer::FIFO, StormByte::Crypto::Exception> Symmetric::Decrypt(const Buffer::FIFO& buffer) const noexcept {
 	Implementation::Encryption::ExpectedCryptoBuffer outbuff;

@@ -31,12 +31,12 @@ namespace StormByte::Crypto::Implementation::Encryption::RSA {
 	STORMBYTE_CRYPTO_PRIVATE ExpectedCryptoBuffer Encrypt(const Buffer::FIFO& message, const std::string& publicKey) noexcept;
 
 	/**
-	 * @brief Encrypts data asynchronously using the Consumer/Producer model.
-	 * @param consumer The Consumer buffer containing the input data.
+	 * @brief Encrypts data asynchronously using the Buffer::Consumer/Buffer::Producer model.
+	 * @param Buffer::Consumer The Buffer::Consumer buffer containing the input data.
 	 * @param publicKey The RSA public key to use for encryption.
-	 * @return A Consumer buffer containing the encrypted data.
+	 * @return A Buffer::Consumer buffer containing the encrypted data.
 	 */
-	STORMBYTE_CRYPTO_PRIVATE StormByte::Buffer::Consumer Encrypt(const Buffer::Consumer consumer, const std::string& publicKey) noexcept;
+	STORMBYTE_CRYPTO_PRIVATE Buffer::Consumer Encrypt(const Buffer::Consumer consumer, const std::string& publicKey) noexcept;
 
 	/**
 	 * @brief Decrypts a message using the RSA private key.
@@ -55,12 +55,12 @@ namespace StormByte::Crypto::Implementation::Encryption::RSA {
 	STORMBYTE_CRYPTO_PRIVATE ExpectedCryptoBuffer Decrypt(const Buffer::FIFO& encryptedBuffer, const std::string& privateKey) noexcept;
 
 	/**
-	 * @brief Decrypts data asynchronously using the Consumer/Producer model.
-	 * @param consumer The Consumer buffer containing the encrypted data.
+	 * @brief Decrypts data asynchronously using the Buffer::Consumer/Buffer::Producer model.
+	 * @param Buffer::Consumer The Buffer::Consumer buffer containing the encrypted data.
 	 * @param privateKey The RSA private key to use for decryption.
-	 * @return A Consumer buffer containing the decrypted data.
+	 * @return A Buffer::Consumer buffer containing the decrypted data.
 	 */
-	STORMBYTE_CRYPTO_PRIVATE StormByte::Buffer::Consumer Decrypt(const Buffer::Consumer consumer, const std::string& privateKey) noexcept;
+	STORMBYTE_CRYPTO_PRIVATE Buffer::Consumer Decrypt(const Buffer::Consumer consumer, const std::string& privateKey) noexcept;
 
 	/**
 	 * @brief Signs a message using the RSA private key.
@@ -79,12 +79,12 @@ namespace StormByte::Crypto::Implementation::Encryption::RSA {
 	STORMBYTE_CRYPTO_PRIVATE ExpectedCryptoBuffer Sign(const Buffer::FIFO& message, const std::string& privateKey) noexcept;
 
 	/**
-	 * @brief Signs data asynchronously using the Consumer/Producer model.
-	 * @param consumer The Consumer buffer containing the input data.
+	 * @brief Signs data asynchronously using the Buffer::Consumer/Buffer::Producer model.
+	 * @param Buffer::Consumer The Buffer::Consumer buffer containing the input data.
 	 * @param privateKey The RSA private key to use for signing.
-	 * @return A Consumer buffer containing the signature.
+	 * @return A Buffer::Consumer buffer containing the signature.
 	 */
-	STORMBYTE_CRYPTO_PRIVATE StormByte::Buffer::Consumer Sign(const Buffer::Consumer consumer, const std::string& privateKey) noexcept;
+	STORMBYTE_CRYPTO_PRIVATE Buffer::Consumer Sign(const Buffer::Consumer consumer, const std::string& privateKey) noexcept;
 
 	/**
 	 * @brief Verifies a signature using the RSA public key.
@@ -105,8 +105,8 @@ namespace StormByte::Crypto::Implementation::Encryption::RSA {
 	STORMBYTE_CRYPTO_PRIVATE bool Verify(const Buffer::FIFO& message, const std::string& signature, const std::string& publicKey) noexcept;
 
 	/**
-	 * @brief Verifies a signature asynchronously using the Consumer/Producer model.
-	 * @param consumer The Consumer buffer containing the input data.
+	 * @brief Verifies a signature asynchronously using the Buffer::Consumer/Buffer::Producer model.
+	 * @param Buffer::Consumer The Buffer::Consumer buffer containing the input data.
 	 * @param signature The signature to verify.
 	 * @param publicKey The RSA public key to use for verification.
 	 * @return True if the signature is valid, false otherwise.

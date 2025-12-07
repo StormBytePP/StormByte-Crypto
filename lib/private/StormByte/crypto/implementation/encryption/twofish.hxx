@@ -21,16 +21,16 @@ namespace StormByte::Crypto::Implementation::Encryption::Twofish {
 	 * @param password The password to use for encryption.
 	 * @return Expected<FutureBuffer, CryptoException> containing the encrypted Buffer or an error.
 	 */
-	STORMBYTE_CRYPTO_PRIVATE ExpectedCryptoBuffer Encrypt(const StormByte::Buffer::FIFO& input, const std::string& password) noexcept;
+	STORMBYTE_CRYPTO_PRIVATE ExpectedCryptoBuffer Encrypt(const Buffer::FIFO& input, const std::string& password) noexcept;
 
 	/**
-	 * @brief Encrypts data asynchronously using the Consumer/Producer model.
+	 * @brief Encrypts data asynchronously using the Buffer::Consumer/Buffer::Producer model.
 	 * 
-	 * @param consumer The Consumer buffer containing the input data.
+	 * @param Buffer::Consumer The Buffer::Consumer buffer containing the input data.
 	 * @param password The password to use for encryption.
-	 * @return A Consumer buffer containing the encrypted data.
+	 * @return A Buffer::Consumer buffer containing the encrypted data.
 	 */
-	STORMBYTE_CRYPTO_PRIVATE StormByte::Buffer::Consumer Encrypt(const Buffer::Consumer consumer, const std::string& password) noexcept;
+	STORMBYTE_CRYPTO_PRIVATE Buffer::Consumer Encrypt(const Buffer::Consumer consumer, const std::string& password) noexcept;
 
 	/**
 	 * @brief Decrypts a string using Twofish.
@@ -41,13 +41,13 @@ namespace StormByte::Crypto::Implementation::Encryption::Twofish {
 	STORMBYTE_CRYPTO_PRIVATE ExpectedCryptoBuffer Decrypt(const std::string& input, const std::string& password) noexcept;
 
 	/**
-	 * @brief Decrypts data asynchronously using the Consumer/Producer model.
+	 * @brief Decrypts data asynchronously using the Buffer::Consumer/Buffer::Producer model.
 	 * 
-	 * @param consumer The Consumer buffer containing the encrypted data.
+	 * @param Buffer::Consumer The Buffer::Consumer buffer containing the encrypted data.
 	 * @param password The password to use for decryption.
-	 * @return A Consumer buffer containing the decrypted data.
+	 * @return A Buffer::Consumer buffer containing the decrypted data.
 	 */
-	STORMBYTE_CRYPTO_PRIVATE StormByte::Buffer::Consumer Decrypt(const Buffer::Consumer consumer, const std::string& password) noexcept;
+	STORMBYTE_CRYPTO_PRIVATE Buffer::Consumer Decrypt(const Buffer::Consumer consumer, const std::string& password) noexcept;
 
 	/**
 	 * @brief Decrypts a Buffer using Twofish.
@@ -55,7 +55,7 @@ namespace StormByte::Crypto::Implementation::Encryption::Twofish {
 	 * @param password The password to use for decryption.
 	 * @return Expected<FutureBuffer, CryptoException> containing the decrypted Buffer or an error.
 	 */
-	STORMBYTE_CRYPTO_PRIVATE ExpectedCryptoBuffer Decrypt(const StormByte::Buffer::FIFO& input, const std::string& password) noexcept;
+	STORMBYTE_CRYPTO_PRIVATE ExpectedCryptoBuffer Decrypt(const Buffer::FIFO& input, const std::string& password) noexcept;
 
 	/**
 	 * @brief Generates a random password.

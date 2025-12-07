@@ -9,6 +9,11 @@
 #include <thread>
 #include <vector>
 
+using StormByte::Buffer::DataType;
+using StormByte::Buffer::FIFO;
+using StormByte::Buffer::Consumer;
+using StormByte::Buffer::Producer;
+using namespace StormByte::Crypto;
 using namespace StormByte::Crypto::Implementation::Compressor;
 
 namespace {
@@ -20,22 +25,17 @@ namespace {
 		if (BZ2_bzBuffToBuffCompress(reinterpret_cast<char*>(compressedData.data()), &compressedSize,
 			const_cast<char*>(reinterpret_cast<const char*>(inputData.data())),
 			static_cast<unsigned int>(inputData.size_bytes()), blockSize, 0, 30) != BZ_OK) {
-				return StormByte::Unexpected<StormByte::Crypto::Exception>("BZip2 compression failed");
+				return Unexpected(CompressorException("BZip2 compression failed"));
 			}
 
 		compressedData.resize(compressedSize);
 		
-		// Convert to std::byte vector and create FIFO
-		std::vector<std::byte> byteData(compressedSize);
-		std::transform(compressedData.begin(), compressedData.end(), byteData.begin(),
-			[](uint8_t b) { return static_cast<std::byte>(b); });
-		
-		StormByte::Buffer::FIFO buffer;
-		(void)buffer.Write(byteData);
+		FIFO buffer;
+		(void)buffer.Write(std::move(compressedData));
 		return buffer;
 		}
 		catch (const std::exception& e) {
-			return StormByte::Unexpected<StormByte::Crypto::Exception>(e.what());
+			return Unexpected(CompressorException(e.what()));
 		}
 	}
 
@@ -61,7 +61,7 @@ namespace {
 				const_cast<char*>(reinterpret_cast<const char*>(compressedData.data())),
 				static_cast<unsigned int>(compressedData.size_bytes()), 0, 0);
 		}			if (result != BZ_OK) {
-				return StormByte::Unexpected<StormByte::Crypto::Exception>("BZip2 decompression failed");
+				return Unexpected(CompressorException("BZip2 decompression failed"));
 			}
 
 		// Resize the buffer to the actual decompressed size
@@ -72,11 +72,11 @@ namespace {
 		std::transform(decompressedData.begin(), decompressedData.end(), byteData.begin(),
 			[](uint8_t b) { return static_cast<std::byte>(b); });
 		
-		StormByte::Buffer::FIFO buffer;
+		FIFO buffer;
 		(void)buffer.Write(byteData);
 		return buffer;
 		} catch (const std::exception& e) {
-			return StormByte::Unexpected<StormByte::Crypto::Exception>(e.what());
+			return Unexpected(CompressorException(e.what()));
 		}
 	}
 }
@@ -87,19 +87,20 @@ ExpectedCompressorBuffer BZip2::Compress(const std::string& input) noexcept {
 	return CompressHelper(dataSpan);
 }
 
-ExpectedCompressorBuffer BZip2::Compress(const StormByte::Buffer::FIFO& input) noexcept {
+ExpectedCompressorBuffer BZip2::Compress(const FIFO& input) noexcept {
 	// Extract all data from FIFO to a span
-	auto data = const_cast<StormByte::Buffer::FIFO&>(input).Extract(0);
-	if (!data.has_value()) {
-		return StormByte::Unexpected<StormByte::Crypto::Exception>("Failed to extract data from input buffer");
+	DataType data;
+	auto read_ok = input.Read(data);
+	if (!read_ok.has_value()) {
+		return Unexpected(CompressorException("Failed to extract data from input buffer"));
 	}
-	std::span<const std::byte> dataSpan(data.value().data(), data.value().size());
+	std::span<const std::byte> dataSpan(data.data(), data.size());
 	return CompressHelper(dataSpan);
 }
 
-StormByte::Buffer::Consumer BZip2::Compress(Buffer::Consumer consumer) noexcept {
+Consumer BZip2::Compress(Consumer consumer) noexcept {
 	// Create a producer buffer to store the compressed data
-	StormByte::Buffer::Producer producer;
+	Producer producer;
 
 	// Launch a detached thread to handle compression
 	std::thread([consumer, producer]() mutable {
@@ -119,26 +120,22 @@ StormByte::Buffer::Consumer BZip2::Compress(Buffer::Consumer consumer) noexcept 
 				size_t availableBytes = consumer.AvailableBytes();
 
 				if (availableBytes == 0) {
-					if (!consumer.IsWritable()) break;
 					std::this_thread::yield();
 					continue;
 				}
 
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				auto spanResult = consumer.Extract(bytesToRead);
-				if (!spanResult.has_value()) {
+				DataType data;
+				auto read_ok = consumer.Extract(bytesToRead, data);
+				if (!read_ok.has_value()) {
 					BZ2_bzCompressEnd(&stream);
-					producer.Close();
+					producer.SetError();
 					return;
 				}
 
-				const auto& inputSpan = spanResult.value();
-				if (inputSpan.empty()) continue;
-
 				// Feed data to compressor
-				stream.next_in = const_cast<char*>(reinterpret_cast<const char*>(inputSpan.data()));
-				stream.avail_in = static_cast<unsigned int>(inputSpan.size());
-
+				stream.next_in = const_cast<char*>(reinterpret_cast<const char*>(data.data()));
+				stream.avail_in = static_cast<unsigned int>(data.size());
 				do {
 					stream.next_out = reinterpret_cast<char*>(compressedBuffer.data());
 					stream.avail_out = static_cast<unsigned int>(compressedBuffer.size());
@@ -146,16 +143,17 @@ StormByte::Buffer::Consumer BZip2::Compress(Buffer::Consumer consumer) noexcept 
 					int result = BZ2_bzCompress(&stream, BZ_RUN);
 					if (result < 0) {
 						BZ2_bzCompressEnd(&stream);
-						producer.Close();
+						producer.SetError();
 						return;
 					}
 
 					size_t produced = compressedBuffer.size() - stream.avail_out;
 					if (produced > 0) {
+						///< @todo Optimize to avoid double copy
 						std::vector<std::byte> byteData(produced);
 						std::transform(compressedBuffer.begin(), compressedBuffer.begin() + produced, byteData.begin(),
 							[](uint8_t b) { return static_cast<std::byte>(b); });
-						(void)producer.Write(byteData);
+						(void)producer.Write(std::move(byteData));
 					}
 				} while (stream.avail_in > 0);
 			}
@@ -170,17 +168,18 @@ StormByte::Buffer::Consumer BZip2::Compress(Buffer::Consumer consumer) noexcept 
 				result = BZ2_bzCompress(&stream, BZ_FINISH);
 				size_t produced = compressedBuffer.size() - stream.avail_out;
 				if (produced > 0) {
+					///< @todo Optimize to avoid double copy
 					std::vector<std::byte> byteData(produced);
 					std::transform(compressedBuffer.begin(), compressedBuffer.begin() + produced, byteData.begin(),
 						[](uint8_t b) { return static_cast<std::byte>(b); });
-					(void)producer.Write(byteData);
+					(void)producer.Write(std::move(byteData));
 				}
 			} while (result != BZ_STREAM_END);
 
 			BZ2_bzCompressEnd(&stream);
 			producer.Close();
 		} catch (...) {
-			producer.Close();
+			producer.SetError();
 		}
 	}).detach();
 
@@ -194,19 +193,20 @@ ExpectedCompressorBuffer BZip2::Decompress(const std::string& input) noexcept {
 	return DecompressHelper(dataSpan);
 }
 
-ExpectedCompressorBuffer BZip2::Decompress(const StormByte::Buffer::FIFO& input) noexcept {
+ExpectedCompressorBuffer BZip2::Decompress(const FIFO& input) noexcept {
 	// Extract all data from FIFO to a span
-	auto data = const_cast<StormByte::Buffer::FIFO&>(input).Extract(0);
-	if (!data.has_value()) {
-		return StormByte::Unexpected<StormByte::Crypto::Exception>("Failed to extract data from input buffer");
+	DataType data;
+	auto read_ok = input.Read(data);
+	if (!read_ok.has_value()) {
+		return Unexpected(CompressorException("Failed to extract data from input buffer"));
 	}
-	std::span<const std::byte> dataSpan(data.value().data(), data.value().size());
+	std::span<const std::byte> dataSpan(data.data(), data.size());
 	return DecompressHelper(dataSpan);
 }
 
-StormByte::Buffer::Consumer BZip2::Decompress(Buffer::Consumer consumer) noexcept {
+Consumer BZip2::Decompress(Consumer consumer) noexcept {
 	// Create a producer buffer to store the decompressed data
-	StormByte::Buffer::Producer producer;
+	Producer producer;
 
 	// Launch a detached thread to handle decompression
 	std::thread([consumer, producer]() mutable {
@@ -218,7 +218,7 @@ StormByte::Buffer::Consumer BZip2::Decompress(Buffer::Consumer consumer) noexcep
 			bz_stream stream;
 			std::memset(&stream, 0, sizeof(stream));
 			if (BZ2_bzDecompressInit(&stream, 0, 0) != BZ_OK) {
-				producer.Close();
+				producer.SetError();
 				return;
 			}
 
@@ -226,26 +226,22 @@ StormByte::Buffer::Consumer BZip2::Decompress(Buffer::Consumer consumer) noexcep
 				size_t availableBytes = consumer.AvailableBytes();
 
 				if (availableBytes == 0) {
-					if (!consumer.IsWritable()) break;
 					std::this_thread::yield();
 					continue;
 				}
 
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				auto spanResult = consumer.Extract(bytesToRead);
-				if (!spanResult.has_value()) {
+				DataType data;
+				auto read_ok = consumer.Read(bytesToRead, data);
+				if (!read_ok.has_value()) {
 					BZ2_bzDecompressEnd(&stream);
-					producer.Close();
+					producer.SetError();
 					return;
 				}
 
-				const auto& compressedSpan = spanResult.value();
-				if (compressedSpan.empty()) continue;
-
 				// Feed data to decompressor
-				stream.next_in = const_cast<char*>(reinterpret_cast<const char*>(compressedSpan.data()));
-				stream.avail_in = static_cast<unsigned int>(compressedSpan.size());
-
+				stream.next_in = const_cast<char*>(reinterpret_cast<const char*>(data.data()));
+				stream.avail_in = static_cast<unsigned int>(data.size());
 				do {
 					stream.next_out = reinterpret_cast<char*>(decompressedBuffer.data());
 					stream.avail_out = static_cast<unsigned int>(decompressedBuffer.size());
@@ -253,16 +249,17 @@ StormByte::Buffer::Consumer BZip2::Decompress(Buffer::Consumer consumer) noexcep
 					int result = BZ2_bzDecompress(&stream);
 					if (result < 0) {
 						BZ2_bzDecompressEnd(&stream);
-						producer.Close();
+						producer.SetError();
 						return;
 					}
 
 					size_t produced = decompressedBuffer.size() - stream.avail_out;
 					if (produced > 0) {
+						///< @todo Optimize to avoid double copy
 						std::vector<std::byte> byteData(produced);
 						std::transform(decompressedBuffer.begin(), decompressedBuffer.begin() + produced, byteData.begin(),
 							[](uint8_t b) { return static_cast<std::byte>(b); });
-						(void)producer.Write(byteData);
+						(void)producer.Write(std::move(byteData));
 					}
 
 					if (result == BZ_STREAM_END) break;
@@ -272,7 +269,7 @@ StormByte::Buffer::Consumer BZip2::Decompress(Buffer::Consumer consumer) noexcep
 			BZ2_bzDecompressEnd(&stream);
 			producer.Close();
 		} catch (...) {
-			producer.Close();
+			producer.SetError();
 		}
 	}).detach();
 

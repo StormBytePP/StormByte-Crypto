@@ -1,3 +1,4 @@
+#include <StormByte/crypto/random.hxx>
 #include <StormByte/crypto/implementation/encryption/rsa.hxx>
 
 #include <algorithm>
@@ -5,12 +6,16 @@
 #include <base64.h>
 #include <filters.h>
 #include <format>
-#include <osrng.h>
 #include <rsa.h>
 #include <secblock.h>
 #include <string>
 #include <thread>
 
+using StormByte::Buffer::DataType;
+using StormByte::Buffer::FIFO;
+using StormByte::Buffer::Consumer;
+using StormByte::Buffer::Producer;
+using namespace StormByte::Crypto;
 using namespace StormByte::Crypto::Implementation::Encryption;
 
 namespace {
@@ -54,10 +59,8 @@ namespace {
 // Key Pair Generation
 ExpectedKeyPair RSA::GenerateKeyPair(const int& keyStrength) noexcept {
 	try {
-		CryptoPP::AutoSeededRandomPool rng;
-
 		CryptoPP::RSA::PrivateKey privateKey;
-		privateKey.GenerateRandomWithKeySize(rng, keyStrength);
+		privateKey.GenerateRandomWithKeySize(RNG(), keyStrength);
 
 		CryptoPP::RSA::PublicKey publicKey;
 		publicKey.AssignFrom(privateKey);
@@ -69,19 +72,17 @@ ExpectedKeyPair RSA::GenerateKeyPair(const int& keyStrength) noexcept {
 
 		return keyPair;
 	} catch (const std::exception& e) {
-		return StormByte::Unexpected<Exception>("Failed to generate RSA keys: {}", e.what());
+		return Unexpected(KeyPairException("Failed to generate RSA keys: {}", e.what()));
 	}
 }
 
 // Encryption
 ExpectedCryptoString RSA::Encrypt(const std::string& message, const std::string& publicKey) noexcept {
 	try {
-		CryptoPP::AutoSeededRandomPool rng;
-
 		// Deserialize and validate the public key
 		CryptoPP::RSA::PublicKey key = DeserializePublicKey(publicKey);
-		if (!key.Validate(rng, 3)) {
-			return StormByte::Unexpected<Exception>("Public key validation failed");
+		if (!key.Validate(RNG(), 3)) {
+			return Unexpected(CrypterException("Public key validation failed"));
 		}
 
 		// Initialize the encryptor
@@ -89,62 +90,69 @@ ExpectedCryptoString RSA::Encrypt(const std::string& message, const std::string&
 
 		// Perform encryption
 		std::string encryptedMessage;
-		CryptoPP::StringSource ss(reinterpret_cast<const CryptoPP::byte*>(message.data()), message.size(), true,
-								new CryptoPP::PK_EncryptorFilter(rng, encryptor,
-																new CryptoPP::StringSink(encryptedMessage)));
+		CryptoPP::StringSource ss(
+			reinterpret_cast<const CryptoPP::byte*>(message.data()),
+			message.size(),
+			true,
+			new CryptoPP::PK_EncryptorFilter(
+				RNG(),
+				encryptor,
+				new CryptoPP::StringSink(encryptedMessage)
+			)
+		);
 
 		return encryptedMessage;
 	} catch (const std::exception& e) {
-		return StormByte::Unexpected<Exception>("RSA encryption failed: " + std::string(e.what()));
+		return Unexpected(CrypterException("RSA encryption failed: {}", e.what()));
 	}
 }
 
-ExpectedCryptoBuffer RSA::Encrypt(const Buffer::FIFO& input, const std::string& publicKey) noexcept {
+ExpectedCryptoBuffer RSA::Encrypt(const FIFO& input, const std::string& publicKey) noexcept {
 	try {
-		CryptoPP::AutoSeededRandomPool rng;
-
 		// Deserialize and validate the public key
 		CryptoPP::RSA::PublicKey key = DeserializePublicKey(publicKey);
-		if (!key.Validate(rng, 3)) {
-			return StormByte::Unexpected<Exception>("Public key validation failed");
+		if (!key.Validate(RNG(), 3)) {
+			return Unexpected(CrypterException("Public key validation failed"));
 		}
 
-	// Initialize the encryptor
-	CryptoPP::RSAES_OAEP_SHA_Encryptor encryptor(key);
+		// Initialize the encryptor
+		CryptoPP::RSAES_OAEP_SHA_Encryptor encryptor(key);
 
-	// Perform encryption
-	auto data = const_cast<StormByte::Buffer::FIFO&>(input).Extract(0);
-	if (!data.has_value()) {
-		return StormByte::Unexpected<Exception>("Failed to extract data from input buffer");
-	}
-	std::string encryptedMessage;
-	CryptoPP::StringSource ss(
-		reinterpret_cast<const CryptoPP::byte*>(data.value().data()), data.value().size(), true,
-		new CryptoPP::PK_EncryptorFilter(rng, encryptor, new CryptoPP::StringSink(encryptedMessage))
-	);		// Convert the encrypted message to a buffer
-		std::vector<std::byte> encryptedBuffer(encryptedMessage.size());
-		std::transform(encryptedMessage.begin(), encryptedMessage.end(), encryptedBuffer.begin(),
-					[](char c) { return static_cast<std::byte>(c); });
+		// Perform encryption
+		DataType data;
+		auto read_ok = input.Read(data);
+		if (!read_ok.has_value()) {
+			return Unexpected(CrypterException("Failed to extract data from input buffer"));
+		}
+		std::string encryptedMessage;
+		CryptoPP::StringSource ss(
+			reinterpret_cast<const CryptoPP::byte*>(data.data()),
+			data.size(),
+			true,
+			new CryptoPP::PK_EncryptorFilter(
+				RNG(),
+				encryptor,
+				new CryptoPP::StringSink(encryptedMessage)
+			)
+		);
 
-		StormByte::Buffer::FIFO buffer;
-		(void)buffer.Write(encryptedBuffer);
+		FIFO buffer;
+		(void)buffer.Write(std::move(encryptedMessage));
 		return buffer;
 	} catch (const std::exception& e) {
-		return StormByte::Unexpected<Exception>("RSA encryption failed: " + std::string(e.what()));
+		return Unexpected(CrypterException("RSA encryption failed: {}", e.what()));
 	}
 }
 
-StormByte::Buffer::Consumer RSA::Encrypt(Buffer::Consumer consumer, const std::string& publicKey) noexcept {
-	StormByte::Buffer::Producer producer;
+Consumer RSA::Encrypt(Consumer consumer, const std::string& publicKey) noexcept {
+	Producer producer;
 
 	std::thread([consumer, producer, publicKey]() mutable {
 		try {
-			CryptoPP::AutoSeededRandomPool rng;
-
 			// Deserialize and validate the public key
 			CryptoPP::RSA::PublicKey key = DeserializePublicKey(publicKey);
-			if (!key.Validate(rng, 3)) {
-				producer.Close();
+			if (!key.Validate(RNG(), 3)) {
+				producer.SetError();
 				return;
 			}
 
@@ -152,7 +160,6 @@ StormByte::Buffer::Consumer RSA::Encrypt(Buffer::Consumer consumer, const std::s
 			CryptoPP::RSAES_OAEP_SHA_Encryptor encryptor(key);
 
 			constexpr size_t chunkSize = 4096;
-			std::string encryptedChunk;
 
 			while (!consumer.EoF()) {
 				size_t availableBytes = consumer.AvailableBytes();
@@ -161,30 +168,31 @@ StormByte::Buffer::Consumer RSA::Encrypt(Buffer::Consumer consumer, const std::s
 					continue;
 				}
 
+				std::string encryptedChunk;
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				auto readResult = consumer.Extract(bytesToRead);
+				DataType data;
+				auto readResult = consumer.Extract(bytesToRead, data);
 				if (!readResult.has_value()) {
-					producer.Close();
+					producer.SetError();
 					return;
 				}
 
-				const auto& inputData = readResult.value();
-				encryptedChunk.clear();
+				CryptoPP::StringSource ss(
+					reinterpret_cast<const CryptoPP::byte*>(data.data()),
+					data.size(),
+					true,
+					new CryptoPP::PK_EncryptorFilter(
+						RNG(),
+						encryptor,
+						new CryptoPP::StringSink(encryptedChunk)
+					)
+				);
 
-				CryptoPP::StringSource ss(reinterpret_cast<const CryptoPP::byte*>(inputData.data()), inputData.size(), true,
-										new CryptoPP::PK_EncryptorFilter(rng, encryptor,
-																		new CryptoPP::StringSink(encryptedChunk)));
-
-								std::vector<std::byte> byteData;
-				byteData.reserve(encryptedChunk.size());
-				for (size_t i = 0; i < encryptedChunk.size(); ++i) {
-					byteData.push_back(static_cast<std::byte>(encryptedChunk[i]));
-				}
-				(void)producer.Write(byteData);
+				(void)producer.Write(std::move(encryptedChunk));
 			}
 			producer.Close(); // Mark processing complete // Pass the status of the consumer to the producer
 		} catch (...) {
-			producer.Close();
+			producer.SetError();
 		}
 	}).detach();
 
@@ -194,12 +202,10 @@ StormByte::Buffer::Consumer RSA::Encrypt(Buffer::Consumer consumer, const std::s
 // Decryption
 ExpectedCryptoString RSA::Decrypt(const std::string& message, const std::string& privateKey) noexcept {
 	try {
-		CryptoPP::AutoSeededRandomPool rng;
-
 		// Deserialize and validate the private key
 		CryptoPP::RSA::PrivateKey key = DeserializePrivateKey(privateKey);
-		if (!key.Validate(rng, 3)) {
-			return StormByte::Unexpected<Exception>("Private key validation failed");
+		if (!key.Validate(RNG(), 3)) {
+			return Unexpected(CrypterException("Private key validation failed"));
 		}
 
 		// Initialize the decryptor
@@ -208,62 +214,68 @@ ExpectedCryptoString RSA::Decrypt(const std::string& message, const std::string&
 		// Perform decryption
 		std::string decryptedMessage;
 		CryptoPP::StringSource ss(
-			reinterpret_cast<const CryptoPP::byte*>(message.data()), message.size(), true,
-			new CryptoPP::PK_DecryptorFilter(rng, decryptor, new CryptoPP::StringSink(decryptedMessage))
+			reinterpret_cast<const CryptoPP::byte*>(message.data()),
+			message.size(),
+			true,
+			new CryptoPP::PK_DecryptorFilter(
+				RNG(),
+				decryptor,
+				new CryptoPP::StringSink(decryptedMessage)
+			)
 		);
 
 		return decryptedMessage;
 	} catch (const std::exception& e) {
-		return StormByte::Unexpected<Exception>("RSA decryption failed: " + std::string(e.what()));
+		return Unexpected(CrypterException("RSA decryption failed: {}", e.what()));
 	}
 }
 
-ExpectedCryptoBuffer RSA::Decrypt(const Buffer::FIFO& encryptedBuffer, const std::string& privateKey) noexcept {
+ExpectedCryptoBuffer RSA::Decrypt(const FIFO& encryptedBuffer, const std::string& privateKey) noexcept {
 	try {
-		CryptoPP::AutoSeededRandomPool rng;
-
 		// Deserialize and validate the private key
 		CryptoPP::RSA::PrivateKey key = DeserializePrivateKey(privateKey);
-		if (!key.Validate(rng, 3)) {
-			return StormByte::Unexpected<Exception>("Private key validation failed");
+		if (!key.Validate(RNG(), 3)) {
+			return Unexpected(CrypterException("Private key validation failed"));
 		}
 
-	// Initialize the decryptor
-	CryptoPP::RSAES_OAEP_SHA_Decryptor decryptor(key);
+		// Initialize the decryptor
+		CryptoPP::RSAES_OAEP_SHA_Decryptor decryptor(key);
 
-	// Perform decryption
-	auto data = const_cast<StormByte::Buffer::FIFO&>(encryptedBuffer).Extract(0);
-	if (!data.has_value()) {
-		return StormByte::Unexpected<Exception>("Failed to extract data from encrypted buffer");
-	}
-	std::string decryptedMessage;
-	CryptoPP::StringSource ss(
-		reinterpret_cast<const CryptoPP::byte*>(data.value().data()), data.value().size(), true,
-		new CryptoPP::PK_DecryptorFilter(rng, decryptor, new CryptoPP::StringSink(decryptedMessage))
-	);		// Convert the decrypted message to a buffer
-		std::vector<std::byte> decryptedBuffer(decryptedMessage.size());
-		std::transform(decryptedMessage.begin(), decryptedMessage.end(), decryptedBuffer.begin(),
-					[](char c) { return static_cast<std::byte>(c); });
+		// Perform decryption
+		DataType data;
+		auto read_ok = encryptedBuffer.Read(data);
+		if (!read_ok.has_value()) {
+			return Unexpected(CrypterException("Failed to extract data from encrypted buffer"));
+		}
+		std::string decryptedMessage;
+		CryptoPP::StringSource ss(
+			reinterpret_cast<const CryptoPP::byte*>(data.data()),
+			data.size(),
+			true,
+			new CryptoPP::PK_DecryptorFilter(
+				RNG(),
+				decryptor,
+				new CryptoPP::StringSink(decryptedMessage)
+			)
+		);
 
-		StormByte::Buffer::FIFO buffer;
-		(void)buffer.Write(decryptedBuffer);
+		FIFO buffer;
+		(void)buffer.Write(std::move(decryptedMessage));
 		return buffer;
 	} catch (const std::exception& e) {
-		return StormByte::Unexpected<Exception>("RSA decryption failed: " + std::string(e.what()));
+		return Unexpected(CrypterException("RSA decryption failed: {}", e.what()));
 	}
 }
 
-StormByte::Buffer::Consumer RSA::Decrypt(Buffer::Consumer consumer, const std::string& privateKey) noexcept {
-	StormByte::Buffer::Producer producer;
+Consumer RSA::Decrypt(Consumer consumer, const std::string& privateKey) noexcept {
+	Producer producer;
 
 	std::thread([consumer, producer, privateKey]() mutable {
 		try {
-			CryptoPP::AutoSeededRandomPool rng;
-
 			// Deserialize and validate the private key
 			CryptoPP::RSA::PrivateKey key = DeserializePrivateKey(privateKey);
-			if (!key.Validate(rng, 3)) {
-				producer.Close();
+			if (!key.Validate(RNG(), 3)) {
+				producer.SetError();
 				return;
 			}
 
@@ -271,54 +283,39 @@ StormByte::Buffer::Consumer RSA::Decrypt(Buffer::Consumer consumer, const std::s
 		CryptoPP::RSAES_OAEP_SHA_Decryptor decryptor(key);
 
 		constexpr size_t chunkSize = 4096;
-		std::string decryptedChunk;
-		// Batch writes to reduce internal reallocations
-		std::vector<std::byte> batchBuffer;
-		batchBuffer.reserve(chunkSize * 2); // Pre-allocate for batching
 
 		while (!consumer.EoF()) {
-				size_t availableBytes = consumer.AvailableBytes();
-				if (availableBytes == 0) {
-					std::this_thread::yield();
-					continue;
-				}
+			size_t availableBytes = consumer.AvailableBytes();
+			if (availableBytes == 0) {
+				std::this_thread::yield();
+				continue;
+			}
 
+			std::string decryptedChunk;
 			size_t bytesToRead = std::min(availableBytes, chunkSize);
-			// Use Span for zero-copy read
-			auto spanResult = consumer.Extract(bytesToRead);
+			DataType data;
+			auto spanResult = consumer.Extract(bytesToRead, data);
 			if (!spanResult.has_value()) {
-				producer.Close();
+				producer.SetError();
 				return;
 			}
 
-			const auto& encryptedSpan = spanResult.value();
-			decryptedChunk.clear();
+			CryptoPP::StringSource ss(
+				reinterpret_cast<const CryptoPP::byte*>(data.data()),
+				data.size(),
+				true,
+				new CryptoPP::PK_DecryptorFilter(
+					RNG(),
+					decryptor,
+					new CryptoPP::StringSink(decryptedChunk)
+				)
+			);
 
-			CryptoPP::StringSource ss(reinterpret_cast<const CryptoPP::byte*>(encryptedSpan.data()), encryptedSpan.size(), true,
-									new CryptoPP::PK_DecryptorFilter(rng, decryptor,
-																	new CryptoPP::StringSink(decryptedChunk)));
-
-			// Accumulate into batch buffer
-			for (size_t i = 0; i < decryptedChunk.size(); ++i) {
-				batchBuffer.push_back(static_cast<std::byte>(decryptedChunk[i]));
-			}
-
-			// Write in larger batches to reduce reallocation overhead
-			if (batchBuffer.size() >= chunkSize) {
-				(void)producer.Write(std::move(batchBuffer));
-				batchBuffer.clear();
-				batchBuffer.reserve(chunkSize * 2);
-				// Clean consumed data periodically (only when batch is written)
-				consumer.Clean();
-			}
-		}
-		// Write any remaining data
-		if (!batchBuffer.empty()) {
-			(void)producer.Write(std::move(batchBuffer));
+			(void)producer.Write(std::move(decryptedChunk));
 		}
 		producer.Close(); // Mark processing complete // Pass the status of the consumer to the producer
 		} catch (...) {
-			producer.Close();
+			producer.SetError();
 		}
 	}).detach();
 
@@ -328,12 +325,10 @@ StormByte::Buffer::Consumer RSA::Decrypt(Buffer::Consumer consumer, const std::s
 // Signing
 ExpectedCryptoString RSA::Sign(const std::string& message, const std::string& privateKey) noexcept {
 	try {
-		CryptoPP::AutoSeededRandomPool rng;
-
 		// Deserialize and validate the private key
 		CryptoPP::RSA::PrivateKey key = DeserializePrivateKey(privateKey);
-		if (!key.Validate(rng, 3)) {
-			return StormByte::Unexpected<Exception>("Private key validation failed");
+		if (!key.Validate(RNG(), 3)) {
+			return Unexpected(SignerException("Private key validation failed"));
 		}
 
 		// Initialize the signer
@@ -342,67 +337,67 @@ ExpectedCryptoString RSA::Sign(const std::string& message, const std::string& pr
 		// Sign the message
 		std::string signature;
 		CryptoPP::StringSource ss(
-			message, true,
+			message,
+			true,
 			new CryptoPP::SignerFilter(
-				rng, signer,
+				RNG(),
+				signer,
 				new CryptoPP::StringSink(signature)
 			)
 		);
 
 		return signature;
 	} catch (const std::exception& e) {
-		return StormByte::Unexpected<Exception>("RSA signing failed: " + std::string(e.what()));
+		return Unexpected(SignerException("RSA signing failed: {}", e.what()));
 	}
 }
 
-ExpectedCryptoBuffer RSA::Sign(const Buffer::FIFO& message, const std::string& privateKey) noexcept {
+ExpectedCryptoBuffer RSA::Sign(const FIFO& message, const std::string& privateKey) noexcept {
 	try {
-		CryptoPP::AutoSeededRandomPool rng;
-
 		// Deserialize and validate the private key
 		CryptoPP::RSA::PrivateKey key = DeserializePrivateKey(privateKey);
-		if (!key.Validate(rng, 3)) {
-			return StormByte::Unexpected<Exception>("Private key validation failed");
+		if (!key.Validate(RNG(), 3)) {
+			return Unexpected(SignerException("Private key validation failed"));
 		}
 
 		// Initialize the signer
 		CryptoPP::RSASS<CryptoPP::PKCS1v15, CryptoPP::SHA256>::Signer signer(key);
 
 		// Sign the message
-		auto data = const_cast<StormByte::Buffer::FIFO&>(message).Extract(0);
-		if (!data.has_value()) {
-			return StormByte::Unexpected<Exception>("Failed to extract data from message buffer");
+		DataType data;
+		auto read_ok = message.Read(data);
+		if (!read_ok.has_value()) {
+			return Unexpected(SignerException("Failed to extract data from message buffer"));
 		}
 		std::string signature;
 		CryptoPP::StringSource(
-			reinterpret_cast<const CryptoPP::byte*>(data.value().data()), data.value().size(), true,
-			new CryptoPP::SignerFilter(rng, signer, new CryptoPP::StringSink(signature))
+			reinterpret_cast<const CryptoPP::byte*>(data.data()),
+			data.size(),
+			true,
+			new CryptoPP::SignerFilter(
+				RNG(),
+				signer,
+				new CryptoPP::StringSink(signature)
+			)
 		);
 
-		// Convert the signature to a buffer
-		std::vector<std::byte> signatureBuffer(signature.size());
-		std::transform(signature.begin(), signature.end(), signatureBuffer.begin(),
-					[](char c) { return static_cast<std::byte>(c); });
-
-		StormByte::Buffer::FIFO buffer;
-		(void)buffer.Write(signatureBuffer);
+		FIFO buffer;
+		(void)buffer.Write(std::move(signature));
 		return buffer;
 	} catch (const std::exception& e) {
-		return StormByte::Unexpected<Exception>("RSA signing failed: " + std::string(e.what()));
+		return Unexpected(SignerException("RSA signing failed: {}", e.what()));
 	}
 }
 
-StormByte::Buffer::Consumer RSA::Sign(Buffer::Consumer consumer, const std::string& privateKey) noexcept {
-	StormByte::Buffer::Producer producer;
+Consumer RSA::Sign(Consumer consumer, const std::string& privateKey) noexcept {
+	Producer producer;
 
 	std::thread([consumer, producer, privateKey]() mutable {
 		try {
-			CryptoPP::AutoSeededRandomPool rng;
-
 			// Deserialize and validate the private key
 			CryptoPP::RSA::PrivateKey key = DeserializePrivateKey(privateKey);
-			if (!key.Validate(rng, 3)) {
-				producer.Close();
+			if (!key.Validate(RNG(), 3)) {
+				producer.SetError();
 				return;
 			}
 
@@ -410,10 +405,6 @@ StormByte::Buffer::Consumer RSA::Sign(Buffer::Consumer consumer, const std::stri
 			CryptoPP::RSASS<CryptoPP::PKCS1v15, CryptoPP::SHA256>::Signer signer(key);
 
 			constexpr size_t chunkSize = 4096;
-			std::string signatureChunk;
-			// Batch writes to reduce internal reallocations
-			std::vector<std::byte> batchBuffer;
-			batchBuffer.reserve(chunkSize * 2); // Pre-allocate for batching
 
 			while (!consumer.EoF()) {
 				size_t availableBytes = consumer.AvailableBytes();
@@ -422,45 +413,32 @@ StormByte::Buffer::Consumer RSA::Sign(Buffer::Consumer consumer, const std::stri
 					continue;
 				}
 
+				std::string signatureChunk;
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				// Use Span for zero-copy read
-				auto spanResult = consumer.Extract(bytesToRead);
+				DataType data;
+				auto spanResult = consumer.Extract(bytesToRead, data);
 				if (!spanResult.has_value()) {
-					producer.Close();
+					producer.SetError();
 					return;
 				}
 
-				const auto& inputSpan = spanResult.value();
-				signatureChunk.clear();
-
 				// Sign the chunk
 				CryptoPP::StringSource ss(
-					reinterpret_cast<const CryptoPP::byte*>(inputSpan.data()), inputSpan.size(), true,
+					reinterpret_cast<const CryptoPP::byte*>(data.data()),
+					data.size(),
+					true,
 					new CryptoPP::SignerFilter(
-						rng, signer,
+						RNG(),
+						signer,
 						new CryptoPP::StringSink(signatureChunk)
 					)
 				);
 
-				// Accumulate into batch buffer
-				for (size_t i = 0; i < signatureChunk.size(); ++i) {
-					batchBuffer.push_back(static_cast<std::byte>(signatureChunk[i]));
-				}
-
-				// Write in larger batches to reduce reallocation overhead
-				if (batchBuffer.size() >= chunkSize) {
-					(void)producer.Write(std::move(batchBuffer));
-					batchBuffer.clear();
-					batchBuffer.reserve(chunkSize * 2);
-				}
-			}
-			// Write any remaining data
-			if (!batchBuffer.empty()) {
-				(void)producer.Write(std::move(batchBuffer));
+				(void)producer.Write(std::move(signatureChunk));
 			}
 			producer.Close(); // Mark processing complete // Pass the status of the consumer to the producer
 		} catch (...) {
-			producer.Close();
+			producer.SetError();
 		}
 	}).detach();
 
@@ -470,11 +448,9 @@ StormByte::Buffer::Consumer RSA::Sign(Buffer::Consumer consumer, const std::stri
 // Verification
 bool RSA::Verify(const std::string& message, const std::string& signature, const std::string& publicKey) noexcept {
 	try {
-		CryptoPP::AutoSeededRandomPool rng;
-
 		// Deserialize and validate the public key
 		CryptoPP::RSA::PublicKey key = DeserializePublicKey(publicKey);
-		if (!key.Validate(rng, 3)) {
+		if (!key.Validate(RNG(), 3)) {
 			return false; // Public key validation failed
 		}
 
@@ -493,54 +469,25 @@ bool RSA::Verify(const std::string& message, const std::string& signature, const
 		);
 
 		return result;
-	} catch (const CryptoPP::Exception&) {
-		return false; // Signature verification failed
-	} catch (const std::exception&) {
+	} catch (...) {
 		return false; // Other errors
 	}
 }
 
-bool RSA::Verify(const Buffer::FIFO& message, const std::string& signature, const std::string& publicKey) noexcept {
-	try {
-		CryptoPP::AutoSeededRandomPool rng;
-
-		// Deserialize and validate the public key
-		CryptoPP::RSA::PublicKey key = DeserializePublicKey(publicKey);
-		if (!key.Validate(rng, 3)) {
-			return false; // Public key validation failed
-		}
-
-	// Initialize the verifier
-	CryptoPP::RSASS<CryptoPP::PKCS1v15, CryptoPP::SHA256>::Verifier verifier(key);
-
-	// Verify the signature
-	auto data = const_cast<StormByte::Buffer::FIFO&>(message).Extract(0);
-	if (!data.has_value()) {
+bool RSA::Verify(const FIFO& message, const std::string& signature, const std::string& publicKey) noexcept {
+	DataType data;
+	auto read_ok = message.Read(data);
+	if (!read_ok.has_value()) {
 		return false;
 	}
-	bool result = false;
-	CryptoPP::StringSource ss(
-		signature + std::string(reinterpret_cast<const char*>(data.value().data()), data.value().size()), true,
-		new CryptoPP::SignatureVerificationFilter(
-			verifier,
-			new CryptoPP::ArraySink((CryptoPP::byte*)&result, sizeof(result)),
-			CryptoPP::SignatureVerificationFilter::PUT_RESULT | CryptoPP::SignatureVerificationFilter::SIGNATURE_AT_BEGIN
-		)
-	);		return result;
-	} catch (const CryptoPP::Exception&) {
-		return false; // Signature verification failed
-	} catch (const std::exception&) {
-		return false; // Other errors
-	}
+	return Verify(std::string(reinterpret_cast<const char*>(data.data()), data.size()), signature, publicKey);
 }
 
-bool RSA::Verify(Buffer::Consumer consumer, const std::string& signature, const std::string& publicKey) noexcept {
+bool RSA::Verify(Consumer consumer, const std::string& signature, const std::string& publicKey) noexcept {
 	try {
-		CryptoPP::AutoSeededRandomPool rng;
-
 		// Deserialize and validate the public key
 		CryptoPP::RSA::PublicKey key = DeserializePublicKey(publicKey);
-		if (!key.Validate(rng, 3)) {
+		if (!key.Validate(RNG(), 3)) {
 			return false; // Public key validation failed
 		}
 
@@ -553,25 +500,21 @@ bool RSA::Verify(Buffer::Consumer consumer, const std::string& signature, const 
 		while (!consumer.EoF()) {
 			size_t availableBytes = consumer.AvailableBytes();
 			if (availableBytes == 0) {
-				if (!consumer.IsWritable()) {
-					break;
-				}
 				std::this_thread::sleep_for(std::chrono::milliseconds(10));
 				continue;
 			}
 
 			size_t bytesToRead = std::min(availableBytes, chunkSize);
-			// Use Span for zero-copy read
-			auto spanResult = consumer.Extract(bytesToRead);
+			DataType data;
+			auto spanResult = consumer.Extract(bytesToRead, data);
 			if (!spanResult.has_value()) {
 				return false; // Error reading data
 			}
 
-			const auto& inputSpan = spanResult.value();
-
 			// Verify the chunk
 			CryptoPP::StringSource ss(
-				signature + std::string(reinterpret_cast<const char*>(inputSpan.data()), inputSpan.size()), true,
+				signature + std::string(reinterpret_cast<const char*>(data.data()), data.size()),
+				true,
 				new CryptoPP::SignatureVerificationFilter(
 					verifier,
 					new CryptoPP::ArraySink(reinterpret_cast<CryptoPP::byte*>(&verificationResult), sizeof(verificationResult)),

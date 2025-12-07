@@ -1,3 +1,4 @@
+#include <StormByte/crypto/random.hxx>
 #include <StormByte/crypto/implementation/encryption/camellia.hxx>
 
 #include <algorithm>
@@ -7,13 +8,17 @@
 #include <modes.h>
 #include <filters.h>
 #include <format>
-#include <osrng.h>
 #include <secblock.h>
 #include <thread>
 #include <pwdbased.h>
 #include <iomanip>
 #include <span>
 
+using StormByte::Buffer::DataType;
+using StormByte::Buffer::FIFO;
+using StormByte::Buffer::Consumer;
+using StormByte::Buffer::Producer;
+using namespace StormByte::Crypto;
 using namespace StormByte::Crypto::Implementation::Encryption;
 
 namespace {
@@ -21,33 +26,42 @@ namespace {
 		try {
 			CryptoPP::SecByteBlock salt(16);
 			CryptoPP::SecByteBlock iv(CryptoPP::Camellia::BLOCKSIZE);
-			CryptoPP::AutoSeededRandomPool rng;
-			rng.GenerateBlock(salt, salt.size());
-			rng.GenerateBlock(iv, iv.size());
+			RNG().GenerateBlock(salt, salt.size());
+			RNG().GenerateBlock(iv, iv.size());
 
 			CryptoPP::SecByteBlock key(CryptoPP::Camellia::DEFAULT_KEYLENGTH);
 			CryptoPP::PKCS5_PBKDF2_HMAC<CryptoPP::SHA256> pbkdf2;
-			pbkdf2.DeriveKey(key, key.size(), 0, reinterpret_cast<const uint8_t*>(password.data()),
-							password.size(), salt, salt.size(), 10000);
+			pbkdf2.DeriveKey(
+				key,
+				key.size(),
+				0,
+				reinterpret_cast<const uint8_t*>(password.data()),
+				password.size(),
+				salt,
+				salt.size(),
+				10000
+			);
 
 			std::vector<uint8_t> encryptedData;
 			CryptoPP::CBC_Mode<CryptoPP::Camellia>::Encryption encryption(key, key.size(), iv);
-			CryptoPP::StringSource ss(reinterpret_cast<const uint8_t*>(dataSpan.data()), dataSpan.size_bytes(), true,
-									new CryptoPP::StreamTransformationFilter(encryption,
-																			new CryptoPP::VectorSink(encryptedData)));
+			CryptoPP::StringSource ss(
+				reinterpret_cast<const uint8_t*>(dataSpan.data()),
+				dataSpan.size_bytes(),
+				true,
+				new CryptoPP::StreamTransformationFilter(
+					encryption,
+					new CryptoPP::VectorSink(encryptedData)
+				)
+			);
 
 			encryptedData.insert(encryptedData.begin(), salt.begin(), salt.end());
 			encryptedData.insert(encryptedData.begin() + salt.size(), iv.begin(), iv.end());
 
-			std::vector<std::byte> convertedData(encryptedData.size());
-			std::transform(encryptedData.begin(), encryptedData.end(), convertedData.begin(),
-						[](uint8_t byte) { return static_cast<std::byte>(byte); });
-
-			StormByte::Buffer::FIFO buffer;
-			(void)buffer.Write(convertedData);
+			FIFO buffer;
+			(void)buffer.Write(std::move(encryptedData));
 			return buffer;
 		} catch (const std::exception& e) {
-			return StormByte::Unexpected<StormByte::Crypto::Exception>(e.what());
+			return Unexpected(CrypterException(e.what()));
 		}
 	}
 
@@ -57,7 +71,7 @@ namespace {
 			const size_t ivSize = CryptoPP::Camellia::BLOCKSIZE;
 
 			if (encryptedSpan.size_bytes() < saltSize + ivSize) {
-				return StormByte::Unexpected<StormByte::Crypto::Exception>("Encrypted data too short to contain salt and IV");
+				return Unexpected(CrypterException("Encrypted data too short to contain salt and IV"));
 			}
 
 			CryptoPP::SecByteBlock salt(saltSize), iv(ivSize);
@@ -68,24 +82,34 @@ namespace {
 
 			CryptoPP::SecByteBlock key(CryptoPP::Camellia::DEFAULT_KEYLENGTH);
 			CryptoPP::PKCS5_PBKDF2_HMAC<CryptoPP::SHA256> pbkdf2;
-			pbkdf2.DeriveKey(key, key.size(), 0, reinterpret_cast<const uint8_t*>(password.data()),
-							password.size(), salt, salt.size(), 10000);
+			pbkdf2.DeriveKey(
+				key,
+				key.size(),
+				0,
+				reinterpret_cast<const uint8_t*>(password.data()),
+				password.size(),
+				salt,
+				salt.size(),
+				10000
+			);
 
 			std::vector<uint8_t> decryptedData;
 			CryptoPP::CBC_Mode<CryptoPP::Camellia>::Decryption decryption(key, key.size(), iv);
-			CryptoPP::StringSource ss(reinterpret_cast<const uint8_t*>(encryptedSpan.data()), encryptedSpan.size_bytes(), true,
-									new CryptoPP::StreamTransformationFilter(decryption,
-																			new CryptoPP::VectorSink(decryptedData)));
+			CryptoPP::StringSource ss(
+				reinterpret_cast<const uint8_t*>(encryptedSpan.data()),
+				encryptedSpan.size_bytes(),
+				true,
+				new CryptoPP::StreamTransformationFilter(
+					decryption,
+					new CryptoPP::VectorSink(decryptedData)
+				)
+			);
 
-			std::vector<std::byte> convertedData(decryptedData.size());
-			std::transform(decryptedData.begin(), decryptedData.end(), convertedData.begin(),
-						[](uint8_t byte) { return static_cast<std::byte>(byte); });
-
-			StormByte::Buffer::FIFO buffer;
-			(void)buffer.Write(convertedData);
+			FIFO buffer;
+			(void)buffer.Write(std::move(decryptedData));
 			return buffer;
 		} catch (const std::exception& e) {
-			return StormByte::Unexpected<StormByte::Crypto::Exception>(e.what());
+			return Unexpected(CrypterException(e.what()));
 		}
 	}
 }
@@ -96,30 +120,38 @@ ExpectedCryptoBuffer Camellia::Encrypt(const std::string& input, const std::stri
 	return EncryptHelper(dataSpan, password);
 }
 
-ExpectedCryptoBuffer Camellia::Encrypt(const StormByte::Buffer::FIFO& input, const std::string& password) noexcept {
-	auto data = const_cast<StormByte::Buffer::FIFO&>(input).Extract(0);
-	if (!data.has_value()) {
-		return StormByte::Unexpected<StormByte::Crypto::Exception>("Failed to extract data from input buffer");
+ExpectedCryptoBuffer Camellia::Encrypt(const FIFO& input, const std::string& password) noexcept {
+	DataType data;
+	auto read_ok = input.Read(data);
+	if (!read_ok.has_value()) {
+		return Unexpected(CrypterException("Failed to extract data from input buffer"));
 	}
-	std::span<const std::byte> dataSpan(data.value().data(), data.value().size());
+	std::span<const std::byte> dataSpan(data.data(), data.size());
 	return EncryptHelper(dataSpan, password);
 }
 
-StormByte::Buffer::Consumer Camellia::Encrypt(Buffer::Consumer consumer, const std::string& password) noexcept {
-	StormByte::Buffer::Producer producer;
+Consumer Camellia::Encrypt(Consumer consumer, const std::string& password) noexcept {
+	Producer producer;
 
 	// Generate and write header synchronously before starting async processing
 	// This prevents race condition where consumer is used before header exists
-	CryptoPP::AutoSeededRandomPool rng;
 	CryptoPP::SecByteBlock salt(16);
 	CryptoPP::SecByteBlock iv(CryptoPP::Camellia::BLOCKSIZE);
-	rng.GenerateBlock(salt, salt.size());
-	rng.GenerateBlock(iv, iv.size());
+	RNG().GenerateBlock(salt, salt.size());
+	RNG().GenerateBlock(iv, iv.size());
 
 	CryptoPP::SecByteBlock key(CryptoPP::Camellia::DEFAULT_KEYLENGTH);
 	CryptoPP::PKCS5_PBKDF2_HMAC<CryptoPP::SHA256> pbkdf2;
-	pbkdf2.DeriveKey(key, key.size(), 0, reinterpret_cast<const uint8_t*>(password.data()),
-					password.size(), salt, salt.size(), 10000);
+	pbkdf2.DeriveKey(
+		key,
+		key.size(),
+		0,
+		reinterpret_cast<const uint8_t*>(password.data()),
+		password.size(),
+		salt,
+		salt.size(),
+		10000
+	);
 
 	// Write salt and IV to output in a single batch
 	std::vector<std::byte> headerBytes;
@@ -135,44 +167,40 @@ StormByte::Buffer::Consumer Camellia::Encrypt(Buffer::Consumer consumer, const s
 	// Now start async encryption with the derived key and IV
 	std::thread([consumer, producer, key = std::move(key), iv = std::move(iv)]() mutable {
 		try {
-			(void)consumer.AvailableBytes();
 			constexpr size_t chunkSize = 4096;
 			CryptoPP::CBC_Mode<CryptoPP::Camellia>::Encryption encryption(key, key.size(), iv);
-			std::vector<uint8_t> encryptedChunk;
 
 			while (!consumer.EoF()) {
-				(void)consumer.AvailableBytes();
 				size_t availableBytes = consumer.AvailableBytes();
 				if (availableBytes == 0) {
 					std::this_thread::yield();
 					continue;
 				}
 
+				std::vector<uint8_t> encryptedChunk;
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				// Use Read() to obtain an owned copy to avoid span lifetime races across threads
-				auto readResult = consumer.Extract(bytesToRead);
+				DataType data;
+				auto readResult = consumer.Extract(bytesToRead, data);
 				if (!readResult.has_value()) {
-					producer.Close();
+					producer.SetError();
 					return;
 				}
 
-				const auto& inputVec = readResult.value();
-				encryptedChunk.clear();
+				CryptoPP::StringSource ss(
+					reinterpret_cast<const uint8_t*>(data.data()),
+					data.size(),
+					true,
+					new CryptoPP::StreamTransformationFilter(
+						encryption,
+						new CryptoPP::VectorSink(encryptedChunk)
+					)
+				);
 
-				CryptoPP::StringSource ss(reinterpret_cast<const uint8_t*>(inputVec.data()), inputVec.size(), true,
-										new CryptoPP::StreamTransformationFilter(encryption,
-																		new CryptoPP::VectorSink(encryptedChunk)));
-
-				std::vector<std::byte> byteData;
-				byteData.reserve(encryptedChunk.size());
-				for (size_t i = 0; i < encryptedChunk.size(); ++i) {
-					byteData.push_back(static_cast<std::byte>(encryptedChunk[i]));
-				}
-				(void)producer.Write(byteData);
+				(void)producer.Write(std::move(encryptedChunk));
 			}
 			producer.Close(); // Mark processing complete // Update status (EOF or Error)
 		} catch (...) {
-			producer.Close();
+			producer.SetError();
 		}
 	}).detach();
 
@@ -185,85 +213,90 @@ ExpectedCryptoBuffer Camellia::Decrypt(const std::string& input, const std::stri
 	return DecryptHelper(dataSpan, password);
 }
 
-ExpectedCryptoBuffer Camellia::Decrypt(const StormByte::Buffer::FIFO& input, const std::string& password) noexcept {
-	auto data = const_cast<StormByte::Buffer::FIFO&>(input).Extract(0);
-	if (!data.has_value()) {
-		return StormByte::Unexpected<StormByte::Crypto::Exception>("Failed to extract data from input buffer");
+ExpectedCryptoBuffer Camellia::Decrypt(const FIFO& input, const std::string& password) noexcept {
+	DataType data;
+	auto read_ok = input.Read(data);
+	if (!read_ok.has_value()) {
+		return Unexpected(CrypterException("Failed to extract data from input buffer"));
 	}
-	std::span<const std::byte> dataSpan(data.value().data(), data.value().size());
+	std::span<const std::byte> dataSpan(data.data(), data.size());
 	return DecryptHelper(dataSpan, password);
 }
 
-StormByte::Buffer::Consumer Camellia::Decrypt(Buffer::Consumer consumer, const std::string& password) noexcept {
-	StormByte::Buffer::Producer producer;
+Consumer Camellia::Decrypt(Consumer consumer, const std::string& password) noexcept {
+	Producer producer;
 
 	std::thread([consumer, producer, password]() mutable {
 		try {
-			(void)consumer.AvailableBytes();
 			constexpr size_t chunkSize = 4096;
 			CryptoPP::SecByteBlock salt(16);
 			CryptoPP::SecByteBlock iv(CryptoPP::Camellia::BLOCKSIZE);
 
-			// Block until salt is available. Use Read() to obtain an owned buffer
-			// so the memory won't be freed while we copy it out.
-			auto saltRead = consumer.Extract(salt.size());
+			// Block until salt is available.
+			DataType saltData;
+			auto saltRead = consumer.Extract(salt.size(), saltData);
 			if (!saltRead.has_value()) {
-				producer.Close();
+				producer.SetError();
 				return;
 			}
-			const auto& saltVec = saltRead.value();
-			std::copy_n(reinterpret_cast<const uint8_t*>(saltVec.data()), salt.size(), salt.data());
+
+			std::copy_n(reinterpret_cast<const uint8_t*>(saltData.data()), salt.size(), salt.data());
 
 			// Block until IV is available and copy into local SecByteBlock.
-			auto ivRead = consumer.Extract(iv.size());
+			DataType ivData;
+			auto ivRead = consumer.Extract(iv.size(), ivData);
 			if (!ivRead.has_value()) {
-				producer.Close();
+				producer.SetError();
 				return;
 			}
-			const auto& ivVec = ivRead.value();
-			std::copy_n(reinterpret_cast<const uint8_t*>(ivVec.data()), iv.size(), iv.data());
+			std::copy_n(reinterpret_cast<const uint8_t*>(ivData.data()), iv.size(), iv.data());
 
 			CryptoPP::SecByteBlock key(CryptoPP::Camellia::DEFAULT_KEYLENGTH);
 			CryptoPP::PKCS5_PBKDF2_HMAC<CryptoPP::SHA256> pbkdf2;
-			pbkdf2.DeriveKey(key, key.size(), 0, reinterpret_cast<const uint8_t*>(password.data()),
-							password.size(), salt, salt.size(), 10000);
+			pbkdf2.DeriveKey(
+				key,
+				key.size(),
+				0,
+				reinterpret_cast<const uint8_t*>(password.data()),
+				password.size(),
+				salt,
+				salt.size(),
+				10000
+			);
 
 			CryptoPP::CBC_Mode<CryptoPP::Camellia>::Decryption decryption(key, key.size(), iv);
-			std::vector<uint8_t> decryptedChunk;
 
 			while (!consumer.EoF()) {
-				(void)consumer.AvailableBytes();
 				size_t availableBytes = consumer.AvailableBytes();
 				if (availableBytes == 0) {
 					std::this_thread::yield();
 					continue;
 				}
 
+				std::vector<uint8_t> decryptedChunk;
 				size_t bytesToRead = std::min(availableBytes, chunkSize);
-				// Use Read() to obtain an owned copy to avoid span lifetime races across threads
-				auto readResult = consumer.Extract(bytesToRead);
+				DataType data;
+				auto readResult = consumer.Extract(bytesToRead, data);
 				if (!readResult.has_value()) {
-					producer.Close();
+					producer.SetError();
 					return;
 				}
 
-				const auto& encryptedVec = readResult.value();
-				decryptedChunk.clear();
+				CryptoPP::StringSource ss(
+					reinterpret_cast<const uint8_t*>(data.data()),
+					data.size(),
+					true,
+					new CryptoPP::StreamTransformationFilter(
+						decryption,
+						new CryptoPP::VectorSink(decryptedChunk)
+					)
+				);
 
-				CryptoPP::StringSource ss(reinterpret_cast<const uint8_t*>(encryptedVec.data()), encryptedVec.size(), true,
-										new CryptoPP::StreamTransformationFilter(decryption,
-																		new CryptoPP::VectorSink(decryptedChunk)));
-
-				std::vector<std::byte> byteData;
-				byteData.reserve(decryptedChunk.size());
-				for (size_t i = 0; i < decryptedChunk.size(); ++i) {
-					byteData.push_back(static_cast<std::byte>(decryptedChunk[i]));
-				}
-				(void)producer.Write(byteData);
+				(void)producer.Write(std::move(decryptedChunk));
 			}
 			producer.Close(); // Mark processing complete // Update status (EOF or Error)
 		} catch (...) {
-			producer.Close();
+			producer.SetError();
 		}
 	}).detach();
 
@@ -273,9 +306,8 @@ StormByte::Buffer::Consumer Camellia::Decrypt(Buffer::Consumer consumer, const s
 // RandomPassword Function
 ExpectedCryptoString Camellia::RandomPassword(const size_t& passwordSize) noexcept {
 	try {
-		CryptoPP::AutoSeededRandomPool rng;
 		CryptoPP::SecByteBlock password(passwordSize);
-		rng.GenerateBlock(password, passwordSize);
+		RNG().GenerateBlock(password, passwordSize);
 
 		std::string passwordString;
 		CryptoPP::HexEncoder encoder(new CryptoPP::StringSink(passwordString));
@@ -284,6 +316,6 @@ ExpectedCryptoString Camellia::RandomPassword(const size_t& passwordSize) noexce
 
 		return passwordString;
 	} catch (const std::exception& e) {
-		return StormByte::Unexpected<Exception>("Failed to generate random password: {}", e.what());
+		return Unexpected(CrypterException("Failed to generate random password: {}", e.what()));
 	}
 }
