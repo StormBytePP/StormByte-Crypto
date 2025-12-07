@@ -16,19 +16,22 @@ namespace StormByte::Crypto {
 		public:
 			/**
 			 * @brief Constructor
+			 * @param message The exception message.
+			 */
+			inline Exception(const std::string& message):
+				StormByte::Exception("Crypto", message) {}
+
+			/**
+			 * @brief Constructor
 			 * @param component The component where the exception occurred.
 			 * @param fmt The format string for the exception message.
 			 * @param args The arguments for the format string.
 			 */
 			template <typename... Args>
-			Exception(const std::string& component, std::format_string<Args...> fmt, Args&&... args):
+			inline Exception(const std::string& component, std::format_string<Args...> fmt, Args&&... args):
 				StormByte::Exception("Crypto::" + component, fmt, std::forward<Args>(args)...) {}
 
-			/**
-			 * @brief Constructor
-			 * @param message The exception message.
-			 */
-			using StormByte::Exception::Exception;
+			// Intentionally do not inherit base constructors to avoid MSVC overload ambiguities
 	};
 
 	/**
@@ -38,20 +41,22 @@ namespace StormByte::Crypto {
 	class STORMBYTE_CRYPTO_PUBLIC CompressorException: public Exception {
 		public:
 			/**
+			 * @brief Non-templated constructor for plain string messages.
+			 * This resolves MSVC overload ambiguities when passing `const char*` or `std::string`.
+			 */
+			inline CompressorException(const std::string& message): Exception(std::string("Compressor: ") + message) {}
+
+			/**
 			 * @brief Constructor
 			 * @param component The component where the exception occurred.
 			 * @param fmt The format string for the exception message.
 			 * @param args The arguments for the format string.
 			 */
 			template <typename... Args>
-			CompressorException(std::format_string<Args...> fmt, Args&&... args):
+			inline CompressorException(std::format_string<Args...> fmt, Args&&... args):
 				Exception("Compressor: ", fmt, std::forward<Args>(args)...) {}
 
-			/**
-			 * @brief Constructor
-			 * @param message The exception message.
-			 */
-			using Exception::Exception;
+			// Intentionally do not inherit base constructors to avoid MSVC overload ambiguities
 	};
 
 	/**
@@ -61,20 +66,22 @@ namespace StormByte::Crypto {
 	class STORMBYTE_CRYPTO_PUBLIC CrypterException: public Exception {
 		public:
 			/**
+			 * @brief Non-templated constructor for plain string messages.
+			 * This resolves MSVC overload ambiguities when passing `const char*` or `std::string`.
+			 */
+			inline CrypterException(const std::string& message): Exception(std::string("Crypter: ") + message) {}
+
+			/**
 			 * @brief Constructor
 			 * @param component The component where the exception occurred.
 			 * @param fmt The format string for the exception message.
 			 * @param args The arguments for the format string.
 			 */
 			template <typename... Args>
-			CrypterException(std::format_string<Args...> fmt, Args&&... args):
+			inline CrypterException(std::format_string<Args...> fmt, Args&&... args):
 				Exception("Crypter: ", fmt, std::forward<Args>(args)...) {}
 
-			/**
-			 * @brief Constructor
-			 * @param message The exception message.
-			 */
-			using Exception::Exception;
+			// Intentionally do not inherit base constructors to avoid MSVC overload ambiguities
 	};
 
 	/**
@@ -84,20 +91,22 @@ namespace StormByte::Crypto {
 	class STORMBYTE_CRYPTO_PUBLIC HasherException: public Exception {
 		public:
 			/**
+			 * @brief Non-templated constructor for plain string messages.
+			 * This resolves MSVC overload ambiguities when passing `const char*` or `std::string`.
+			 */
+			inline HasherException(const std::string& message): Exception(std::string("Hasher: ") + message) {}
+
+			/**
 			 * @brief Constructor
 			 * @param component The component where the exception occurred.
 			 * @param fmt The format string for the exception message.
 			 * @param args The arguments for the format string.
 			 */
 			template <typename... Args>
-			HasherException(std::format_string<Args...> fmt, Args&&... args):
+			inline HasherException(std::format_string<Args...> fmt, Args&&... args):
 				Exception("Hasher: ", fmt, std::forward<Args>(args)...) {}
 
-			/**
-			 * @brief Constructor
-			 * @param message The exception message.
-			 */
-			using Exception::Exception;
+			// Intentionally do not inherit base constructors to avoid MSVC overload ambiguities
 	};
 
 	/**
@@ -107,20 +116,22 @@ namespace StormByte::Crypto {
 	class STORMBYTE_CRYPTO_PUBLIC KeyPairException: public Exception {
 		public:
 			/**
+			 * @brief Non-templated constructor for plain string messages.
+			 * This resolves MSVC overload ambiguities when passing `const char*` or `std::string`.
+			 */
+			inline KeyPairException(const std::string& message): Exception(std::string("KeyPair: ") + message) {}
+
+			/**
 			 * @brief Constructor
 			 * @param component The component where the exception occurred.
 			 * @param fmt The format string for the exception message.
 			 * @param args The arguments for the format string.
 			 */
 			template <typename... Args>
-			KeyPairException(std::format_string<Args...> fmt, Args&&... args):
+			inline KeyPairException(std::format_string<Args...> fmt, Args&&... args):
 				Exception("KeyPair: ", fmt, std::forward<Args>(args)...) {}
 
-			/**
-			 * @brief Constructor
-			 * @param message The exception message.
-			 */
-			using Exception::Exception;
+			// Intentionally do not inherit base constructors to avoid MSVC overload ambiguities
 	};
 
 	/**
@@ -130,20 +141,22 @@ namespace StormByte::Crypto {
 	class STORMBYTE_CRYPTO_PUBLIC SecretException: public Exception {
 		public:
 			/**
+			 * @brief Non-templated constructor for plain string messages.
+			 * This resolves MSVC overload ambiguities when passing `const char*` or `std::string`.
+			 */
+			inline SecretException(const std::string& message): Exception(std::string("Secret: ") + message) {}
+
+			/**
 			 * @brief Constructor
 			 * @param component The component where the exception occurred.
 			 * @param fmt The format string for the exception message.
 			 * @param args The arguments for the format string.
 			 */
 			template <typename... Args>
-			SecretException(std::format_string<Args...> fmt, Args&&... args):
+			inline SecretException(std::format_string<Args...> fmt, Args&&... args):
 				Exception("Secret: ", fmt, std::forward<Args>(args)...) {}
 
-			/**
-			 * @brief Constructor
-			 * @param message The exception message.
-			 */
-			using Exception::Exception;
+			// Intentionally do not inherit base constructors to avoid MSVC overload ambiguities
 	};
 
 	/**
@@ -153,19 +166,21 @@ namespace StormByte::Crypto {
 	class STORMBYTE_CRYPTO_PUBLIC SignerException: public Exception {
 		public:
 			/**
+			 * @brief Non-templated constructor for plain string messages.
+			 * This resolves MSVC overload ambiguities when passing `const char*` or `std::string`.
+			 */
+			inline SignerException(const std::string& message): Exception(std::string("Signer: ") + message) {}
+
+			/**
 			 * @brief Constructor
 			 * @param component The component where the exception occurred.
 			 * @param fmt The format string for the exception message.
 			 * @param args The arguments for the format string.
 			 */
 			template <typename... Args>
-			SignerException(std::format_string<Args...> fmt, Args&&... args):
+			inline SignerException(std::format_string<Args...> fmt, Args&&... args):
 				Exception("Signer: ", fmt, std::forward<Args>(args)...) {}
 
-			/**
-			 * @brief Constructor
-			 * @param message The exception message.
-			 */
-			using Exception::Exception;
+			// Intentionally do not inherit base constructors to avoid MSVC overload ambiguities
 	};
 }
