@@ -114,7 +114,7 @@ jobs:
             $build = Join-Path $workspace 'build'
             $testRoot = Join-Path $build 'test'
 
-            $categories = @('compressors','encrypters/asymmetric','encrypters/symmetric','hashers','shared_secret_generators','signers')
+            $categories = @('compressor','crypter/asymmetric','crypter/symmetric','hasher','keypair','secret','signer')
             foreach ($cat in $categories) {
               $dest = Join-Path $testRoot $cat
               if (-not (Test-Path $dest)) { New-Item -ItemType Directory -Path $dest -Force | Out-Null }

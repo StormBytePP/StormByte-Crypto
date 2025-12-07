@@ -41,254 +41,190 @@ The `Crypto` module provides a wide range of cryptographic utilities, including 
 
 ### Overview
 
-The examples below show concise, copy-pastable usage patterns for every algorithm family defined in
-`lib/public/StormByte/crypto/algorithm.hxx`. They follow the same high-level patterns used by the
-unit tests in `test/`:
+The examples below show concise, copy-pastable usage patterns used by the unit tests in `test/`.
 
-- Convenience APIs: accept/return `std::string` or `StormByte::Buffer::FIFO` for whole-message flows.
-- Streaming APIs: accept a `StormByte::Buffer::Consumer` and return a `StormByte::Buffer::Consumer` for output.
-- KeyPair-based APIs: generate a `KeyPair` and use it with `Asymmetric`, `Signer` or `Secret` helpers.
+Common patterns used in the examples and tests:
+
+- Convenience/block APIs: accept `std::span<const std::byte>` or `Buffer::ReadOnly` and write into `Buffer::WriteOnly` (return `bool` success).
+- Streaming APIs: accept a `Buffer::Consumer` and return a `Buffer::Consumer` for output (producer/consumer handoff).
+- Key generation: you can either use the generic factory functions (e.g. `KeyPair::Create(...)`) or call the concrete type generators directly (e.g. `KeyPair::ECC::Generate(...)`, `KeyPair::RSA::Generate(...)`).
 
 Code snippets below are intentionally short; see `test/` for full, real-world examples.
 
 ### Compression
 
-All compressors support convenience string/buffer APIs and streaming (Producer/Consumer) APIs.
+Compressors are created via the `StormByte::Crypto::Compressor::Create` factory and follow a Buffer-centric API.
 
-- `Algorithm::Compress::Gzip` (Crypto++ Gzip)
+- Create a compressor:
 
 ```cpp
-// compress a string
-StormByte::Crypto::Compressor c(StormByte::Crypto::Algorithm::Compress::Gzip);
-auto out = c.Compress(std::string("hello world"));
-
-// streaming: push input into a Producer and read compressed data from returned Consumer
-StormByte::Buffer::FIFO fifo;
-auto inputProducer = fifo.Producer();
-auto compressedConsumer = c.Compress(fifo.Consumer());
-inputProducer.Put("hello"); inputProducer.MessageEnd();
-auto compressed = ReadAllFromConsumer(compressedConsumer);
+auto compressor = StormByte::Crypto::Compressor::Create(StormByte::Crypto::Compressor::Type::Zlib, /*level*/5);
 ```
 
-- `Algorithm::Compress::Zlib` (Crypto++ ZlibCompressor/ZlibDecompressor)
+- Block (whole-message) compression/decompression:
 
 ```cpp
-StormByte::Crypto::Compressor z(StormByte::Crypto::Algorithm::Compress::Zlib);
-auto compressed = z.Compress(std::string("some large payload"));
-
-// streaming: identical pattern as Gzip
+// input: std::span<std::byte> or Buffer::ReadOnly
+StormByte::Buffer::WriteOnly out;
+bool ok = compressor->DoCompress(std::span<const std::byte>(data.ptr, data.len), out);
+// or use the convenience overloads that accept Buffer::ReadOnly
 ```
 
-- `Algorithm::Compress::Bzip2` (system `bzlib` / `libbzip2`)
+- Streaming (Producer/Consumer): pass a `Buffer::Consumer` to `Compress` and receive a `Buffer::Consumer` with compressed output.
 
 ```cpp
-StormByte::Crypto::Compressor b(StormByte::Crypto::Algorithm::Compress::Bzip2);
-auto compressed = b.Compress(std::string("data"));
-
-// streaming uses bzlib under the hood; consumer helpers in tests show correct usage
+StormByte::Buffer::Producer inputProducer;
+auto inputConsumer = inputProducer.Consumer();
+auto compressedConsumer = compressor->Compress(inputConsumer);
+// write into inputProducer (or a FIFO/Producer) and close it; read compressed data from compressedConsumer
 ```
 
-### Symmetric
+The implementation uses `libbzip2` for Bzip2 and Crypto++ filters for Zlib/Gzip where available.
 
-Symmetric ciphers expose `Encrypt` / `Decrypt` convenience and streaming helpers. The constructor accepts
-an `Algorithm::Symmetric` value and a password/key string (or derivation params according to your build).
+### Symmetric (Crypter)
 
-- AES (CBC)
+Symmetric encryption utilities live under `StormByte::Crypto::Crypter`. Use the `Crypter::Create` factory for symmetric types and provide a password/key. The returned object follows the buffer-centric API (block + streaming).
+
+Examples (AES-CBC / AES-GCM):
 
 ```cpp
-StormByte::Crypto::Symmetric s(StormByte::Crypto::Algorithm::Symmetric::AES, "password-or-key");
-auto enc = s.Encrypt("plaintext");
-auto dec = s.Decrypt(*enc);
+// create a symmetric crypter (AES-CBC) with a password
+auto sym = StormByte::Crypto::Crypter::Create(StormByte::Crypto::Crypter::Type::AES, "password-or-key");
+StormByte::Buffer::WriteOnly out;
+// encrypt a span (block API)
+bool ok = sym->Encrypt(std::span<const std::byte>(data.ptr, data.len), out);
+
+// AES-GCM (authenticated)
+auto gcm = StormByte::Crypto::Crypter::Create(StormByte::Crypto::Crypter::Type::AES_GCM, "32-byte-key-or-password");
+ok = gcm->Encrypt(std::span<const std::byte>(data.ptr, data.len), out);
+// Decrypt returns bool and writes to a WriteOnly; authentication failures will be reported by a false return
 ```
 
-- AES-GCM (authenticated)
+Streaming encryption mirrors compressors: pass a `Buffer::Consumer` to `Encrypt` and read from the returned `Buffer::Consumer`.
+
+### Asymmetric (KeyPair + Asymmetric crypter)
+
+Key pairs live under `StormByte::Crypto::KeyPair` and can be created via the per-type `Generate(...)` static methods (recommended) or via the generic factory `KeyPair::Create(Type, bits)`.
+
+The asymmetric crypters are available under `StormByte::Crypto::Crypter` (asymmetric variants) and can be created by passing a `KeyPair` pointer to the asymmetric `Create` overload.
+
+Examples (RSA):
 
 ```cpp
-StormByte::Crypto::Symmetric g(StormByte::Crypto::Algorithm::Symmetric::AES_GCM, "key32bytes...");
-auto cipher = g.Encrypt("message");
-// Verify/Decrypt will return std::nullopt on auth failure
-auto plain = g.Decrypt(*cipher);
+// generate an RSA keypair directly
+auto kp = StormByte::Crypto::KeyPair::RSA::Generate(2048);
+
+// create an asymmetric crypter using the generated keypair
+auto rsa = StormByte::Crypto::Crypter::Create(StormByte::Crypto::Crypter::Type::RSA, kp);
+
+// encrypt/decrypt using block APIs (span -> WriteOnly)
+StormByte::Buffer::WriteOnly out;
+bool ok = rsa->Encrypt(std::span<const std::byte>(data.ptr, data.len), out);
 ```
 
-- Camellia, ChaCha20, Serpent, Twofish
+Examples (ECC / ECDH note):
 
 ```cpp
-StormByte::Crypto::Symmetric cam(StormByte::Crypto::Algorithm::Symmetric::Camellia, "key");
-auto ctext = cam.Encrypt("data");
-auto ptext = cam.Decrypt(*ctext);
+// elliptic-curve keypair generation
+auto kp1 = StormByte::Crypto::KeyPair::ECC::Generate();
+auto kp2 = StormByte::Crypto::KeyPair::ECC::Generate();
 
-StormByte::Crypto::Symmetric chacha(StormByte::Crypto::Algorithm::Symmetric::ChaCha20, "key");
-// same Encrypt/Decrypt pattern for Serpent and Twofish
-```
-
-Streaming encryption mirrors compressors: pass a `Buffer::Consumer` to `Encrypt` and read from the returned consumer.
-
-### Asymmetric
-
-Asymmetric usage revolves around `KeyPair` generation and using `Asymmetric` to Encrypt/Decrypt.
-
-- `Algorithm::Asymmetric::RSA`
-
-```cpp
-auto kp = StormByte::Crypto::KeyPair::Generate(StormByte::Crypto::Algorithm::Asymmetric::RSA, /*params*/{});
-StormByte::Crypto::Asymmetric rsa(StormByte::Crypto::Algorithm::Asymmetric::RSA, kp);
-auto c = rsa.Encrypt("hello");
-auto p = rsa.Decrypt(*c);
-```
-
-- `Algorithm::Asymmetric::ECC` (EC-based encryption / key exchange patterns used with `Secret`)
-
-```cpp
-auto kp1 = StormByte::Crypto::KeyPair::Generate(StormByte::Crypto::Algorithm::Asymmetric::ECC, /*curve params*/{});
-auto kp2 = StormByte::Crypto::KeyPair::Generate(StormByte::Crypto::Algorithm::Asymmetric::ECC, /*curve params*/{});
-// For EC-based key agreement use `Secret` / ECDH APIs instead of Encrypt/Decrypt for symmetric key derivation
+// For EC-based key agreement use `StormByte::Crypto::Secret` helpers (see Secret section) rather than Encrypt/Decrypt for symmetric key derivation
 ```
 
 ### Hash
 
-Hasher is simple: construct with an `Algorithm::Hash` value and call `Hash`.
+Hashers are provided via `StormByte::Crypto::Hasher::Create` (see headers) and operate on Buffer types or spans.
 
-- Blake2b / Blake2s
-
-```cpp
-StormByte::Crypto::Hasher h1(StormByte::Crypto::Algorithm::Hash::Blake2b);
-auto digest = h1.Hash("payload"); // hex string
-
-StormByte::Crypto::Hasher h2(StormByte::Crypto::Algorithm::Hash::Blake2s);
-```
-
-- SHA256 / SHA512
+Examples:
 
 ```cpp
-StormByte::Crypto::Hasher s256(StormByte::Crypto::Algorithm::Hash::SHA256);
-auto d = s256.Hash("data");
-```
-
-- SHA3-256 / SHA3-512
-
-```cpp
-StormByte::Crypto::Hasher sha3(StormByte::Crypto::Algorithm::Hash::SHA3_256);
-auto dd = sha3.Hash("abc");
+auto hasher = StormByte::Crypto::Hasher::Create(StormByte::Crypto::Hasher::Type::SHA256);
+StormByte::Buffer::WriteOnly out;
+// Hash a span or use the Buffer overloads
+bool ok = hasher->Hash(std::span<const std::byte>(data.ptr, data.len), out);
+// For streaming/hash-on-the-fly pass a Buffer::Consumer and receive a Buffer::Consumer
 ```
 
 ### Sign
 
-Signing helpers use `KeyPair` and `Signer` to create and verify signatures.
-
-- DSA / ECDSA / RSA
+Signers are created with `StormByte::Crypto::Signer::Create` (factory overloads accept a `KeyPair` pointer or reference). APIs are Buffer-oriented.
 
 ```cpp
-auto kp = StormByte::Crypto::KeyPair::Generate(StormByte::Crypto::Algorithm::Asymmetric::ECC);
-StormByte::Crypto::Signer signer(StormByte::Crypto::Algorithm::Sign::ECDSA, kp);
-auto sig = signer.Sign("message");
-bool ok = signer.Verify("message", *sig);
-```
-
-- Ed25519
-
-```cpp
-auto kp = StormByte::Crypto::KeyPair::Generate(StormByte::Crypto::Algorithm::Asymmetric::ECC /*or helper for Ed25519*/);
-StormByte::Crypto::Signer ed(StormByte::Crypto::Algorithm::Sign::Ed25519, kp);
-auto sig = ed.Sign("msg");
-ed.Verify("msg", *sig);
+auto kp = StormByte::Crypto::KeyPair::Create(StormByte::Crypto::KeyPair::Type::ECDSA, /*bits*/256);
+auto signer = StormByte::Crypto::Signer::Create(StormByte::Crypto::Signer::Type::ECDSA, kp);
+StormByte::Buffer::WriteOnly sigOut;
+bool ok = signer->Sign(std::span<const std::byte>(data.ptr, data.len), sigOut);
+// Verify using Verify(...) overloads that accept Buffer::ReadOnly or Consumer
 ```
 
 ### Secret Share (Key agreement)
 
-Use `StormByte::Crypto::Secret` to derive a shared secret from two `KeyPair`s. Examples mirror the unit tests.
+The `StormByte::Crypto::Secret` namespace provides key-agreement helpers (ECDH, X25519). Construct a secret helper with a `KeyPair` pointer (factory `Secret::Create` exists) or call a concrete secret class if available.
 
-- ECDH
+Example (ECDH):
 
 ```cpp
-auto a = StormByte::Crypto::KeyPair::Generate(StormByte::Crypto::Algorithm::Asymmetric::ECC);
-auto b = StormByte::Crypto::KeyPair::Generate(StormByte::Crypto::Algorithm::Asymmetric::ECC);
-StormByte::Crypto::Secret sa(StormByte::Crypto::Algorithm::SecretShare::ECDH, a);
-sa.SetPeerPublicKey(b.PublicKey());
-auto sharedA = sa.Content();
-// symmetric key derived by both sides should match
+// generate EC keypairs
+auto a = StormByte::Crypto::KeyPair::ECC::Generate();
+auto b = StormByte::Crypto::KeyPair::ECC::Generate();
+
+// create an ECDH secret helper using the keypair
+auto sA = StormByte::Crypto::Secret::Create(StormByte::Crypto::Secret::Type::ECDH, a);
+auto sharedA = sA->Share(b->PublicKey());
+// sharedA is std::optional<std::string> containing the derived secret on success
 ```
 
-- X25519
+Example (X25519):
 
 ```cpp
-auto a = StormByte::Crypto::KeyPair::Generate(StormByte::Crypto::Algorithm::Asymmetric::ECC /*or X25519 helper*/);
-auto b = StormByte::Crypto::KeyPair::Generate(StormByte::Crypto::Algorithm::Asymmetric::ECC /*or X25519 helper*/);
-StormByte::Crypto::Secret sA(StormByte::Crypto::Algorithm::SecretShare::X25519, a);
-sA.SetPeerPublicKey(b.PublicKey());
-auto key = sA.Content();
+auto a = StormByte::Crypto::KeyPair::X25519::Generate();
+auto b = StormByte::Crypto::KeyPair::X25519::Generate();
+auto sA = StormByte::Crypto::Secret::Create(StormByte::Crypto::Secret::Type::X25519, a);
+auto shared = sA->Share(b->PublicKey());
 ```
 
 For streaming examples, inspect `test/compressors/*_test.cxx`, `test/aes_test.cxx`, `test/ecdsa_test.cxx`, and friends — they demonstrate both convenience and streaming workflows used above.
 
 
-## Public API (high-level)
+### Public API (high-level)
 
-This is a concise listing of the main public classes and their typical usage patterns. See the `test/` directory for detailed examples and expected behaviors.
+The public API is organized into small logical namespaces (e.g. `Hasher`, `Compressor`, `Crypter`, `KeyPair`, `Signer`, `Secret`) and uses factory functions and buffer-oriented interfaces. Refer to the `lib/public/StormByte/crypto` headers for the authoritative API.
 
-- `StormByte::Crypto::Algorithm` enums
-  The library exposes a small set of enums (see `lib/public/StormByte/crypto/algorithm.hxx`) used across the public API. Current values include:
+- Factories
 
-  - `Algorithm::Asymmetric`:
-    - `ECC` — elliptic-curve public-key algorithms
-    - `RSA` — RSA public-key algorithm
+  - `StormByte::Crypto::Hasher::Create(Type)` -> returns a `Hasher::Generic::PointerType` (smart pointer).
+  - `StormByte::Crypto::Compressor::Create(Type, level)` -> returns a `Compressor::Generic::PointerType`.
+  - `StormByte::Crypto::KeyPair::Create(Type, bits)` -> returns a `KeyPair::Generic::PointerType`.
+  - `StormByte::Crypto::Signer::Create(Type, keypair)` -> returns a `Signer::Generic::PointerType`.
 
-  - `Algorithm::Symmetric`:
-    - `None`
-    - `AES` (CBC)
-    - `AES_GCM` (authenticated AES-GCM)
-    - `Camellia`
-    - `ChaCha20`
-    - `Serpent`
-    - `Twofish`
+- Buffer-centric APIs
 
-  - `Algorithm::Compress`:
-    - `None`
-    - `Bzip2` (uses system `bzlib` / `libbzip2`)
-    - `Gzip` (Crypto++ `Gzip` filter)
-    - `Zlib` (Crypto++ `ZlibCompressor` / `ZlibDecompressor`)
+  - Block/whole-message functions accept `std::span<const std::byte>` or `Buffer::ReadOnly` and write output into a `Buffer::WriteOnly`. They return `bool` to indicate success.
+  - Streaming functions accept a `Buffer::Consumer` and return a `Buffer::Consumer` for the produced output. The streaming stages run in detached threads and use `Producer`/`Consumer` for handoff.
 
-  - `Algorithm::Hash`:
-    - `Blake2b`, `Blake2s`
-    - `SHA256`, `SHA512`
-    - `SHA3_256`, `SHA3_512`
+- Examples (compressed summary)
 
-  - `Algorithm::Sign`:
-    - `DSA`, `ECDSA`, `RSA`, `Ed25519`
+  - Compressor (create + compress a buffer):
 
-  - `Algorithm::SecretShare`:
-    - `ECDH`, `X25519`
+    ```cpp
+    auto c = StormByte::Crypto::Compressor::Create(StormByte::Crypto::Compressor::Type::Zlib, 5);
+    StormByte::Buffer::WriteOnly out;
+    bool ok = c->DoCompress(std::span<const std::byte>(data.ptr, data.len), out);
+    ```
 
-  See the public header `lib/public/StormByte/crypto/algorithm.hxx` for the authoritative list.
+  - Streaming compressor:
 
-- `StormByte::Crypto::Hasher`
-  - Constructor: `Hasher(Algorithm::Hash algorithm)`
-  - `std::optional<std::string> Hash(const std::string &data)` — returns hex encoded digest on success.
+    ```cpp
+    StormByte::Buffer::Producer p;
+    auto input = p.Consumer();
+    auto outConsumer = c->Compress(input);
+    // write to p and close; read from outConsumer
+    ```
 
-- `StormByte::Crypto::Compressor`
-  - Constructor: `Compressor(Algorithm::Compress algorithm)`
-  - `std::optional<std::string> Compress(const std::string &)`
-  - `std::optional<StormByte::Buffer::FIFO> Compress(const StormByte::Buffer::FIFO &)`
-  - `StormByte::Buffer::Consumer Compress(StormByte::Buffer::Consumer)` — streaming compressor that returns a consumer for compressed data.
-  - `Decompress` variants mirror `Compress`.
+  - Signer/Hasher/Crypter follow the same patterns: factory -> call `Sign`/`Hash`/`Encrypt` on spans or pass Consumers for streaming.
 
-- `StormByte::Crypto::Symmetric`
-  - Constructor: `Symmetric(Algorithm::Symmetric, const std::string &password_or_key)`
-  - `Encrypt/Decrypt` methods returning optional buffers; see tests for exact types.
-
-- `StormByte::Crypto::Asymmetric` and `StormByte::Crypto::KeyPair`
-  - `KeyPair::Generate(Algorithm::Asymmetric, params)` — generate a key pair for RSA/EC.
-  - `Asymmetric` constructor accepts an algorithm and a `KeyPair` and provides `Encrypt/Decrypt`.
-
-- `StormByte::Crypto::Signer`
-  - Construct with algorithm+keypair or just a `KeyPair`; provides `Sign` and `Verify` methods.
-
-- `StormByte::Crypto::Secret` (key agreement helpers)
-  - Used for ECDH/X25519 workflows: set peer public key and call `Content()` to derive shared secret.
-
-Test locations and usage notes
-- The test suite is the most complete usage reference — see the `test/` folder at the repository root. Tests are grouped by functionality (compressors, hashers, encryptors, signers, etc.) and demonstrate both convenience and streaming APIs.
-- Compression streaming: prefer `Compressor::Compress(Buffer::Consumer)` / `Decompress(Buffer::Consumer)` and read output with the consumer helpers (see `test/helpers.hxx`).
-- Bzip2: because Crypto++ does not provide Bzip2 filters, the project uses the system `bzlib` API for Bzip2 streaming and the `Bzip2` implementation will require `libbzip2` on the target platform.
+See the headers in `lib/public/StormByte/crypto` and the tests in `test/` for concrete usage patterns.
 
 ## Contributing
 
