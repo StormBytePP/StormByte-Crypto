@@ -51,8 +51,6 @@ int TestTwofishWrongDecryptionPassword() {
 	auto decrypt_result = wrongTwofish.Decrypt(std::span<const std::byte>(reinterpret_cast<const std::byte*>(encrypted_d.Data().data()), encrypted_d.Data().size()), decrypted_d);
 
 	// Either decryption fails (padding error) or succeeds with garbage data
-	ASSERT_FALSE(fn_name, decrypt_result);
-
 	// If decryption succeeds, verify the data does NOT match the original
 	ASSERT_NOT_EQUAL(fn_name, std::string(reinterpret_cast<const char*>(decrypted_d.Data().data()), decrypted_d.Data().size()), original);
 

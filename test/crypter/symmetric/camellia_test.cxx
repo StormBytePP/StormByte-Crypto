@@ -58,7 +58,6 @@ int TestCamelliaWrongDecryptionPassword() {
 	// Note: CBC mode doesn't authenticate, so decryption will "succeed" but produce garbage
 	FIFO decrypted_d;
 	auto decrypt_result = camellia_wrong.Decrypt(std::span<const std::byte>(reinterpret_cast<const std::byte*>(encrypted_string.data()), encrypted_string.size()), decrypted_d);
-	ASSERT_TRUE(fn_name, decrypt_result); // Decryption succeeds
 	// Verify the decrypted data does NOT match the original
 	ASSERT_NOT_EQUAL(fn_name, StormByte::String::FromByteVector(decrypted_d.Data()), original_data);
 
@@ -102,10 +101,7 @@ int TestCamelliaDecryptionWithCorruptedData() {
 	// CBC mode with corrupted data should either:
 	// 1. Fail with padding error (decrypt_result has no value), OR
 	// 2. Succeed but produce garbage (different from original)
-	if (decrypt_result) {
-		// If it succeeded, the output must be different from the original
-		ASSERT_NOT_EQUAL(fn_name, StormByte::String::FromByteVector(corrupted_data.Data()), original_data);
-	}
+	ASSERT_NOT_EQUAL(fn_name, StormByte::String::FromByteVector(corrupted_data.Data()), original_data);
 	// Either way (error or garbage), the corruption was detected
 
 	RETURN_TEST(fn_name, 0);
@@ -168,8 +164,7 @@ int main() {
 	int result = 0;
 
 	result += TestCamelliaEncryptDecryptConsistency();
-	// TestCamelliaWrongDecryptionPassword() removed - CBC mode padding validation is unreliable across platforms
-	// result += TestCamelliaWrongDecryptionPassword();
+	result += TestCamelliaWrongDecryptionPassword();
 	result += TestCamelliaDecryptionWithCorruptedData();
 	result += TestCamelliaEncryptionProducesDifferentContent();
 	result += TestCamelliaEncryptDecryptUsingConsumerProducer();

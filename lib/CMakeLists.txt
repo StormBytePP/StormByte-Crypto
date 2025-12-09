@@ -8,6 +8,7 @@ file(GLOB_RECURSE STORMBYTE_CONFIG_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_LI
 # Library
 add_library(StormByte-Crypto SHARED ${STORMBYTE_CONFIG_SOURCES})
 add_library(StormByte::Crypto ALIAS StormByte-Crypto)
+set_property(TARGET StormByte-Crypto PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(StormByte-Crypto PUBLIC StormByte::Buffer)
 target_link_libraries(StormByte-Crypto PRIVATE cryptopp)
 set_target_properties(StormByte-Crypto PROPERTIES
