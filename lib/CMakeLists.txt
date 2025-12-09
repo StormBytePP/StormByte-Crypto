@@ -8,7 +8,11 @@ file(GLOB_RECURSE STORMBYTE_CONFIG_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_LI
 # Library
 add_library(StormByte-Crypto SHARED ${STORMBYTE_CONFIG_SOURCES})
 add_library(StormByte::Crypto ALIAS StormByte-Crypto)
-set_property(TARGET StormByte-Crypto PROPERTY POSITION_INDEPENDENT_CODE ON)
+set_target_properties(StormByte-Crypto PROPERTIES
+	POSITION_INDEPENDENT_CODE        ON
+	CXX_VISIBILITY_PRESET            hidden
+	VISIBILITY_INLINES_HIDDEN        ON
+)
 target_link_libraries(StormByte-Crypto PUBLIC StormByte::Buffer)
 target_link_libraries(StormByte-Crypto PRIVATE cryptopp)
 set_target_properties(StormByte-Crypto PROPERTIES
@@ -32,7 +36,6 @@ if(MSVC)
 	target_link_options(StormByte-Crypto PRIVATE $<$<CONFIG:Release>:/LTCG /GL>)
 else()
 	set(CMAKE_CXX_FLAGS_DEBUG "-pipe -g -ggdb -Wall -Wextra -Wnon-virtual-dtor -pedantic -pedantic-errors -O0")
-	target_compile_options(StormByte-Crypto PRIVATE -fvisibility=hidden $<$<COMPILE_LANGUAGE:CXX>:-fvisibility-inlines-hidden>)
 endif()
 
 # Include directories
