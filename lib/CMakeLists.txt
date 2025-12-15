@@ -13,20 +13,11 @@ set_target_properties(StormByte-Crypto PROPERTIES
 	CXX_VISIBILITY_PRESET            hidden
 	VISIBILITY_INLINES_HIDDEN        ON
 )
-target_link_libraries(StormByte-Crypto PUBLIC StormByte::Buffer)
-target_link_libraries(StormByte-Crypto PRIVATE cryptopp)
 set_target_properties(StormByte-Crypto PROPERTIES
 	LINKER_LANGUAGE CXX
 	SOVERSION		${CMAKE_PROJECT_VERSION}
 	VERSION 		${CMAKE_PROJECT_VERSION}
 )
-
-# Link against the BZip2 library
-if (WITH_SYSTEM_BZIP2)
-	target_link_libraries(StormByte-Crypto PRIVATE ${BZIP2_LIBRARY_RELEASE})
-else()
-	target_link_libraries(StormByte-Crypto PRIVATE bz2)
-endif()
 
 # Compile options
 if(MSVC)

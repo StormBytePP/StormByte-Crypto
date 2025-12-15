@@ -30,8 +30,8 @@ find_package_handle_standard_args(Crypto++ DEFAULT_MSG
 
 # Provide an imported target if everything was found
 if (Crypto++_FOUND)
-    add_library(cryptopp UNKNOWN IMPORTED GLOBAL)
-    set_target_properties(cryptopp PROPERTIES
+    add_library(CryptoPP::CryptoPP UNKNOWN IMPORTED GLOBAL)
+    set_target_properties(CryptoPP::CryptoPP PROPERTIES
         INTERFACE_INCLUDE_DIRECTORIES "${Crypto++_INCLUDE_DIRS}"
         IMPORTED_LOCATION "${Crypto++_LIBRARIES}"
     )
