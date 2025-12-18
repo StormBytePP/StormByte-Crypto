@@ -233,4 +233,3 @@ Contributions are welcome! Please follow the guidelines in the `CONTRIBUTING.md`
 ## License
 
 This project is licensed under the MIT License. See the `LICENSE` file for details.
-

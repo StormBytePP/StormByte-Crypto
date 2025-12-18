@@ -1,7 +1,12 @@
-option(WITH_SYSTEM_BZIP2 "Use the system BZip2 library" ON)
-if (WITH_SYSTEM_BZIP2)
+if(WIN32)
+	set(WITH_BZIP2 "BUNDLED" CACHE STRING "Use BZip2 library (SYSTEM/BUNDLED)" FORCE)
+else()
+	set(WITH_BZIP2 "SYSTEM" CACHE STRING "Use BZip2 library (SYSTEM/BUNDLED)")
+endif()
+if (WITH_BZIP2 STREQUAL "SYSTEM")
 	find_package (BZip2 REQUIRED)
 else()
+	set(ENABLE_LIB_ONLY ON)
 	add_subdirectory(src)
 	# Set options for libz2
 	set_target_properties(bz2 PROPERTIES

@@ -17,25 +17,24 @@ jobs:
       matrix:
         compiler: [gcc, clang]
         stdlib: [libstdc++, libc++]
-        system-cryptopp: [ON, OFF]
-        system-bzip2: [ON, OFF]
+        cryptopp: [SYSTEM, BUNDLED]
+        bzip2: [SYSTEM, BUNDLED]
         exclude:
           # Exclude incompatible combinations
           - compiler: gcc
             stdlib: libc++
           - stdlib: libc++
-            system-cryptopp: ON
+            cryptopp: SYSTEM
           - stdlib: libc++
-            system-bzip2: ON
+            bzip2: SYSTEM
         include:
           # Force libc++ to always use system-cryptopp OFF and system-bzip2 OFF
           - compiler: clang
             stdlib: libc++
-            system-cryptopp: OFF
-            system-bzip2: OFF
+            cryptopp: BUNDLED
+            bzip2: BUNDLED
 
-    name: ${{ matrix.compiler }}-${{ matrix.stdlib }}-system-cryptopp(${{ matrix.system-cryptopp }})-system-bzip2(${{ matrix.system-bzip2 }})
-
+    name: ${{ matrix.compiler }}-${{ matrix.stdlib }}-cryptopp(${{ matrix.cryptopp }})-bzip2(${{ matrix.bzip2 }})
 
     steps:
     - name: Checkout repository and submodules
@@ -50,11 +49,11 @@ jobs:
         compiler: ${{ matrix.compiler }}
 
     - name: Install system dependencies (apt)
-      if: ${{ matrix.system-cryptopp == 'ON' || matrix.system-bzip2 == 'ON' }}
+      if: ${{ matrix.cryptopp == 'SYSTEM' || matrix.bzip2 == 'SYSTEM' }}
       run: |
         pkgs=""
-        if [ "${{ matrix.system-cryptopp }}" = "ON" ]; then pkgs="$pkgs libcrypto++-dev"; fi
-        if [ "${{ matrix.system-bzip2 }}" = "ON" ]; then pkgs="$pkgs libbz2-dev"; fi
+        if [ "${{ matrix.cryptopp }}" = "SYSTEM" ]; then pkgs="$pkgs libcrypto++-dev"; fi
+        if [ "${{ matrix.bzip2 }}" = "SYSTEM" ]; then pkgs="$pkgs libbz2-dev"; fi
         if [ -n "$pkgs" ]; then sudo apt-get install -y $pkgs; fi
 
     - name: Build with CMake
@@ -65,11 +64,11 @@ jobs:
         cxx: ${{ steps.install-toolchain.outputs.cxx_compiler }}
         configure-options: >-
           -G Ninja
-          -DENABLE_TEST=ON
           -DENABLE_ASAN=ON
-          -DWITH_SYSTEM_CRYPTOPP=${{ matrix.system-cryptopp }}
-          -DWITH_SYSTEM_BZIP2=${{ matrix.system-bzip2 }}
-          -DENABLE_LIB_ONLY=ON
+          -DENABLE_TEST=ON
+          -DWITH_CRYPTOPP=${{ matrix.cryptopp }}
+          -DWITH_BZIP2=${{ matrix.bzip2 }}
+          -DWITH_STORMBYTE=BUNDLED
         build-type: ${{ env.BUILD_TYPE }}
         run-test: true
         ctest-options: --output-on-failure --test-dir ${{ github.workspace }}/build/test
@@ -100,11 +99,11 @@ jobs:
           build-dir: ${{ github.workspace }}\build
           configure-options: >-
             -G Ninja
-            -DENABLE_TEST=ON
             -DENABLE_ASAN=ON
-            -DWITH_SYSTEM_CRYPTOPP=OFF
-            -DWITH_SYSTEM_BZIP2=OFF
-            -DENABLE_LIB_ONLY=ON
+            -DENABLE_TEST=ON
+            -DWITH_CRYPTOPP=BUNDLED
+            -DWITH_BZIP2=BUNDLED
+            -DWITH_STORMBYTE=BUNDLED
           build-type: ${{ env.BUILD_TYPE }}
 
       - name: Copy DLLs (per-category)
