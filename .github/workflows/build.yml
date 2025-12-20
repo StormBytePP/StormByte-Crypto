@@ -1,10 +1,12 @@
-name: CMake
+name: Compile & Test
 
 on:
   push:
     branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
+  
+  workflow_dispatch:
 
 env:
   BUILD_TYPE: Debug
@@ -15,17 +17,14 @@ jobs:
 
     strategy:
       matrix:
-        compiler: [gcc, clang]
-        stdlib: [libstdc++, libc++]
+        compiler: [gcc, clang, clang-libc++]
         cryptopp: [SYSTEM, BUNDLED]
         bzip2: [SYSTEM, BUNDLED]
         exclude:
           # Exclude incompatible combinations
-          - compiler: gcc
-            stdlib: libc++
-          - stdlib: libc++
+          - compiler: clang-libc++
             cryptopp: SYSTEM
-          - stdlib: libc++
+          - compiler: clang-libc++
             bzip2: SYSTEM
         include:
           # Force libc++ to always use system-cryptopp OFF and system-bzip2 OFF
@@ -34,27 +33,34 @@ jobs:
             cryptopp: BUNDLED
             bzip2: BUNDLED
 
-    name: ${{ matrix.compiler }}-${{ matrix.stdlib }}-cryptopp(${{ matrix.cryptopp }})-bzip2(${{ matrix.bzip2 }})
+    name: ${{ matrix.compiler }}-cryptopp(${{ matrix.cryptopp }})-bzip2(${{ matrix.bzip2 }})
 
     steps:
     - name: Checkout repository and submodules
       uses: actions/checkout@v4
       with:
+        fetch-depth: 0
         submodules: true
 
     - name: Install toolchain
       id: install-toolchain
-      uses: stormbytepp/install-toolchain@v1
+      uses: stormbytepp/githubactions/.github/actions/install-toolchain@master
       with:
-        compiler: ${{ matrix.compiler }}
+        toolchain: ${{ matrix.compiler }}
 
-    - name: Install system dependencies (apt)
-      if: ${{ matrix.cryptopp == 'SYSTEM' || matrix.bzip2 == 'SYSTEM' }}
-      run: |
-        pkgs=""
-        if [ "${{ matrix.cryptopp }}" = "SYSTEM" ]; then pkgs="$pkgs libcrypto++-dev"; fi
-        if [ "${{ matrix.bzip2 }}" = "SYSTEM" ]; then pkgs="$pkgs libbz2-dev"; fi
-        if [ -n "$pkgs" ]; then sudo apt-get install -y $pkgs; fi
+    - name: Install CryptoPP dependencies
+      if: ${{ matrix.cryptopp == 'SYSTEM' }}
+      uses: stormbytepp/githubactions/.github/actions/install-cached@master
+      with:
+        packages: 'libcrypto++-dev'
+        cache-key: 'cryptopp-${{ matrix.compiler }}'
+
+    - name: Install Bzip2 dependencies
+      if: ${{ matrix.bzip2 == 'SYSTEM' }}
+      uses: stormbytepp/githubactions/.github/actions/install-cached@master
+      with:
+        packages: 'libbz2-dev'
+        cache-key: 'bzip2-${{ matrix.compiler }}'
 
     - name: Build with CMake
       uses: ashutoshvarma/action-cmake-build@master
@@ -69,6 +75,7 @@ jobs:
           -DWITH_CRYPTOPP=${{ matrix.cryptopp }}
           -DWITH_BZIP2=${{ matrix.bzip2 }}
           -DWITH_STORMBYTE=BUNDLED
+          ${{ matrix.compiler == 'clang-libc++' && format('-DCMAKE_CXX_FLAGS=-stdlib={0}', 'libc++') || '' }}
         build-type: ${{ env.BUILD_TYPE }}
         run-test: true
         ctest-options: --output-on-failure --test-dir ${{ github.workspace }}/build/test
@@ -88,10 +95,9 @@ jobs:
 
       - name: Install toolchain
         id: install-toolchain
-        uses: stormbytepp/install-toolchain@v1
+        uses: stormbytepp/githubactions/.github/actions/install-toolchain@master
         with:
-          compiler: msvc
-          arch: ${{ matrix.arch }}
+          toolchain: msvc
 
       - name: Build with CMake
         uses: ashutoshvarma/action-cmake-build@master
