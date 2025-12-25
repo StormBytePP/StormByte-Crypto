@@ -1,5 +1,8 @@
 name: Compile & Test
 
+permissions:
+  actions: write
+
 on:
   push:
     branches: [ "master" ]
@@ -47,20 +50,23 @@ jobs:
       uses: stormbytepp/githubactions/.github/actions/install-toolchain@master
       with:
         toolchain: ${{ matrix.compiler }}
+        ccache-key: '${{ matrix.compiler }}-cryptopp(${{ matrix.cryptopp }})-bzip2(${{ matrix.bzip2 }})-v1'
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
 
     - name: Install CryptoPP dependencies
       if: ${{ matrix.cryptopp == 'SYSTEM' }}
       uses: stormbytepp/githubactions/.github/actions/install-cached@master
       with:
         packages: 'libcrypto++-dev'
-        cache-key: 'cryptopp-${{ matrix.compiler }}'
+        cache-key: 'apt-cryptopp-v1'
 
     - name: Install Bzip2 dependencies
       if: ${{ matrix.bzip2 == 'SYSTEM' }}
       uses: stormbytepp/githubactions/.github/actions/install-cached@master
       with:
         packages: 'libbz2-dev'
-        cache-key: 'bzip2-${{ matrix.compiler }}'
+        cache-key: 'apt-bzip2-v1'
 
     - name: Build with CMake
       uses: ashutoshvarma/action-cmake-build@master
@@ -139,3 +145,4 @@ jobs:
 
       - name: Run unit tests
         run: ctest --output-on-failure --test-dir ${{ github.workspace }}\build\test
+
