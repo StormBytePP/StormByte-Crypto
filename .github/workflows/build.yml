@@ -118,31 +118,13 @@ jobs:
             -DWITH_STORMBYTE=BUNDLED
           build-type: ${{ env.BUILD_TYPE }}
 
-      - name: Copy DLLs (per-category)
-        shell: powershell
+      - name: Add DLL directory to PATH
         run: |
-            $workspace = $Env:GITHUB_WORKSPACE
-            $build = Join-Path $workspace 'build'
-            $testRoot = Join-Path $build 'test'
-
-            $categories = @('compressor','crypter/asymmetric','crypter/symmetric','hasher','keypair','secret','signer')
-            foreach ($cat in $categories) {
-              $dest = Join-Path $testRoot $cat
-              if (-not (Test-Path $dest)) { New-Item -ItemType Directory -Path $dest -Force | Out-Null }
-
-              $bz2src = Join-Path $build 'thirdparty\Bzip2\src\bz2.dll'
-              $stormBase = Join-Path $build 'thirdparty\StormByte\base\lib\StormByte.dll'
-              $stormBuffer = Join-Path $build 'thirdparty\StormByte\buffer\lib\StormByte-Buffer.dll'
-              $stormLogger = Join-Path $build 'thirdparty\StormByte\logger\lib\StormByte-Logger.dll'
-              $crypto = Join-Path $build 'lib\StormByte-Crypto.dll'
-
-              if (Test-Path $bz2src) { Copy-Item -Path $bz2src -Destination (Join-Path $dest 'bz2-1.dll') -Force -ErrorAction SilentlyContinue }
-              if (Test-Path $stormBase) { Copy-Item -Path $stormBase -Destination $dest -Force -ErrorAction SilentlyContinue }
-              if (Test-Path $stormBuffer) { Copy-Item -Path $stormBuffer -Destination $dest -Force -ErrorAction SilentlyContinue }
-              if (Test-Path $stormLogger) { Copy-Item -Path $stormLogger -Destination $dest -Force -ErrorAction SilentlyContinue }
-              if (Test-Path $crypto) { Copy-Item -Path $crypto -Destination $dest -Force -ErrorAction SilentlyContinue }
-            }
+          echo "${{ github.workspace }}\build\lib" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          echo "${{ github.workspace }}\build\thirdparty\StormByte\base\lib" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          echo "${{ github.workspace }}\build\thirdparty\StormByte\logger\lib" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          echo "${{ github.workspace }}\build\thirdparty\StormByte\buffer\lib" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          echo "${{ github.workspace }}\build\thirdparty\Bzip2\src" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Run unit tests
         run: ctest --output-on-failure --test-dir ${{ github.workspace }}\build\test
-
