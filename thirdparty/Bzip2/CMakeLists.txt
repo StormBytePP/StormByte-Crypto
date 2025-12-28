@@ -14,7 +14,11 @@ else()
 		CXX_VISIBILITY_PRESET            hidden
 	)
 	target_include_directories(bz2 INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>)
-	set_target_properties(bz2 PROPERTIES OUTPUT_NAME bz2)
+	if(MSVC)
+		set_target_properties(bz2 PROPERTIES OUTPUT_NAME bz2-1) # This is the expected name on Windows
+	else()
+		set_target_properties(bz2 PROPERTIES OUTPUT_NAME bz2)
+	endif()
 	add_library(BZip2::BZip2 ALIAS bz2)
 endif()
 

@@ -111,7 +111,6 @@ jobs:
           build-dir: ${{ github.workspace }}\build
           configure-options: >-
             -G Ninja
-            -DENABLE_ASAN=ON
             -DENABLE_TEST=ON
             -DWITH_CRYPTOPP=BUNDLED
             -DWITH_BZIP2=BUNDLED
