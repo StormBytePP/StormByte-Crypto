@@ -42,5 +42,4 @@ else()
 	target_include_directories(CryptoPP SYSTEM INTERFACE ${BUILDMASTER_INSTALL_INCLUDEDIR}/cryptopp)
 endif()
 
-cmake_policy(SET CMP0079 NEW)
 target_link_libraries(StormByte-Crypto PRIVATE CryptoPP::CryptoPP)

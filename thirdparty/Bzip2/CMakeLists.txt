@@ -61,5 +61,4 @@ else()
 	add_library(BZip2::BZip2 ALIAS BZip2)
 endif()
 
-cmake_policy(SET CMP0079 NEW)
 target_link_libraries(StormByte-Crypto PRIVATE BZip2::BZip2)

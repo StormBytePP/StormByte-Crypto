@@ -9,5 +9,4 @@ else()
 	add_subdirectory(buffer)
 endif()
 
-cmake_policy(SET CMP0079 NEW)
 target_link_libraries(StormByte-Crypto PUBLIC StormByte::Buffer)
