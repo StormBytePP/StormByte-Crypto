@@ -42,6 +42,7 @@ jobs:
       # 2. INSTALL TOOLCHAIN
       ###########################################################################
       - name: Install toolchain
+        if: matrix.language == 'c-cpp' && matrix.build-mode == 'manual'
         id: install-toolchain
         uses: stormbytepp/githubactions/.github/actions/install-toolchain@master
         with:
@@ -51,6 +52,7 @@ jobs:
       # 3. INSTALL DEPENDENCIES
       ###########################################################################
       - name: Install dependencies
+        if: matrix.language == 'c-cpp' && matrix.build-mode == 'manual'
         uses: stormbytepp/githubactions/.github/actions/install-cached@master
         with:
           cache-key: apt-dependencies-v1
