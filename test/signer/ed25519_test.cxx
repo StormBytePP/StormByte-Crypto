@@ -1,3 +1,4 @@
+#include <StormByte/buffer/fifo.hxx>
 #include <StormByte/crypto/signer/ed25519.hxx>
 #include <StormByte/test_handlers.h>
 

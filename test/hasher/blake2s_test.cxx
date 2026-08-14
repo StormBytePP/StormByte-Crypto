@@ -1,3 +1,4 @@
+#include <StormByte/buffer/fifo.hxx>
 #include <StormByte/buffer/producer.hxx>
 #include <StormByte/crypto/hasher/blake2s.hxx>
 #include <StormByte/test_handlers.h>

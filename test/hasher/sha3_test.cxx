@@ -1,3 +1,4 @@
+#include <StormByte/buffer/fifo.hxx>
 #include <StormByte/crypto/hasher/sha3_256.hxx>
 #include <StormByte/crypto/hasher/sha3_512.hxx>
 #include <StormByte/test_handlers.h>
