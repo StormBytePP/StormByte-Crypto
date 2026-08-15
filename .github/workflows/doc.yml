@@ -9,6 +9,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  actions: write
 
 jobs:
   docs:
@@ -17,3 +18,4 @@ jobs:
       doc_target: StormByteCryptoDoc
       extra-cmake-options: -DENABLE_DOC=ON -DWITH_STORMBYTE=BUNDLED -DWITH_CRYPTOPP=SYSTEM -DWITH_BZIP2=SYSTEM
       extra-install: 'libcrypto++-dev libbz2-dev'
+      docs_output_dir: ./_site

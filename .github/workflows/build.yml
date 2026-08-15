@@ -2,125 +2,106 @@ name: Compile & Test
 
 permissions:
   actions: write
+  contents: read
 
 on:
   push:
     branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
-  
   workflow_dispatch:
 
 env:
   BUILD_TYPE: Debug
+  BUILDMASTER_DEBUG: 1
 
 jobs:
   build-linux:
     runs-on: ubuntu-latest
-
     strategy:
       matrix:
         compiler: [gcc, clang, clang-libc++]
         cryptopp: [SYSTEM, BUNDLED]
         bzip2: [SYSTEM, BUNDLED]
         exclude:
-          # Exclude incompatible combinations
           - compiler: clang-libc++
             cryptopp: SYSTEM
           - compiler: clang-libc++
             bzip2: SYSTEM
         include:
-          # Force libc++ to always use system-cryptopp OFF and system-bzip2 OFF
           - compiler: clang
             stdlib: libc++
             cryptopp: BUNDLED
             bzip2: BUNDLED
-
     name: ${{ matrix.compiler }}-cryptopp(${{ matrix.cryptopp }})-bzip2(${{ matrix.bzip2 }})
 
     steps:
-    - name: Checkout repository and submodules
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-        submodules: recursive
+      - name: Checkout repository and submodules
+        uses: stormbytepp/githubactions/.github/actions/checkout-cached@master
+        with:
+          fetch-depth: 0
+          submodules: recursive
 
-    - name: Install toolchain
-      id: install-toolchain
-      uses: stormbytepp/githubactions/.github/actions/install-toolchain@master
-      with:
-        toolchain: ${{ matrix.compiler }}
-        ccache-key: '${{ matrix.compiler }}-cryptopp(${{ matrix.cryptopp }})-bzip2(${{ matrix.bzip2 }})-v1'
-      env:
-        GITHUB_TOKEN: ${{ github.token }}
+      - name: Install CryptoPP dependencies
+        if: matrix.cryptopp == 'SYSTEM'
+        uses: stormbytepp/githubactions/.github/actions/install-cached@master
+        with:
+          packages: 'libcrypto++-dev'
+          cache-key: apt-cryptopp-v1
 
-    - name: Install CryptoPP dependencies
-      if: ${{ matrix.cryptopp == 'SYSTEM' }}
-      uses: stormbytepp/githubactions/.github/actions/install-cached@master
-      with:
-        packages: 'libcrypto++-dev'
-        cache-key: 'apt-cryptopp-v1'
+      - name: Install Bzip2 dependencies
+        if: matrix.bzip2 == 'SYSTEM'
+        uses: stormbytepp/githubactions/.github/actions/install-cached@master
+        with:
+          packages: 'libbz2-dev'
+          cache-key: apt-bzip2-v1
 
-    - name: Install Bzip2 dependencies
-      if: ${{ matrix.bzip2 == 'SYSTEM' }}
-      uses: stormbytepp/githubactions/.github/actions/install-cached@master
-      with:
-        packages: 'libbz2-dev'
-        cache-key: 'apt-bzip2-v1'
-
-    - name: Build with CMake
-      uses: ashutoshvarma/action-cmake-build@master
-      with:
-        build-dir: ${{ github.workspace }}/build
-        cc: ${{ steps.install-toolchain.outputs.c_compiler }}
-        cxx: ${{ steps.install-toolchain.outputs.cxx_compiler }}
-        configure-options: >-
-          -G Ninja
-          -DENABLE_ASAN=ON
-          -DENABLE_TEST=ON
-          -DWITH_CRYPTOPP=${{ matrix.cryptopp }}
-          -DWITH_BZIP2=${{ matrix.bzip2 }}
-          -DWITH_STORMBYTE=BUNDLED
-          ${{ matrix.compiler == 'clang-libc++' && format('-DCMAKE_CXX_FLAGS=-stdlib={0}', 'libc++') || '' }}
-        build-type: ${{ env.BUILD_TYPE }}
-        run-test: true
-        ctest-options: --output-on-failure --test-dir ${{ github.workspace }}/build/test
+      - name: Build with toolchain
+        uses: stormbytepp/githubactions/.github/actions/build-with-toolchain@master
+        with:
+          toolchain: ${{ matrix.compiler }}
+          ccache-key: v1
+          build-type: ${{ env.BUILD_TYPE }}
+          configure-options: >-
+            -DENABLE_ASAN=ON
+            -DENABLE_TEST=ON
+            -DWITH_CRYPTOPP=${{ matrix.cryptopp }}
+            -DWITH_BZIP2=${{ matrix.bzip2 }}
+            -DWITH_STORMBYTE=BUNDLED
+            ${{ matrix.compiler == 'clang-libc++' && '-DCMAKE_CXX_FLAGS=-stdlib=libc++' || '' }}
+          run-tests: true
+          ctest-options: --output-on-failure --test-dir ${{ github.workspace }}/build/test
 
   build-windows:
     runs-on: windows-latest
-    strategy:
-      matrix:
-        arch:
-          - x64
 
     steps:
       - name: Checkout repository and submodules
-        uses: actions/checkout@v4
+        uses: stormbytepp/githubactions/.github/actions/checkout-cached@master
         with:
+          fetch-depth: 0
           submodules: recursive
 
-      - name: Install toolchain
-        id: install-toolchain
-        uses: stormbytepp/githubactions/.github/actions/install-toolchain@master
+      - name: Build with toolchain
+        uses: stormbytepp/githubactions/.github/actions/build-with-toolchain@master
         with:
           toolchain: msvc
-
-      - name: Build with CMake
-        uses: ashutoshvarma/action-cmake-build@master
-        with:
-          build-dir: ${{ github.workspace }}\build
+          ccache-key: v1
+          build-type: ${{ env.BUILD_TYPE }}
           configure-options: >-
-            -G Ninja
             -DENABLE_TEST=ON
             -DWITH_CRYPTOPP=BUNDLED
             -DWITH_BZIP2=BUNDLED
             -DWITH_STORMBYTE=BUNDLED
-          build-type: ${{ env.BUILD_TYPE }}
+          run-tests: false
 
-      - name: Add DLL directory to PATH
+      - name: Add DLL directories to PATH
+        shell: pwsh
         run: |
           echo "${{ github.workspace }}\build\lib" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           echo "${{ github.workspace }}\build\thirdparty\buildmaster\install\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Run unit tests
-        run: ctest --output-on-failure --test-dir ${{ github.workspace }}\build\test
+        shell: pwsh
+        run: |
+          ctest --output-on-failure --test-dir "${{ github.workspace }}\build\test"
