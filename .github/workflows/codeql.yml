@@ -46,7 +46,7 @@ jobs:
         if: matrix.language == 'c-cpp' && matrix.build-mode == 'manual'
         uses: stormbytepp/githubactions/.github/actions/install-cached@master
         with:
-          cache-key: apt-dependencies-v1
+          cache-key: apt-cryptopp-bzip2-v1
           packages: 'libcrypto++-dev libbz2-dev'
 
       - name: Initialize CodeQL
