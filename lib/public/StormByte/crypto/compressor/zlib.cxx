@@ -33,7 +33,7 @@ bool Zlib::DoCompress(std::span<const std::byte> input, Buffer::WriteOnly& outpu
 		output.Write(std::move(compressedBuffer));
 		return true;
 	}
-	catch (const CryptoPP::Exception& e) {
+	catch (const CryptoPP::Exception&) {
 		return false;
 	}
 }
@@ -106,7 +106,7 @@ bool Zlib::DoDecompress(std::span<const std::byte> input, Buffer::WriteOnly& out
 		output.Write(std::move(decompressedBuffer));
 		return true;
 	}
-	catch (const CryptoPP::Exception& e) {
+	catch (const CryptoPP::Exception&) {
 		return false;
 	}
 }
