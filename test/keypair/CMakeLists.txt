@@ -1,3 +1,4 @@
 add_executable(KeyPairGenerateSaveTests keypair_generatesave_test.cxx)
 target_link_libraries(KeyPairGenerateSaveTests StormByte::Crypto tests)
 add_test(NAME KeyPairGenerateSaveTests COMMAND KeyPairGenerateSaveTests)
+set_tests_properties(KeyPairGenerateSaveTests PROPERTIES LABELS "keypair")
