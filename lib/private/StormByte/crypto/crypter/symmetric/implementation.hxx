@@ -24,7 +24,11 @@ namespace StormByte::Crypto::Crypter {
 	// OWASP Password Storage Cheat Sheet (2023): minimum 600_000 iterations for
 	// PBKDF2-HMAC-SHA-256. Do not lower this without a documented security review;
 	// fewer iterations weakens resistance to offline password cracking.
+#ifdef STORMBYTE_CRYPTO_INSECURE_PBKDF2_ITERATIONS_FOR_CI
+	constexpr unsigned int PBKDF2_ITERATIONS = 1000;
+#else
 	constexpr unsigned int PBKDF2_ITERATIONS = 600000;
+#endif
 
 	template<typename CryptoHMAC>
 	STORMBYTE_CRYPTO_PRIVATE size_t DeriveKey(CryptoPP::SecByteBlock& key, CryptoPP::SecByteBlock& salt, const Password& password) noexcept {

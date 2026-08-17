@@ -31,6 +31,7 @@ jobs:
     name: linux-${{ matrix.compiler }}-cryptopp(${{ matrix.cryptopp }})-bzip2(${{ matrix.bzip2 }})
     env:
       LD_LIBRARY_PATH: ${{ github.workspace }}/build/thirdparty/buildmaster/install/lib:${{ github.workspace }}/build/lib
+      CXXFLAGS: -DSTORMBYTE_CRYPTO_INSECURE_PBKDF2_ITERATIONS_FOR_CI
 
     steps:
       - name: Checkout repository and submodules
@@ -78,6 +79,7 @@ jobs:
     name: macos-${{ matrix.compiler == 'clang' && 'clang-libc++' || matrix.compiler }}
     env:
       DYLD_LIBRARY_PATH: ${{ github.workspace }}/build/thirdparty/buildmaster/install/lib:${{ github.workspace }}/build/lib
+      CXXFLAGS: -DSTORMBYTE_CRYPTO_INSECURE_PBKDF2_ITERATIONS_FOR_CI
 
     steps:
       - name: Checkout repository and submodules
@@ -104,6 +106,8 @@ jobs:
   build-windows:
     runs-on: windows-latest
     name: windows-msvc
+    env:
+      CXXFLAGS: /DSTORMBYTE_CRYPTO_INSECURE_PBKDF2_ITERATIONS_FOR_CI
 
     steps:
       - name: Checkout repository and submodules
