@@ -6,9 +6,9 @@ add_executable(AESTests aes_test.cxx)
 target_link_libraries(AESTests StormByte::Crypto tests)
 add_test(NAME AESTests COMMAND AESTests)
 
-add_executable(Camellia camellia_test.cxx)
-target_link_libraries(Camellia StormByte::Crypto tests)
-add_test(NAME Camellia COMMAND Camellia)
+add_executable(CamelliaTests camellia_test.cxx)
+target_link_libraries(CamelliaTests StormByte::Crypto tests)
+add_test(NAME CamelliaTests COMMAND CamelliaTests)
 
 add_executable(ChaChaPolyTests chachapoly_test.cxx)
 target_link_libraries(ChaChaPolyTests StormByte::Crypto tests)

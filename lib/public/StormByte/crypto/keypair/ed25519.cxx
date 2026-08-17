@@ -1,26 +1,35 @@
+#include <StormByte/crypto/helpers/secure_wipe.hxx>
 #include <StormByte/crypto/keypair/ed25519.hxx>
 #include <StormByte/crypto/keypair/implementation.hxx>
+#include <StormByte/crypto/password.hxx>
 #include <StormByte/crypto/random.hxx>
 
 #include <xed25519.h>
+#include <queue.h>
 
 using namespace StormByte::Crypto::KeyPair;
 
-ED25519::PointerType ED25519::Generate(unsigned short key_size) noexcept {
-	// ED25519 uses a fixed 256-bit curve; reject other sizes
-	if (key_size != 256) return nullptr;
-
+ED25519::PointerType ED25519::Generate(unsigned short /*bits*/) noexcept {
 	try {
-		// Create a signer to generate a private key, then extract the key objects
-		CryptoPP::ed25519Signer signer(RNG());
-		auto& priv = static_cast<CryptoPP::ed25519PrivateKey&>(signer.AccessPrivateKey());
+		CryptoPP::ed25519::Signer signer(RNG());
+		CryptoPP::ed25519::Verifier verifier(signer);
 
-		CryptoPP::ed25519PublicKey pub;
-		priv.MakePublicKey(pub);
+		CryptoPP::ByteQueue pubQueue;
+		verifier.GetPublicKey().Save(pubQueue);
+		CryptoPP::SecByteBlock pub(pubQueue.CurrentSize());
+		pubQueue.Get(pub.data(), pub.size());
+		auto pubStr = EncodeSecBlockBase64(pub);
+		Helpers::SecureWipe(pub);
+
+		CryptoPP::ByteQueue privQueue;
+		signer.GetPrivateKey().Save(privQueue);
+		CryptoPP::SecByteBlock priv(privQueue.CurrentSize());
+		privQueue.Get(priv.data(), priv.size());
+		Password privPwd = PasswordFromSecBlock(priv);
 
 		return std::make_shared<ED25519>(
-			SerializeKey<CryptoPP::ed25519PublicKey>(pub),
-			SerializeKey<CryptoPP::ed25519PrivateKey>(priv)
+			std::move(pubStr),
+			std::move(privPwd)
 		);
 	} catch (...) {
 		return nullptr;

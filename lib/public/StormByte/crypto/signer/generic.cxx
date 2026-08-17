@@ -1,7 +1,7 @@
 #include <StormByte/crypto/signer/dsa.hxx>
+#include <StormByte/crypto/signer/ecdsa.hxx>
 #include <StormByte/crypto/signer/ed25519.hxx>
 #include <StormByte/crypto/signer/rsa.hxx>
-#include <memory>
 
 using namespace StormByte::Crypto::Signer;
 
@@ -15,7 +15,7 @@ bool Generic::DoSign(Buffer::ReadOnly& input, Buffer::WriteOnly& output, ReadMod
 
 	if (!read_ok)
 		return false;
-	
+
 	return DoSign(std::span<const std::byte>(data.data(), data.size()), output);
 }
 
@@ -29,7 +29,7 @@ bool Generic::DoVerify(Buffer::ReadOnly& input, const std::string& signature, Re
 
 	if (!read_ok)
 		return false;
-	
+
 	return DoVerify(std::span<const std::byte>(data.data(), data.size()), signature);
 }
 
@@ -39,22 +39,22 @@ namespace StormByte::Crypto::Signer {
 			return nullptr;
 
 		switch (type) {
-			case Type::DSA: {
+			case Type::DSA:
 				if (keypair->Type() != KeyPair::Type::DSA)
 					return nullptr;
 				return std::make_shared<DSA>(keypair);
-			}
-			case Type::RSA: {
-				if (keypair->Type() != KeyPair::Type::RSA)
+			case Type::ECDSA:
+				if (keypair->Type() != KeyPair::Type::ECDSA)
 					return nullptr;
-				return std::make_shared<RSA>(keypair);
-			}
-			case Type::ED25519: {
+				return std::make_shared<ECDSA>(keypair);
+			case Type::ED25519:
 				if (keypair->Type() != KeyPair::Type::ED25519)
 					return nullptr;
 				return std::make_shared<ED25519>(keypair);
-			}
-			case Type::ECDSA:
+			case Type::RSA:
+				if (keypair->Type() != KeyPair::Type::RSA)
+					return nullptr;
+				return std::make_shared<RSA>(keypair);
 			default:
 				return nullptr;
 		}

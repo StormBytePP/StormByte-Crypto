@@ -1,6 +1,7 @@
 #include <StormByte/crypto/keypair/implementation.hxx>
 
 namespace StormByte::Crypto::KeyPair {
+
 	std::string EncodeSecBlockBase64(const CryptoPP::SecByteBlock& b) noexcept {
 		std::string out;
 		CryptoPP::Base64Encoder enc(new CryptoPP::StringSink(out), false);
@@ -14,7 +15,8 @@ namespace StormByte::Crypto::KeyPair {
 		CryptoPP::StringSource ss(s, true, new CryptoPP::Redirector(dec));
 		CryptoPP::SecByteBlock b;
 		b.resize(dec.MaxRetrievable());
-		dec.Get(b.data(), b.size());
+		if (b.size() > 0)
+			dec.Get(b.data(), b.size());
 		return b;
 	}
 }

@@ -1,8 +1,10 @@
 #pragma once
 
 #include <StormByte/buffer/producer.hxx>
+#include <StormByte/crypto/helpers/secure_wipe.hxx>
 #include <StormByte/crypto/keypair/generic.hxx>
 #include <StormByte/crypto/keypair/implementation.hxx>
+#include <StormByte/crypto/password.hxx>
 #include <StormByte/crypto/typedefs.hxx>
 
 #include <thread>
@@ -17,23 +19,19 @@ using StormByte::Buffer::WriteOnly;
 using namespace StormByte::Crypto;
 
 namespace StormByte::Crypto::Signer {
-	template<typename SignerT, typename PrivateKeyT>
-	STORMBYTE_CRYPTO_PRIVATE bool Sign(std::span<const std::byte> dataSpan, const std::string& privKey, WriteOnly& output) noexcept {
-		try {
-			// Deserialize and validate the private key
-			auto keyRes = KeyPair::DeserializeKey<PrivateKeyT>(privKey);
-			if (!keyRes) {
-				return false;
-			}
-			PrivateKeyT key = std::move(*keyRes);
-			if (!key.Validate(RNG(), 3)) {
-				return false;
-			}
 
-			// Initialize the signer
+	template<typename SignerT, typename PrivateKeyT>
+	STORMBYTE_CRYPTO_PRIVATE bool Sign(std::span<const std::byte> dataSpan, const Password& privKey, WriteOnly& output) noexcept {
+		try {
+			auto keyRes = KeyPair::DeserializeKey<PrivateKeyT>(privKey);
+			if (!keyRes)
+				return false;
+			PrivateKeyT key = std::move(*keyRes);
+			if (!key.Validate(RNG(), 3))
+				return false;
+
 			SignerT signer(key);
 
-			// Sign the message
 			DataType signature;
 			CryptoPP::StringSource(
 				reinterpret_cast<const CryptoPP::byte*>(dataSpan.data()),
@@ -54,19 +52,17 @@ namespace StormByte::Crypto::Signer {
 
 	template<typename SignerT, typename PrivateKeyT>
 	STORMBYTE_CRYPTO_PRIVATE bool Sign(std::span<const std::byte> dataSpan, const KeyPair::Generic::PointerType keypair, WriteOnly& output) noexcept {
-		if (!keypair || !keypair->PrivateKey().has_value()) {
+		if (!keypair || !keypair->HasPrivateKey())
 			return false;
-		}
-		return Sign<SignerT, PrivateKeyT>(dataSpan, keypair->PrivateKey().value(), output);
+		return Sign<SignerT, PrivateKeyT>(dataSpan, *keypair->PrivateKey(), output);
 	}
 
 	template<typename SignerT, typename PrivateKeyT>
-	STORMBYTE_CRYPTO_PRIVATE Consumer Sign(Consumer consumer, const std::string& privKey, ReadMode mode) noexcept {
+	STORMBYTE_CRYPTO_PRIVATE Consumer Sign(Consumer consumer, Password privKey, ReadMode mode) noexcept {
 		Producer producer;
 
-		std::thread([consumer, producer, privKey, mode]() mutable {
+		std::thread([consumer, producer, privKey = std::move(privKey), mode]() mutable {
 			try {
-				// Deserialize and validate the private key
 				auto keyRes = KeyPair::DeserializeKey<PrivateKeyT>(privKey);
 				if (!keyRes) {
 					producer.SetError();
@@ -78,10 +74,8 @@ namespace StormByte::Crypto::Signer {
 					return;
 				}
 
-				// Initialize the signer
 				SignerT signer(key);
 
-				// Use a single SignerFilter to sign the whole stream incrementally.
 				DataType signatureBin;
 				auto filter = std::unique_ptr<CryptoPP::SignerFilter>(
 					new CryptoPP::SignerFilter(
@@ -107,16 +101,13 @@ namespace StormByte::Crypto::Signer {
 					else
 						read_ok = consumer.Extract(bytesToRead, data);
 					if (!read_ok) {
-						// unique_ptr will clean up filter
 						producer.SetError();
 						return;
 					}
 
-					// Feed data into the single SignerFilter
 					filter->Put(reinterpret_cast<const CryptoPP::byte*>(data.data()), data.size());
 				}
 
-				// Finalize signature and emit result
 				filter->MessageEnd();
 
 				if (!producer.Write(std::move(signatureBin))) {
@@ -135,71 +126,65 @@ namespace StormByte::Crypto::Signer {
 	template<typename SignerT, typename PrivateKeyT>
 	STORMBYTE_CRYPTO_PRIVATE Consumer Sign(Consumer consumer, const KeyPair::Generic::PointerType keypair, ReadMode mode) noexcept {
 		Producer producer;
-		if (!keypair || !keypair->PrivateKey().has_value()) {
+		if (!keypair || !keypair->HasPrivateKey()) {
 			producer.SetError();
 			return producer.Consumer();
 		}
 
-		return Sign<SignerT, PrivateKeyT>(consumer, keypair->PrivateKey().value(), mode);
+		return Sign<SignerT, PrivateKeyT>(consumer, *keypair->PrivateKey(), mode);
 	}
 
 	template<typename VerifierT, typename PublicKeyT>
 	STORMBYTE_CRYPTO_PRIVATE bool Verify(std::span<const std::byte> data, const std::string& signature, const std::string& pubKey) noexcept {
 		try {
-			// Deserialize and validate the public key
 			auto keyRes = KeyPair::DeserializeKey<PublicKeyT>(pubKey);
-			if (!keyRes) {
-				return false; // Public key deserialization failed
-			}
+			if (!keyRes)
+				return false;
 			PublicKeyT key = std::move(*keyRes);
-			if (!key.Validate(RNG(), 3)) {
-				return false; // Public key validation failed
-			}
+			if (!key.Validate(RNG(), 3))
+				return false;
 
-			// Initialize the verifier
 			VerifierT verifier(key);
 
-			// Verify the signature
 			bool result = false;
-			CryptoPP::StringSource ss(
-				signature + std::string(reinterpret_cast<const char*>(data.data()), data.size()),
-				true,
+			auto vf = std::unique_ptr<CryptoPP::SignatureVerificationFilter>(
 				new CryptoPP::SignatureVerificationFilter(
 					verifier,
-					new CryptoPP::ArraySink((CryptoPP::byte*)&result, sizeof(result)),
+					new CryptoPP::ArraySink(reinterpret_cast<CryptoPP::byte*>(&result), sizeof(result)),
 					CryptoPP::SignatureVerificationFilter::PUT_RESULT | CryptoPP::SignatureVerificationFilter::SIGNATURE_AT_BEGIN
 				)
 			);
 
+			vf->Put(reinterpret_cast<const CryptoPP::byte*>(signature.data()), signature.size());
+			if (!data.empty())
+				vf->Put(reinterpret_cast<const CryptoPP::byte*>(data.data()), data.size());
+			vf->MessageEnd();
+
 			return result;
 		} catch (...) {
-			return false; // Other errors
+			return false;
 		}
 	}
 
 	template<typename VerifierT, typename PublicKeyT>
 	STORMBYTE_CRYPTO_PRIVATE bool Verify(std::span<const std::byte> data, const std::string& signature, const KeyPair::Generic::PointerType keypair) noexcept {
+		if (!keypair)
+			return false;
 		return Verify<VerifierT, PublicKeyT>(data, signature, keypair->PublicKey());
 	}
 
 	template<typename VerifierT, typename PublicKeyT>
 	STORMBYTE_CRYPTO_PRIVATE bool Verify(Consumer consumer, const std::string& signature, const std::string& pubKey, ReadMode mode) noexcept {
 		try {
-			// Deserialize and validate the public key
 			auto keyRes = KeyPair::DeserializeKey<PublicKeyT>(pubKey);
-			if (!keyRes) {
-				return false; // Public key deserialization failed
-			}
+			if (!keyRes)
+				return false;
 			PublicKeyT key = std::move(*keyRes);
-			if (!key.Validate(RNG(), 3)) {
-				return false; // Public key validation failed
-			}
+			if (!key.Validate(RNG(), 3))
+				return false;
 
-			// Initialize the verifier
 			VerifierT verifier(key);
 
-
-			// Create a single SignatureVerificationFilter and feed signature then the streamed message
 			bool verificationResult = false;
 			auto vf = std::unique_ptr<CryptoPP::SignatureVerificationFilter>(
 				new CryptoPP::SignatureVerificationFilter(
@@ -209,7 +194,6 @@ namespace StormByte::Crypto::Signer {
 				)
 			);
 
-			// Provide signature first
 			vf->Put(reinterpret_cast<const CryptoPP::byte*>(signature.data()), signature.size());
 
 			constexpr size_t chunkSize = 4096;
@@ -228,24 +212,24 @@ namespace StormByte::Crypto::Signer {
 				else
 					read_ok = consumer.Extract(bytesToRead, data);
 
-				if (!read_ok) {
-					// unique_ptr will clean up vf
+				if (!read_ok)
 					return false;
-				}
 
 				vf->Put(reinterpret_cast<const CryptoPP::byte*>(data.data()), data.size());
 			}
 
-				vf->MessageEnd();
+			vf->MessageEnd();
 
-				return verificationResult;
+			return verificationResult;
 		} catch (...) {
-			return false; // Handle any unexpected errors
+			return false;
 		}
 	}
 
 	template<typename VerifierT, typename PublicKeyT>
 	STORMBYTE_CRYPTO_PRIVATE bool Verify(Consumer consumer, const std::string& signature, const KeyPair::Generic::PointerType keypair, ReadMode mode) noexcept {
+		if (!keypair)
+			return false;
 		return Verify<VerifierT, PublicKeyT>(consumer, signature, keypair->PublicKey(), mode);
 	}
 }

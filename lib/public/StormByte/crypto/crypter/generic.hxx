@@ -160,21 +160,10 @@ namespace StormByte::Crypto::Crypter {
 			inline 												Generic(enum Type type):
 			m_type(type) {}
 
-		private:
-			/**
-			 * @brief Implementation of the decryption logic.
-			 * @param input The input buffer to decrypt.
-			 * @param output The output buffer to write the decrypted data to.
-			 * @param mode The read mode indicating copy or move.
-			 * @return true if decryption was successful, false otherwise.
-			 */
-			bool 												DoDecrypt(Buffer::ReadOnly& input, Buffer::WriteOnly& output, ReadMode mode) const noexcept;
-
 			/**
 			 * @brief Implementation of the encryption logic.
 			 * @param input The input buffer to encrypt.
 			 * @param output The output buffer to write the encrypted data to.
-			 * @param mode The read mode indicating copy or move.
 			 * @return true if encryption was successful, false otherwise.
 			 */
 			virtual bool 										DoEncrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept = 0;
@@ -187,6 +176,23 @@ namespace StormByte::Crypto::Crypter {
 			 */
 			virtual Buffer::Consumer 							DoEncrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept = 0;
 
+			/**
+			 * @brief Implementation of the decryption logic.
+			 * @param input The input buffer to decrypt.
+			 * @param output The output buffer to write the decrypted data to.
+			 * @return true if decryption was successful, false otherwise.
+			 */
+			virtual bool 										DoDecrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept = 0;
+
+			/**
+			 * @brief Implementation of the decryption logic for Consumer buffers.
+			 * @param consumer The Consumer buffer to decrypt.
+			 * @param mode The read mode indicating copy or move.
+			 * @return A Consumer buffer containing the decrypted data.
+			 */
+			virtual Buffer::Consumer 							DoDecrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept = 0;
+
+		private:
 			/**
 			 * @brief Implementation of the encryption logic.
 			 * @param input The input buffer to encrypt.
@@ -203,14 +209,6 @@ namespace StormByte::Crypto::Crypter {
 			 * @param mode The read mode indicating copy or move.
 			 * @return true if decryption was successful, false otherwise.
 			 */
-			virtual bool 										DoDecrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept = 0;
-
-			/**
-			 * @brief Implementation of the decryption logic for Consumer buffers.
-			 * @param consumer The Consumer buffer to decrypt.
-			 * @param mode The read mode indicating copy or move.
-			 * @return A Consumer buffer containing the decrypted data.
-			 */
-			virtual Buffer::Consumer 							DoDecrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept = 0;
+			bool 												DoDecrypt(Buffer::ReadOnly& input, Buffer::WriteOnly& output, ReadMode mode) const noexcept;
 	};
 }

@@ -1,6 +1,10 @@
 #pragma once
 
 #include <StormByte/crypto/keypair/generic.hxx>
+#include <StormByte/crypto/password.hxx>
+
+#include <optional>
+#include <string>
 
 /**
  * @namespace KeyPair
@@ -10,16 +14,20 @@ namespace StormByte::Crypto::KeyPair {
 	/**
 	 * @class ECDSA
 	 * @brief An ECDSA keypair class.
+	 *
+	 * The private key, when present, is stored as a @ref StormByte::Crypto::Password
+	 * so sensitive material is reference-counted and zeroized when the last owner
+	 * is destroyed.
 	 */
 	class STORMBYTE_CRYPTO_PUBLIC ECDSA final: public Generic {
 		public:
 			/**
 			 * @brief Constructor
-			 * @param public_key The public key.
-			 * @param private_key The private key (optional).
+			 * @param publicKey The public key material (typically Base64/PEM body).
+			 * @param privateKey Optional private key wrapped in @ref Password.
 			 */
-			inline ECDSA(const std::string& public_key, std::optional<std::string> private_key = std::nullopt):
-			Generic(Type::ECDSA, public_key, private_key) {}
+			inline 												ECDSA(std::string publicKey, std::optional<Password> privateKey = std::nullopt):
+			Generic(Type::ECDSA, std::move(publicKey), std::move(privateKey)) {}
 
 			/**
 			 * @brief Copy constructor
@@ -36,7 +44,7 @@ namespace StormByte::Crypto::KeyPair {
 			/**
 			 * @brief Destructor
 			 */
-			~ECDSA() noexcept									= default;
+			~ECDSA() noexcept override							= default;
 
 			/**
 			 * @brief Copy assignment operator
@@ -56,23 +64,23 @@ namespace StormByte::Crypto::KeyPair {
 			 * @brief Clone the ECDSA keypair.
 			 * @return A pointer to the cloned ECDSA keypair.
 			 */
-			PointerType 										Clone() const noexcept override {
+			PointerType 										Clone() const override {
 				return std::make_shared<ECDSA>(*this);
 			}
 
 			/**
-			 * @brief Move the ECDSA keypair.
+			 * @brief Move this ECDSA keypair into a new owning pointer.
 			 * @return A pointer to the moved ECDSA keypair.
 			 */
-			PointerType 										Move() noexcept override {
+			PointerType 										Move() override {
 				return std::make_shared<ECDSA>(std::move(*this));
 			}
 
 			/**
-			 * @brief Generates a new ECDSA keypair.
-			 * @param key_size The size of the key in bits (256, 384, or 521).
+			 * @brief Generate a new ECDSA keypair.
+			 * @param bits The curve size in bits (e.g. 256).
 			 * @return A pointer to the generated ECDSA keypair, or nullptr on failure.
 			 */
-			static PointerType 									Generate(unsigned short key_size = 256) noexcept;
+			static PointerType 									Generate(unsigned short bits) noexcept;
 	};
 }

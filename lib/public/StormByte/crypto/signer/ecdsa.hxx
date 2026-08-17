@@ -10,30 +10,27 @@
 namespace StormByte::Crypto::Signer {
 	/**
 	 * @class ECDSA
-	 * @brief A generic signer signer class.
+	 * @brief ECDSA digital signature class (ECP with SHA-256).
 	 */
 	class STORMBYTE_CRYPTO_PUBLIC ECDSA final: public Generic {
 		public:
 			/**
 			 * @brief Constructor
-			 * @param type The type of signer.
-			 * @param keypair The keypair used for asymmetric encryption.
+			 * @param keypair The keypair used for signing and verification.
 			 */
 			inline 														ECDSA(KeyPair::Generic::PointerType keypair):
 			Generic(Type::ECDSA, keypair) {}
 
 			/**
 			 * @brief Constructor
-			 * @param type The type of signer.
-			 * @param keypair The keypair used for asymmetric encryption.
+			 * @param keypair The keypair used for signing and verification.
 			 */
 			inline 														ECDSA(const KeyPair::ECDSA& keypair):
 			Generic(Type::ECDSA, keypair) {}
 
 			/**
 			 * @brief Constructor
-			 * @param type The type of signer.
-			 * @param keypair The keypair used for asymmetric encryption.
+			 * @param keypair The keypair used for signing and verification.
 			 */
 			inline 														ECDSA(KeyPair::ECDSA&& keypair):
 			Generic(Type::ECDSA, keypair) {}
@@ -51,7 +48,7 @@ namespace StormByte::Crypto::Signer {
 			ECDSA(ECDSA&& other) noexcept								= default;
 
 			/**
-			 * @brief Virtual destructor
+			 * @brief Destructor
 			 */
 			~ECDSA() noexcept 											= default;
 
@@ -89,8 +86,7 @@ namespace StormByte::Crypto::Signer {
 			/**
 			 * @brief Implementation of the signing logic.
 			 * @param input The input buffer to sign.
-			 * @param output The output buffer to write the signed data to.
-			 * @param mode The read mode indicating copy or move.
+			 * @param output The output buffer to write the signature to.
 			 * @return true if signing was successful, false otherwise.
 			 */
 			bool 														DoSign(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
@@ -99,7 +95,7 @@ namespace StormByte::Crypto::Signer {
 			 * @brief Implementation of the signing logic for Consumer buffers.
 			 * @param consumer The Consumer buffer to sign.
 			 * @param mode The read mode indicating copy or move.
-			 * @return A Consumer buffer containing the signed data.
+			 * @return A Consumer buffer containing the signature.
 			 */
 			Buffer::Consumer 											DoSign(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
 
@@ -110,12 +106,13 @@ namespace StormByte::Crypto::Signer {
 			 * @return true if verification was successful, false otherwise.
 			 */
 			bool 														DoVerify(std::span<const std::byte> input, const std::string& signature) const noexcept override;
+
 			/**
 			 * @brief Implementation of the verification logic for Consumer buffers.
 			 * @param consumer The Consumer buffer to verify.
 			 * @param signature The signature to verify against.
 			 * @param mode The read mode indicating copy or move.
-			 * @return A Consumer buffer containing the verified data.
+			 * @return true if verification was successful, false otherwise.
 			 */
 			bool 														DoVerify(Buffer::Consumer consumer, const std::string& signature, ReadMode mode) const noexcept override;
 	};

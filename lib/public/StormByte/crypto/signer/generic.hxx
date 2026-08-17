@@ -58,7 +58,7 @@ namespace StormByte::Crypto::Signer {
 			Generic& operator=(Generic&& other) noexcept				= default;
 
 			/**
-			 * @brief Gets the keypair used for asymmetric encryption.
+			 * @brief Gets the keypair used for signing and verification.
 			 * @return The keypair.
 			 */
 			KeyPair::Generic::PointerType 							KeyPair() const noexcept {
@@ -148,12 +148,12 @@ namespace StormByte::Crypto::Signer {
 
 		protected:
 			enum Type m_type;										///< The type of signer
-			KeyPair::Generic::PointerType m_keypair;				///< The password used for asymmetric encryption
+			KeyPair::Generic::PointerType m_keypair;				///< Keypair used for signing and verification
 
 			/**
 			 * @brief Constructor
 			 * @param type The type of signer.
-			 * @param keypair The keypair used for asymmetric encryption.
+			 * @param keypair The keypair used for signing and verification.
 			 */
 			inline 													Generic(enum Type type, KeyPair::Generic::PointerType keypair):
 			m_type(type), m_keypair(keypair) {}
@@ -161,7 +161,7 @@ namespace StormByte::Crypto::Signer {
 			/**
 			 * @brief Constructor
 			 * @param type The type of signer.
-			 * @param keypair The keypair used for asymmetric encryption.
+			 * @param keypair The keypair used for signing and verification.
 			 */
 			inline 													Generic(enum Type type, const KeyPair::Generic& keypair):
 			m_type(type), m_keypair(keypair.Clone()) {}
@@ -169,7 +169,7 @@ namespace StormByte::Crypto::Signer {
 			/**
 			 * @brief Constructor
 			 * @param type The type of signer.
-			 * @param keypair The keypair used for asymmetric encryption.
+			 * @param keypair The keypair used for signing and verification.
 			 */
 			inline 													Generic(enum Type type, KeyPair::Generic&& keypair):
 			m_type(type), m_keypair(keypair.Move()) {}

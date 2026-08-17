@@ -1,4 +1,5 @@
 #include <StormByte/crypto/crypter/symmetric/chachapoly.hxx>
+#include <StormByte/crypto/password.hxx>
 #include <StormByte/test_handlers.h>
 #include "helpers.hxx"
 
@@ -9,7 +10,7 @@ using namespace StormByte::Crypto;
 
 int TestChaCha20EncryptDecryptConsistency() {
 	const std::string fn_name = "TestChaCha20EncryptDecryptConsistency";
-	const std::string password = "SecurePassword123!";
+	Password password("SecurePassword123!");
 	const std::string original_data = "Confidential information to encrypt and decrypt.";
 
 	Crypter::ChaChaPoly chacha20(password);
@@ -34,8 +35,8 @@ int TestChaCha20EncryptDecryptConsistency() {
 
 int TestChaCha20WrongDecryptionPassword() {
 	const std::string fn_name = "TestChaCha20WrongDecryptionPassword";
-	const std::string password = "SecurePassword123!";
-	const std::string wrong_password = "WrongPassword456!";
+	Password password("SecurePassword123!");
+	Password wrong_password("WrongPassword456!");
 	const std::string original_data = "This is sensitive data.";
 
 	Crypter::ChaChaPoly chacha20(password);
@@ -59,7 +60,7 @@ int TestChaCha20WrongDecryptionPassword() {
 
 int TestChaCha20CorruptedCiphertext() {
 	const std::string fn_name = "TestChaCha20CorruptedCiphertext";
-	const std::string password = "SecurePassword123!";
+	Password password("SecurePassword123!");
 	const std::string original_data = "Message to encrypt then corrupt a little.";
 
 	Crypter::ChaChaPoly chacha(password);
@@ -86,12 +87,34 @@ int TestChaCha20CorruptedCiphertext() {
 	RETURN_TEST(fn_name, 0);
 }
 
+int TestChaCha20EncryptionProducesDifferentContent() {
+	const std::string fn_name = "TestChaCha20EncryptionProducesDifferentContent";
+	Password password("SecurePassword123!");
+	const std::string original_data = "Important data to encrypt";
+
+	Crypter::ChaChaPoly chacha(password);
+
+	FIFO encrypted_data;
+	auto encrypt_result = chacha.Encrypt(
+		std::span<const std::byte>(reinterpret_cast<const std::byte*>(original_data.data()), original_data.size()),
+		encrypted_data
+	);
+	ASSERT_TRUE(fn_name, encrypt_result);
+
+	auto encrypted_string = StormByte::String::FromByteVector(encrypted_data.Data());
+	ASSERT_FALSE(fn_name, encrypted_string.empty());
+	ASSERT_NOT_EQUAL(fn_name, encrypted_string, original_data);
+
+	RETURN_TEST(fn_name, 0);
+}
+
 int main(int, char**) {
 	int result = 0;
 
 	result += TestChaCha20EncryptDecryptConsistency();
 	result += TestChaCha20WrongDecryptionPassword();
 	result += TestChaCha20CorruptedCiphertext();
+	result += TestChaCha20EncryptionProducesDifferentContent();
 
 	if (result == 0) {
 		std::cout << "ChaCha20 tests passed" << std::endl;

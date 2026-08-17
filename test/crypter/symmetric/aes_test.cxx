@@ -1,5 +1,6 @@
 #include <StormByte/buffer/producer.hxx>
 #include <StormByte/crypto/crypter/symmetric/aes.hxx>
+#include <StormByte/crypto/password.hxx>
 #include <StormByte/test_handlers.h>
 #include "helpers.hxx"
 
@@ -10,7 +11,7 @@ using namespace StormByte::Crypto;
 
 int TestAESEncryptDecryptConsistency() {
 	const std::string fn_name = "TestAESEncryptDecryptConsistency";
-	const std::string password = "SecurePassword123!";
+	Password password("SecurePassword123!");
 	const std::string original_data = "Confidential information to encrypt and decrypt.";
 
 	Crypter::AES aes(password);
@@ -38,8 +39,8 @@ int TestAESEncryptDecryptConsistency() {
 
 int TestAESWrongDecryptionPassword() {
 	const std::string fn_name = "TestAESWrongDecryptionPassword";
-	const std::string password = "SecurePassword123!";
-	const std::string wrong_password = "WrongPassword456!";
+	Password password("SecurePassword123!");
+	Password wrong_password("WrongPassword456!");
 	const std::string original_data = "This is sensitive data.";
 
 	Crypter::AES aes(password);
@@ -65,7 +66,7 @@ int TestAESWrongDecryptionPassword() {
 
 int TestAESDecryptionWithCorruptedData() {
 	const std::string fn_name = "TestAESDecryptionWithCorruptedData";
-	const std::string password = "StrongPassword123!";
+	Password password("StrongPassword123!");
 	const std::string original_data = "Important confidential data";
 
 	Crypter::AES aes(password);
@@ -109,7 +110,7 @@ int TestAESDecryptionWithCorruptedData() {
 
 int TestAESEncryptionProducesDifferentContent() {
 	const std::string fn_name = "TestAESEncryptionProducesDifferentContent";
-	const std::string password = "SecurePassword123!";
+	Password password("SecurePassword123!");
 	const std::string original_data = "Important data to encrypt";
 
 	Crypter::AES aes(password);
@@ -131,7 +132,7 @@ int TestAESEncryptionProducesDifferentContent() {
 int TestAESEncryptDecryptUsingConsumerProducer() {
 	const std::string fn_name = "TestAESEncryptDecryptUsingConsumerProducer";
 	const std::string input_data = "This is some data to encrypt using the Consumer/Producer model.";
-	const std::string password = "SecurePassword123!";
+	Password password("SecurePassword123!");
 
 	Crypter::AES aes(password);
 

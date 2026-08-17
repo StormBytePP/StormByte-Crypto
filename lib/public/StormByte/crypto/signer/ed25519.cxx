@@ -1,100 +1,111 @@
-#include <StormByte/buffer/fifo.hxx>
+#include <StormByte/buffer/producer.hxx>
+#include <StormByte/crypto/helpers/password_view.hxx>
+#include <StormByte/crypto/helpers/secure_wipe.hxx>
 #include <StormByte/crypto/signer/ed25519.hxx>
-#include <StormByte/crypto/signer/implementation.hxx>
+#include <StormByte/crypto/keypair/implementation.hxx>
+#include <StormByte/crypto/random.hxx>
 
-#include <hex.h>
 #include <xed25519.h>
+#include <filters.h>
+#include <queue.h>
 
-using StormByte::Buffer::FIFO;
+#include <memory>
+#include <thread>
 
 using namespace StormByte::Crypto::Signer;
+using StormByte::Buffer::DataType;
+using StormByte::Buffer::WriteOnly;
+using StormByte::Buffer::Consumer;
+using StormByte::Buffer::Producer;
 
-bool ED25519::DoSign(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept {
-	if (!m_keypair || !m_keypair->PrivateKey().has_value())
+bool ED25519::DoSign(std::span<const std::byte> data, WriteOnly& output) const noexcept {
+	if (!m_keypair || !m_keypair->HasPrivateKey())
 		return false;
+
 	try {
-		// The KeyPair stores ASN.1 keys Base64-encoded via SerializeKey(),
-		// so use the stored string directly for deserialization.
-		std::string privBase64 = m_keypair->PrivateKey().value();
-
-		// Call the shared Sign template (writes raw signature bytes)
-		FIFO tmpbuffer;
-		bool res = ::Sign<CryptoPP::ed25519Signer, CryptoPP::ed25519PrivateKey>(
-			input,
-			privBase64,
-			tmpbuffer
-		);
-
-		DataType signatureData;
-		bool read_ok = tmpbuffer.Extract(signatureData);
-		if (!res || !read_ok)
+		const Password& priv = *m_keypair->PrivateKey();
+		const unsigned char* privData = Helpers::PasswordAccess::Data(priv);
+		const std::size_t privSize = Helpers::PasswordAccess::Size(priv);
+		if (!privData || privSize == 0)
 			return false;
 
-		// Hex-encode the raw signature to preserve existing API
-		std::string hexSignature;
-		{
-			CryptoPP::HexEncoder encoder(new CryptoPP::StringSink(hexSignature));
-			encoder.Put(reinterpret_cast<const uint8_t*>(signatureData.data()), signatureData.size());
-			encoder.MessageEnd();
-		}
+		CryptoPP::ByteQueue queue;
+		queue.Put(privData, privSize);
 
-		return output.Write(hexSignature);
+		CryptoPP::ed25519::Signer signer;
+		signer.AccessPrivateKey().Load(queue);
+
+		DataType signature(signer.SignatureLength());
+		signer.SignMessage(
+			RNG(),
+			reinterpret_cast<const CryptoPP::byte*>(data.data()),
+			data.size_bytes(),
+			reinterpret_cast<CryptoPP::byte*>(signature.data())
+		);
+
+		return output.Write(std::move(signature));
 	} catch (...) {
 		return false;
 	}
 }
 
-/**
- * @brief Implementation of the signing logic for Consumer buffers.
- * @param consumer The Consumer buffer to sign.
- * @param mode The read mode indicating copy or move.
- * @return A Consumer buffer containing the signed data.
- */
-StormByte::Buffer::Consumer ED25519::DoSign(Buffer::Consumer consumer, ReadMode mode) const noexcept {
+Consumer ED25519::DoSign(Consumer consumer, ReadMode mode) const noexcept {
 	Producer producer;
-	if (!m_keypair || !m_keypair->PrivateKey().has_value()) {
+	if (!m_keypair || !m_keypair->HasPrivateKey()) {
 		producer.SetError();
 		return producer.Consumer();
 	}
 
-	std::thread([consumer, producer, privateKey = m_keypair->PrivateKey().value(), mode]() mutable {
+	Password privKey = *m_keypair->PrivateKey();
+
+	std::thread([consumer, producer, privKey = std::move(privKey), mode]() mutable {
 		try {
-			// `privateKey` is already the Base64-encoded ASN.1 key produced by
-			// `SerializeKey`, so we can use it directly.
-			std::string privBase64 = privateKey;
+			const unsigned char* privData = Helpers::PasswordAccess::Data(privKey);
+			const std::size_t privSize = Helpers::PasswordAccess::Size(privKey);
+			if (!privData || privSize == 0) {
+				producer.SetError();
+				return;
+			}
 
+			CryptoPP::ByteQueue queue;
+			queue.Put(privData, privSize);
 
-			// Use the templated streaming Sign which returns a Consumer producing the raw signature
-			auto outConsumer = ::Sign<CryptoPP::ed25519Signer, CryptoPP::ed25519PrivateKey>(consumer, privBase64, mode);
+			CryptoPP::ed25519::Signer signer;
+			signer.AccessPrivateKey().Load(queue);
 
-			// Read signature bytes from the returned Consumer and hex-encode them
-			std::string sigRaw;
+			DataType signature;
+			auto filter = std::unique_ptr<CryptoPP::SignerFilter>(
+				new CryptoPP::SignerFilter(
+					RNG(),
+					signer,
+					new CryptoPP::StringSinkTemplate<DataType>(signature)
+				)
+			);
+
 			constexpr size_t chunkSize = 4096;
-			while (!outConsumer.EoF()) {
-				size_t available = outConsumer.AvailableBytes();
-				if (available == 0) {
+			while (!consumer.EoF()) {
+				size_t availableBytes = consumer.AvailableBytes();
+				if (availableBytes == 0) {
 					std::this_thread::yield();
 					continue;
 				}
-				size_t toRead = std::min(available, chunkSize);
-				DataType outData;
-				auto read_ok = outConsumer.Extract(toRead, outData);
+
+				size_t bytesToRead = std::min(availableBytes, chunkSize);
+				DataType data;
+				bool read_ok = (mode == ReadMode::Copy)
+					? consumer.Read(bytesToRead, data)
+					: consumer.Extract(bytesToRead, data);
 				if (!read_ok) {
 					producer.SetError();
 					return;
 				}
-				sigRaw.append(reinterpret_cast<const char*>(outData.data()), outData.size());
+
+				filter->Put(reinterpret_cast<const CryptoPP::byte*>(data.data()), data.size());
 			}
 
-			// Hex-encode the binary signature
-			std::string hexSignature;
-			{
-				CryptoPP::HexEncoder encoder(new CryptoPP::StringSink(hexSignature));
-				encoder.Put(reinterpret_cast<const uint8_t*>(sigRaw.data()), sigRaw.size());
-				encoder.MessageEnd();
-			}
+			filter->MessageEnd();
 
-			if (!producer.Write(std::move(hexSignature))) {
+			if (!producer.Write(std::move(signature))) {
 				producer.SetError();
 				return;
 			}
@@ -103,48 +114,79 @@ StormByte::Buffer::Consumer ED25519::DoSign(Buffer::Consumer consumer, ReadMode 
 			producer.SetError();
 		}
 	}).detach();
-	
+
 	return producer.Consumer();
 }
 
-bool ED25519::DoVerify(std::span<const std::byte> input, const std::string& signature) const noexcept {
+bool ED25519::DoVerify(std::span<const std::byte> data, const std::string& signature) const noexcept {
+	if (!m_keypair)
+		return false;
+
 	try {
-		// Public key is stored as Base64-encoded ASN.1 via SerializeKey(),
-		// so use it directly for verification.
-		std::string pubBase64 = m_keypair->PublicKey();
+		CryptoPP::SecByteBlock pubRaw = KeyPair::DecodeSecBlockBase64(m_keypair->PublicKey());
+		CryptoPP::ByteQueue queue;
+		queue.Put(pubRaw.data(), pubRaw.size());
+		Helpers::SecureWipe(pubRaw);
 
-		// Convert signature hex -> raw bytes
-		std::string sigRaw;
-		{
-			CryptoPP::HexDecoder decoder(new CryptoPP::StringSink(sigRaw));
-			decoder.Put(reinterpret_cast<const uint8_t*>(signature.data()), signature.size());
-			decoder.MessageEnd();
-		}
+		CryptoPP::ed25519::Verifier verifier;
+		verifier.AccessPublicKey().Load(queue);
 
-		// Call Verify template (expects raw signature and Base64-encoded key)
-		return ::Verify<CryptoPP::ed25519Verifier, CryptoPP::ed25519PublicKey>(
-			std::span<const std::byte>(reinterpret_cast<const std::byte*>(input.data()), input.size()),
-			sigRaw,
-			pubBase64
+		return verifier.VerifyMessage(
+			reinterpret_cast<const CryptoPP::byte*>(data.data()),
+			data.size_bytes(),
+			reinterpret_cast<const CryptoPP::byte*>(signature.data()),
+			signature.size()
 		);
 	} catch (...) {
 		return false;
 	}
 }
-	
-bool ED25519::DoVerify(Buffer::Consumer consumer, const std::string& signature, ReadMode mode) const noexcept {
-	try {
-		// Public key stored as Base64 ASN.1; use directly.
-		std::string pubBase64 = m_keypair->PublicKey();
 
-		std::string sigRaw;
-		{
-			CryptoPP::HexDecoder decoder(new CryptoPP::StringSink(sigRaw));
-			decoder.Put(reinterpret_cast<const uint8_t*>(signature.data()), signature.size());
-			decoder.MessageEnd();
+bool ED25519::DoVerify(Consumer consumer, const std::string& signature, ReadMode mode) const noexcept {
+	if (!m_keypair)
+		return false;
+
+	try {
+		CryptoPP::SecByteBlock pubRaw = KeyPair::DecodeSecBlockBase64(m_keypair->PublicKey());
+		CryptoPP::ByteQueue queue;
+		queue.Put(pubRaw.data(), pubRaw.size());
+		Helpers::SecureWipe(pubRaw);
+
+		CryptoPP::ed25519::Verifier verifier;
+		verifier.AccessPublicKey().Load(queue);
+
+		bool result = false;
+		auto vf = std::unique_ptr<CryptoPP::SignatureVerificationFilter>(
+			new CryptoPP::SignatureVerificationFilter(
+				verifier,
+				new CryptoPP::ArraySink(reinterpret_cast<CryptoPP::byte*>(&result), sizeof(result)),
+				CryptoPP::SignatureVerificationFilter::PUT_RESULT | CryptoPP::SignatureVerificationFilter::SIGNATURE_AT_BEGIN
+			)
+		);
+
+		vf->Put(reinterpret_cast<const CryptoPP::byte*>(signature.data()), signature.size());
+
+		constexpr size_t chunkSize = 4096;
+		while (!consumer.EoF()) {
+			size_t availableBytes = consumer.AvailableBytes();
+			if (availableBytes == 0) {
+				std::this_thread::yield();
+				continue;
+			}
+
+			size_t bytesToRead = std::min(availableBytes, chunkSize);
+			DataType data;
+			bool read_ok = (mode == ReadMode::Copy)
+				? consumer.Read(bytesToRead, data)
+				: consumer.Extract(bytesToRead, data);
+			if (!read_ok)
+				return false;
+
+			vf->Put(reinterpret_cast<const CryptoPP::byte*>(data.data()), data.size());
 		}
 
-		return ::Verify<CryptoPP::ed25519Verifier, CryptoPP::ed25519PublicKey>(consumer, sigRaw, pubBase64, mode);
+		vf->MessageEnd();
+		return result;
 	} catch (...) {
 		return false;
 	}

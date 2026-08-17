@@ -11,6 +11,8 @@
  * @brief The namespace containing all the cryptographic-related classes.
  */
 namespace StormByte::Crypto {
+	class Password;
+	
 	/**
 	 * @enum ReadMode
 	 * @brief The types of data operations.
@@ -19,4 +21,6 @@ namespace StormByte::Crypto {
 		Copy,											///< Indicates a copy operation
 		Move											///< Indicates a move operation
 	};
+
+	using ExpectedPassword = StormByte::Expected<Password, Exception>;
 }

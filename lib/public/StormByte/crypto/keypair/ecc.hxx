@@ -1,6 +1,10 @@
 #pragma once
 
 #include <StormByte/crypto/keypair/generic.hxx>
+#include <StormByte/crypto/password.hxx>
+
+#include <optional>
+#include <string>
 
 /**
  * @namespace KeyPair
@@ -9,17 +13,21 @@
 namespace StormByte::Crypto::KeyPair {
 	/**
 	 * @class ECC
-	 * @brief A ECC keypair class.
+	 * @brief An Elliptic Curve Cryptography keypair class.
+	 *
+	 * The private key, when present, is stored as a @ref StormByte::Crypto::Password
+	 * so sensitive material is reference-counted and zeroized when the last owner
+	 * is destroyed.
 	 */
 	class STORMBYTE_CRYPTO_PUBLIC ECC final: public Generic {
 		public:
 			/**
 			 * @brief Constructor
-			 * @param public_key The public key.
-			 * @param private_key The private key (optional).
+			 * @param publicKey The public key material (typically Base64/PEM body).
+			 * @param privateKey Optional private key wrapped in @ref Password.
 			 */
-			inline ECC(const std::string& public_key, std::optional<std::string> private_key = std::nullopt):
-			Generic(Type::ECC, public_key, private_key) {}
+			inline 												ECC(std::string publicKey, std::optional<Password> privateKey = std::nullopt):
+			Generic(Type::ECC, std::move(publicKey), std::move(privateKey)) {}
 
 			/**
 			 * @brief Copy constructor
@@ -34,9 +42,9 @@ namespace StormByte::Crypto::KeyPair {
 			ECC(ECC&& other) noexcept							= default;
 
 			/**
-			 * @brief Virtual destructor
+			 * @brief Destructor
 			 */
-			~ECC() noexcept 									= default;
+			~ECC() noexcept override							= default;
 
 			/**
 			 * @brief Copy assignment operator
@@ -56,23 +64,23 @@ namespace StormByte::Crypto::KeyPair {
 			 * @brief Clone the ECC keypair.
 			 * @return A pointer to the cloned ECC keypair.
 			 */
-			PointerType 										Clone() const noexcept override {
+			PointerType 										Clone() const override {
 				return std::make_shared<ECC>(*this);
 			}
 
 			/**
-			 * @brief Move the ECC keypair.
+			 * @brief Move this ECC keypair into a new owning pointer.
 			 * @return A pointer to the moved ECC keypair.
 			 */
-			PointerType 										Move() noexcept override {
+			PointerType 										Move() override {
 				return std::make_shared<ECC>(std::move(*this));
 			}
 
 			/**
 			 * @brief Generate a new ECC keypair.
-			 * @param key_size The size of the key in bits.
-			 * @return A pointer to the generated ECC keypair.
+			 * @param bits The curve size in bits (e.g. 256).
+			 * @return A pointer to the generated ECC keypair, or nullptr on failure.
 			 */
-			static PointerType 									Generate(unsigned short key_size = 256) noexcept;
+			static PointerType 									Generate(unsigned short bits) noexcept;
 	};
 }

@@ -15,10 +15,10 @@ namespace StormByte::Crypto::Crypter {
 		public:
 			/**
 			 * @brief Constructor
-			 * @param type The type of crypter.
+			 * @param password The password used for encryption/decryption.
 			 */
-			inline 												AES(const std::string& password):
-			Symmetric(Type::AES, password) {}
+			inline 												AES(class Password password):
+			Symmetric(Type::AES, std::move(password)) {}
 
 			/**
 			 * @brief Copy constructor
@@ -66,6 +66,7 @@ namespace StormByte::Crypto::Crypter {
 			inline PointerType 									Move() noexcept override {
 				return std::make_shared<AES>(std::move(*this));
 			}
+
 		private:
 			/**
 			 * @brief Implementation of the encryption logic.
@@ -91,7 +92,7 @@ namespace StormByte::Crypto::Crypter {
 			 */
 			bool 												DoDecrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
 
-			/**	
+			/**
 			 * @brief Implementation of the decryption logic for Consumer buffers.
 			 * @param consumer The Consumer buffer to decrypt.
 			 * @param mode The read mode indicating copy or move.

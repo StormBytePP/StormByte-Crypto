@@ -1,5 +1,6 @@
 #include <StormByte/buffer/producer.hxx>
 #include <StormByte/crypto/crypter/symmetric/camellia.hxx>
+#include <StormByte/crypto/password.hxx>
 #include <StormByte/test_handlers.h>
 #include "helpers.hxx"
 
@@ -10,7 +11,7 @@ using namespace StormByte::Crypto;
 
 int TestCamelliaEncryptDecryptConsistency() {
 	const std::string fn_name = "TestCamelliaEncryptDecryptConsistency";
-	const std::string password = "SecurePassword123!";
+	Password password("SecurePassword123!");
 	const std::string original_data = "Confidential information to encrypt and decrypt.";
 
 	Crypter::Camellia camellia(password);
@@ -39,8 +40,8 @@ int TestCamelliaEncryptDecryptConsistency() {
 
 int TestCamelliaWrongDecryptionPassword() {
 	const std::string fn_name = "TestCamelliaWrongDecryptionPassword";
-	const std::string password = "SecurePassword123!";
-	const std::string wrong_password = "WrongPassword456!";
+	Password password("SecurePassword123!");
+	Password wrong_password("WrongPassword456!");
 	const std::string original_data = "This is sensitive data.";
 
 	Crypter::Camellia camellia(password);
@@ -66,7 +67,7 @@ int TestCamelliaWrongDecryptionPassword() {
 
 int TestCamelliaDecryptionWithCorruptedData() {
 	const std::string fn_name = "TestCamelliaDecryptionWithCorruptedData";
-	const std::string password = "StrongPassword123!";
+	Password password("StrongPassword123!");
 	const std::string original_data = "Important confidential data";
 
 	Crypter::Camellia camellia(password);
@@ -109,7 +110,7 @@ int TestCamelliaDecryptionWithCorruptedData() {
 
 int TestCamelliaEncryptionProducesDifferentContent() {
 	const std::string fn_name = "TestCamelliaEncryptionProducesDifferentContent";
-	const std::string password = "SecurePassword123!";
+	Password password("SecurePassword123!");
 	const std::string original_data = "Important data to encrypt";
 
 	Crypter::Camellia camellia(password);
@@ -131,7 +132,7 @@ int TestCamelliaEncryptionProducesDifferentContent() {
 int TestCamelliaEncryptDecryptUsingConsumerProducer() {
 	const std::string fn_name = "TestCamelliaEncryptDecryptUsingConsumerProducer";
 	const std::string input_data = "This is some data to encrypt using the Consumer/Producer model.";
-	const std::string password = "SecurePassword123!";
+	Password password("SecurePassword123!");
 
 	Crypter::Camellia camellia(password);
 

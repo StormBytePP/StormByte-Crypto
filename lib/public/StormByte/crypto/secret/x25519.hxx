@@ -1,93 +1,92 @@
 #pragma once
 
-#include <StormByte/crypto/secret/generic.hxx>
 #include <StormByte/crypto/keypair/x25519.hxx>
+#include <StormByte/crypto/secret/generic.hxx>
 
 /**
  * @namespace Secret
- * @brief The namespace containing all the secret-related classes.
+ * @brief The namespace containing key-agreement (shared secret) classes.
  */
 namespace StormByte::Crypto::Secret {
+
 	/**
 	 * @class X25519
-	 * @brief A generic secret class.
+	 * @brief X25519 Diffie-Hellman shared secret derivation.
+	 *
+	 * The local private key is binary material inside @ref Password;
+	 * the peer public key is Base64-encoded.
 	 */
 	class STORMBYTE_CRYPTO_PUBLIC X25519 final: public Generic {
 		public:
 			/**
-			 * @brief Constructor
-			 * @param keypair The keypair used for secret sharing.
+			 * @brief Construct from an X25519 keypair.
+			 * @param keypair Keypair that must contain a private key.
 			 */
-			inline 													X25519(KeyPair::Generic::PointerType keypair):
-			Generic(Type::X25519, keypair) {}
+			inline explicit										X25519(KeyPair::Generic::PointerType keypair) noexcept
+				: Generic(Type::X25519, std::move(keypair)) {}
 
 			/**
-			 * @brief Constructor
-			 * @param keypair The keypair used for secret sharing.
+			 * @brief Copy constructor.
+			 * @param other The other X25519 instance to copy from.
 			 */
-			inline 													X25519(const KeyPair::X25519& keypair):
-			Generic(Type::X25519, keypair.Clone()) {}
+			X25519(const X25519& other)							= default;
 
 			/**
-			 * @brief Constructor
-			 * @param keypair The keypair used for secret sharing.
+			 * @brief Move constructor.
+			 * @param other The other X25519 instance to move from.
 			 */
-			inline 													X25519(KeyPair::X25519&& keypair):
-			Generic(Type::X25519, keypair.Move()) {}
+			X25519(X25519&& other) noexcept						= default;
 
 			/**
-			 * @brief Copy constructor
-			 * @param other The other X25519 secret to copy from.
+			 * @brief Destructor.
 			 */
-			X25519(const X25519& other)								= default;
+			~X25519() noexcept override							= default;
 
 			/**
-			 * @brief Move constructor
-			 * @param other The other X25519 secret to move from.
+			 * @brief Copy assignment operator.
+			 * @param other The other X25519 instance to copy from.
+			 * @return Reference to this instance.
 			 */
-			X25519(X25519&& other) noexcept							= default;
+			X25519& operator=(const X25519& other)				= default;
 
 			/**
-			 * @brief Virtual destructor
+			 * @brief Move assignment operator.
+			 * @param other The other X25519 instance to move from.
+			 * @return Reference to this instance.
 			 */
-			~X25519() noexcept 										= default;
+			X25519& operator=(X25519&& other) noexcept			= default;
 
 			/**
-			 * @brief Copy assignment operator
-			 * @param other The other X25519 secret to copy from.
-			 * @return Reference to this X25519 secret.
+			 * @brief Clone this instance.
+			 * @return A shared pointer to a copy of this object.
 			 */
-			X25519& operator=(const X25519& other)					= default;
-
-			/**
-			 * @brief Move assignment operator
-			 * @param other The other X25519 secret to move from.
-			 * @return Reference to this X25519 secret.
-			 */
-			X25519& operator=(X25519&& other) noexcept				= default;
-
-			/**
-			 * @brief Clone the X25519 secret.
-			 * @return A pointer to the cloned X25519 secret.
-			 */
-			inline PointerType 										Clone() const noexcept override {
+			Generic::PointerType								Clone() const override {
 				return std::make_shared<X25519>(*this);
 			}
 
 			/**
-			 * @brief Move the X25519 secret.
-			 * @return A pointer to the moved X25519 secret.
+			 * @brief Move this instance into a new shared pointer.
+			 * @return A shared pointer owning the moved object.
 			 */
-			inline PointerType 										Move() noexcept override {
+			Generic::PointerType								Move() override {
 				return std::make_shared<X25519>(std::move(*this));
 			}
 
-		private:
 			/**
-			 * @brief Shares the secret with a peer using their public key.
-			 * @param peerPublicKey The peer's public key.
-			 * @return An optional string containing the shared secret, or std::nullopt on failure.
+			 * @brief Derive the shared secret with a peer public key.
+			 * @param peerPublicKey Peer public key encoded as Base64.
+			 * @return Shared secret as @ref Password, or nullopt on failure.
 			 */
-			std::optional<std::string>								DoShare(const std::string& peerPublicKey) const noexcept override;
+			std::optional<Password>								Share(const std::string& peerPublicKey) const noexcept override;
+
+			/**
+			 * @brief Static helper to derive a shared secret without an instance.
+			 * @param keypair Local keypair (must include private key).
+			 * @param peerPublicKey Peer public key encoded as Base64.
+			 * @return Shared secret as @ref Password, or nullopt on failure.
+			 */
+			static std::optional<Password>						DeriveSharedSecret(
+				KeyPair::Generic::PointerType keypair,
+				const std::string& peerPublicKey) noexcept;
 	};
 }

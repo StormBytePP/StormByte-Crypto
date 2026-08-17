@@ -15,10 +15,10 @@ namespace StormByte::Crypto::Crypter {
 		public:
 			/**
 			 * @brief Constructor
-			 * @param type The type of crypter.
+			 * @param password The password used for encryption/decryption.
 			 */
-			inline 												AES_GCM(const std::string& password):
-			Symmetric(Type::AES_GCM, password) {}
+			inline 												AES_GCM(class Password password):
+			Symmetric(Type::AES_GCM, std::move(password)) {}
 
 			/**
 			 * @brief Copy constructor
@@ -92,7 +92,7 @@ namespace StormByte::Crypto::Crypter {
 			 */
 			bool 												DoDecrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
 
-			/**	
+			/**
 			 * @brief Implementation of the decryption logic for Consumer buffers.
 			 * @param consumer The Consumer buffer to decrypt.
 			 * @param mode The read mode indicating copy or move.

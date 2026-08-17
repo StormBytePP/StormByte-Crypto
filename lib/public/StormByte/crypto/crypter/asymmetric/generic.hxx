@@ -15,6 +15,18 @@ namespace StormByte::Crypto::Crypter {
 	class STORMBYTE_CRYPTO_PUBLIC Asymmetric: public Generic {
 		public:
 			/**
+			 * @enum Strategy
+			 * @brief Encryption strategy for asymmetric crypters.
+			 *
+			 * Defines whether to use pure asymmetric encryption or a hybrid envelope
+			 * (asymmetric key encapsulation + AES-GCM).
+			 */
+			enum class Strategy {
+				Hybrid,		///< Hybrid envelope: encrypts a random symmetric key with the public key and the data with AES-GCM
+				Native,		///< Native/pure asymmetric encryption (no hybrid layer)
+			};
+
+			/**
 			 * @brief Copy constructor
 			 * @param other The other Asymmetric crypter to copy from.
 			 */
@@ -53,8 +65,76 @@ namespace StormByte::Crypto::Crypter {
 				return m_keypair;
 			}
 
+			/**
+			 * @brief Encrypt data using the specified strategy.
+			 * @param input The input data to encrypt.
+			 * @param output The output buffer to write the encrypted data to.
+			 * @param strategy The encryption strategy (Native or Hybrid). Defaults to Native.
+			 * @return true if encryption was successful, false otherwise.
+			 */
+			bool Encrypt(std::span<const std::byte> input, Buffer::WriteOnly& output, Strategy strategy = Strategy::Native) const noexcept;
+
+			/**
+			 * @brief Encrypt data using the specified strategy.
+			 * @param input The input buffer to encrypt.
+			 * @param output The output buffer to write the encrypted data to.
+			 * @param strategy The encryption strategy (Native or Hybrid). Defaults to Native.
+			 * @return true if encryption was successful, false otherwise.
+			 */
+			bool Encrypt(const Buffer::ReadOnly& input, Buffer::WriteOnly& output, Strategy strategy = Strategy::Native) const noexcept;
+
+			/**
+			 * @brief Encrypt data using the specified strategy (moves the input).
+			 * @param input The input buffer to encrypt.
+			 * @param output The output buffer to write the encrypted data to.
+			 * @param strategy The encryption strategy (Native or Hybrid). Defaults to Native.
+			 * @return true if encryption was successful, false otherwise.
+			 */
+			bool Encrypt(Buffer::ReadOnly& input, Buffer::WriteOnly& output, Strategy strategy = Strategy::Native) const noexcept;
+
+			/**
+			 * @brief Encrypt data from a Consumer using the specified strategy.
+			 * @param consumer The Consumer buffer to encrypt.
+			 * @param strategy The encryption strategy (Native or Hybrid). Defaults to Native.
+			 * @param mode The read mode indicating copy or move.
+			 * @return A Consumer buffer containing the encrypted data.
+			 */
+			Buffer::Consumer Encrypt(Buffer::Consumer consumer, Strategy strategy = Strategy::Native, ReadMode mode = ReadMode::Move) const noexcept;
+
+			/**
+			 * @brief Decrypt data. Automatically detects whether the data is Native or Hybrid.
+			 * @param input The input data to decrypt.
+			 * @param output The output buffer to write the decrypted data to.
+			 * @return true if decryption was successful, false otherwise.
+			 */
+			bool Decrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept;
+
+			/**
+			 * @brief Decrypt data. Automatically detects whether the data is Native or Hybrid.
+			 * @param input The input buffer to decrypt.
+			 * @param output The output buffer to write the decrypted data to.
+			 * @return true if decryption was successful, false otherwise.
+			 */
+			bool Decrypt(const Buffer::ReadOnly& input, Buffer::WriteOnly& output) const noexcept;
+
+			/**
+			 * @brief Decrypt data (moves the input). Automatically detects whether the data is Native or Hybrid.
+			 * @param input The input buffer to decrypt.
+			 * @param output The output buffer to write the decrypted data to.
+			 * @return true if decryption was successful, false otherwise.
+			 */
+			bool Decrypt(Buffer::ReadOnly& input, Buffer::WriteOnly& output) const noexcept;
+
+			/**
+			 * @brief Decrypt data from a Consumer. Automatically detects whether the data is Native or Hybrid.
+			 * @param consumer The Consumer buffer to decrypt.
+			 * @param mode The read mode indicating copy or move.
+			 * @return A Consumer buffer containing the decrypted data.
+			 */
+			Buffer::Consumer Decrypt(Buffer::Consumer consumer, ReadMode mode = ReadMode::Move) const noexcept;
+
 		protected:
-			KeyPair::Generic::PointerType m_keypair;				///< The password used for asymmetric encryption
+			KeyPair::Generic::PointerType m_keypair;				///< The keypair used for asymmetric encryption
 
 			/**
 			 * @brief Constructor

@@ -1,122 +1,107 @@
 #pragma once
 
+#include <StormByte/clonable.hxx>
 #include <StormByte/crypto/keypair/generic.hxx>
+#include <StormByte/crypto/password.hxx>
+#include <StormByte/crypto/visibility.h>
+
+#include <optional>
+#include <string>
 
 /**
  * @namespace Secret
- * @brief The namespace containing all the secret-related classes.
+ * @brief The namespace containing key-agreement (shared secret) classes.
  */
 namespace StormByte::Crypto::Secret {
+
 	/**
 	 * @enum Type
-	 * @brief The types of secrets available.
+	 * @brief The types of key-agreement algorithms available.
 	 */
 	enum class Type {
 		ECDH,													///< Elliptic Curve Diffie-Hellman
-		X25519,													///< X25519 Elliptic Curve Diffie-Hellman
+		X25519,													///< X25519 Diffie-Hellman
 	};
 
 	/**
 	 * @class Generic
-	 * @brief A generic secret class.
+	 * @brief Base class for key-agreement objects.
+	 *
+	 * Holds a local keypair and exposes a uniform interface to derive a
+	 * shared secret from a peer public key. Concrete types implement
+	 * the algorithm-specific logic (ECDH, X25519, etc.).
 	 */
 	class STORMBYTE_CRYPTO_PUBLIC Generic: public StormByte::Clonable<Generic> {
 		public:
 			/**
-			 * @brief Copy constructor
-			 * @param other The other Generic secret to copy from.
+			 * @brief Copy constructor.
+			 * @param other The other Generic instance to copy from.
 			 */
 			Generic(const Generic& other)						= default;
 
 			/**
-			 * @brief Move constructor
-			 * @param other The other Generic secret to move from.
+			 * @brief Move constructor.
+			 * @param other The other Generic instance to move from.
 			 */
 			Generic(Generic&& other) noexcept					= default;
 
 			/**
-			 * @brief Virtual destructor
+			 * @brief Virtual destructor.
 			 */
-			virtual ~Generic() noexcept 						= default;
+			virtual ~Generic() noexcept							= default;
 
 			/**
-			 * @brief Copy assignment operator
-			 * @param other The other Generic secret to copy from.
-			 * @return Reference to this Generic secret.
+			 * @brief Copy assignment operator.
+			 * @param other The other Generic instance to copy from.
+			 * @return Reference to this instance.
 			 */
 			Generic& operator=(const Generic& other)			= default;
 
 			/**
-			 * @brief Move assignment operator
-			 * @param other The other Generic secret to move from.
-			 * @return Reference to this Generic secret.
+			 * @brief Move assignment operator.
+			 * @param other The other Generic instance to move from.
+			 * @return Reference to this instance.
 			 */
 			Generic& operator=(Generic&& other) noexcept		= default;
 
 			/**
-			 * @brief Gets the keypair used for secret sharing
-			 * @return The keypair.
+			 * @brief Gets the algorithm type of this instance.
+			 * @return The key-agreement type.
 			 */
-			KeyPair::Generic::PointerType 						KeyPair() const noexcept {
-				return m_keypair;
-			}
-
-			/**
-			 * @brief Gets the type of the secret share generator used for secret sharing
-			 * @return The type of the secret share generator.
-			 */
-			enum Type											Type() const noexcept {
+			inline Type											Type() const noexcept {
 				return m_type;
 			}
 
 			/**
-			 * @brief Shares the secret with a peer using their public key.
-			 * @param peerPublicKey The peer's public key.
-			 * @return An optional string containing the shared secret, or std::nullopt on failure.
+			 * @brief Derive a shared secret with a peer public key.
+			 * @param peerPublicKey Peer public key encoded as Base64.
+			 * @return Shared secret as @ref Password on success, or nullopt on failure.
 			 */
-			inline std::optional<std::string>					Share(const std::string& peerPublicKey) const noexcept {
-				return DoShare(peerPublicKey);
-			}
+			virtual std::optional<Password>						Share(const std::string& peerPublicKey) const noexcept = 0;
 
 		protected:
-			enum Type m_type;									///< The type of secret generator
-			KeyPair::Generic::PointerType m_keypair;			///< The keypair used for secret sharing
+			enum Type m_type;									///< Algorithm type
+			KeyPair::Generic::PointerType m_keypair;			///< Local keypair (must include private key)
 
 			/**
-			 * @brief Constructor
-			 * @param keypair The keypair used for secret sharing.
+			 * @brief Constructor.
+			 * @param type Algorithm type.
+			 * @param keypair Local keypair used for agreement.
 			 */
-			inline 												Generic(enum Type type, KeyPair::Generic::PointerType keypair):
-			m_type(type), m_keypair(keypair) {}
-
-			/**
-			 * @brief Constructor
-			 * @param keypair The keypair used for secret sharing.
-			 */
-			inline 												Generic(enum Type type, const KeyPair::Generic& keypair):
-			m_type(type), m_keypair(keypair.Clone()) {}
-
-			/**
-			 * @brief Constructor
-			 * @param keypair The keypair used for secret sharing.
-			 */
-			inline 												Generic(enum Type type, KeyPair::Generic&& keypair):
-			m_type(type), m_keypair(keypair.Move()) {}
-
-		private:
-			/**
-			 * @brief Shares the secret with a peer using their public key.
-			 * @param peerPublicKey The peer's public key.
-			 * @return An optional string containing the shared secret, or std::nullopt on failure.
-			 */
-			virtual std::optional<std::string>					DoShare(const std::string& peerPublicKey) const noexcept = 0;
+			inline												Generic(enum Type type, KeyPair::Generic::PointerType keypair) noexcept
+				: m_type(type), m_keypair(std::move(keypair)) {}
 	};
 
 	/**
-	 * @brief Creates a secret share generator based on the type.
-	 * @param type The type of secret share generator.
-	 * @param keypair The keypair used for secret sharing.
-	 * @return A pointer to the created secret share generator.
+	 * @brief Creates a key-agreement object of the specified type.
+	 * @param type The algorithm type to create.
+	 * @param keypair The matching keypair for that algorithm.
+	 * @return A pointer to the created object, or nullptr on failure
+	 *         (null keypair or type/keypair mismatch).
+	 *
+	 * @note For ECDH the curve size defaults to 256 bits. When using
+	 *       secp384r1 or secp521r1, call @ref ECDH::DeriveSharedSecret
+	 *       with the explicit bit size, or construct @ref ECDH with bits.
 	 */
-	STORMBYTE_CRYPTO_PUBLIC Generic::PointerType 				Create(enum Type type, KeyPair::Generic::PointerType keypair) noexcept;
+	STORMBYTE_CRYPTO_PUBLIC Generic::PointerType				Create(Type type, KeyPair::Generic::PointerType keypair) noexcept;
 }

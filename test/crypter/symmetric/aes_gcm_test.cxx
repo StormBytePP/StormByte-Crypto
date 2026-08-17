@@ -1,4 +1,5 @@
 #include <StormByte/crypto/crypter/symmetric/aes_gcm.hxx>
+#include <StormByte/crypto/password.hxx>
 #include <StormByte/test_handlers.h>
 #include "helpers.hxx"
 
@@ -11,7 +12,7 @@ using namespace StormByte::Crypto;
 int TestAESGCMEncryptDecryptConsistency() {
 	const std::string fn_name = "TestAESGCMEncryptDecryptConsistency";
 	const std::string original = "The quick brown fox jumps over the lazy dog";
-	const std::string password = "SecurePassword123!";
+	Password password("SecurePassword123!");
 
 	Crypter::AES_GCM aes_gcm(password);
 
@@ -33,8 +34,8 @@ int TestAESGCMEncryptDecryptConsistency() {
 int TestAESGCMWrongPassword() {
 	const std::string fn_name = "TestAESGCMWrongPassword";
 	const std::string original = "AES-GCM provides authenticated encryption";
-	const std::string password = "CorrectPassword";
-	const std::string wrongPassword = "WrongPassword";
+	Password password("CorrectPassword");
+	Password wrongPassword("WrongPassword");
 
 	Crypter::AES_GCM aes_gcm(password);
 	Crypter::AES_GCM wrongAESGCM(wrongPassword);
@@ -57,7 +58,7 @@ int TestAESGCMWrongPassword() {
 int TestAESGCMAuthenticationIntegrity() {
 	const std::string fn_name = "TestAESGCMAuthenticationIntegrity";
 	const std::string original = "Data integrity is crucial";
-	const std::string password = "MyPassword";
+	Password password("MyPassword");
 
 	Crypter::AES_GCM aes_gcm(password);
 
@@ -80,12 +81,34 @@ int TestAESGCMAuthenticationIntegrity() {
 	RETURN_TEST(fn_name, 0);
 }
 
+int TestAESGCMEncryptionProducesDifferentContent() {
+	const std::string fn_name = "TestAESGCMEncryptionProducesDifferentContent";
+	Password password("SecurePassword123!");
+	const std::string original_data = "Important data to encrypt";
+
+	Crypter::AES_GCM aes_gcm(password);
+
+	FIFO encrypted_data;
+	auto encrypt_result = aes_gcm.Encrypt(
+		std::span<const std::byte>(reinterpret_cast<const std::byte*>(original_data.data()), original_data.size()),
+		encrypted_data
+	);
+	ASSERT_TRUE(fn_name, encrypt_result);
+
+	auto encrypted_string = StormByte::String::FromByteVector(encrypted_data.Data());
+	ASSERT_FALSE(fn_name, encrypted_string.empty());
+	ASSERT_NOT_EQUAL(fn_name, encrypted_string, original_data);
+
+	RETURN_TEST(fn_name, 0);
+}
+
 int main() {
 	int result = 0;
 
 	result += TestAESGCMEncryptDecryptConsistency();
 	result += TestAESGCMWrongPassword();
 	result += TestAESGCMAuthenticationIntegrity();
+	result += TestAESGCMEncryptionProducesDifferentContent();
 
 	if (result == 0) {
 		std::cout << "AES-GCM tests passed" << std::endl;

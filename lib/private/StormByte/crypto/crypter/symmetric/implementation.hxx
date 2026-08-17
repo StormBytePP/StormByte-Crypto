@@ -1,6 +1,9 @@
 #pragma once
 
 #include <StormByte/buffer/producer.hxx>
+#include <StormByte/crypto/helpers/password_view.hxx>
+#include <StormByte/crypto/helpers/secure_wipe.hxx>
+#include <StormByte/crypto/password.hxx>
 #include <StormByte/crypto/random.hxx>
 #include <StormByte/crypto/typedefs.hxx>
 
@@ -17,23 +20,29 @@ using StormByte::Buffer::Producer;
 using StormByte::Buffer::WriteOnly;
 
 namespace StormByte::Crypto::Crypter {
+
+	// OWASP Password Storage Cheat Sheet (2023): minimum 600_000 iterations for
+	// PBKDF2-HMAC-SHA-256. Do not lower this without a documented security review;
+	// fewer iterations weakens resistance to offline password cracking.
+	constexpr unsigned int PBKDF2_ITERATIONS = 600000;
+
 	template<typename CryptoHMAC>
-	STORMBYTE_CRYPTO_PRIVATE size_t DeriveKey(CryptoPP::SecByteBlock& key, CryptoPP::SecByteBlock& salt, const std::string& password) noexcept {
+	STORMBYTE_CRYPTO_PRIVATE size_t DeriveKey(CryptoPP::SecByteBlock& key, CryptoPP::SecByteBlock& salt, const Password& password) noexcept {
 		CryptoPP::PKCS5_PBKDF2_HMAC<CryptoHMAC> pbkdf2;
+		const unsigned char* pwdData = Helpers::PasswordAccess::Data(password);
+		const std::size_t pwdSize = Helpers::PasswordAccess::Size(password);
 		return pbkdf2.DeriveKey(
 			key,
 			key.size(),
 			0,
-			reinterpret_cast<const uint8_t*>(password.data()),
-			password.size(),
+			pwdData ? pwdData : reinterpret_cast<const uint8_t*>(""),
+			pwdSize,
 			salt,
 			salt.size(),
-			10000
+			PBKDF2_ITERATIONS
 		);
 	}
 
-	// Portable SetKey+IV helper: prefer SetKeyWithIV when available, otherwise
-	// fall back to SetKeyWithoutResync + Resync (used by ChaCha20Poly1305)
 	template<typename CryptorT>
 	auto SetKeyIVImpl(CryptorT& c, const CryptoPP::SecByteBlock& key, size_t keylen, const CryptoPP::SecByteBlock& iv, size_t ivlen, int) -> decltype(c.SetKeyWithIV(key, keylen, iv, ivlen), void()) {
 		c.SetKeyWithIV(key, keylen, iv, ivlen);
@@ -41,7 +50,6 @@ namespace StormByte::Crypto::Crypter {
 
 	template<typename CryptorT>
 	void SetKeyIVImpl(CryptorT& c, const CryptoPP::SecByteBlock& key, size_t keylen, const CryptoPP::SecByteBlock& iv, size_t ivlen, long) {
-		// Many AuthenticatedSymmetricCipher implementations expose SetKeyWithoutResync/Resync
 		c.SetKeyWithoutResync(key.data(), keylen, CryptoPP::g_nullNameValuePairs);
 		c.Resync(iv.data(), static_cast<int>(ivlen));
 	}
@@ -52,14 +60,15 @@ namespace StormByte::Crypto::Crypter {
 	}
 
 	template<typename AlgoT, typename CryptorT, typename CryptoHMAC>
-	STORMBYTE_CRYPTO_PRIVATE bool EncryptCBC(std::span<const std::byte> dataSpan, const std::string& password, WriteOnly& output, const std::size_t& salt_size, const std::size_t& iv_size, const std::size_t& key_size = AlgoT::DEFAULT_KEYLENGTH) noexcept {
+	STORMBYTE_CRYPTO_PRIVATE bool EncryptCBC(std::span<const std::byte> dataSpan, const Password& password, WriteOnly& output, const std::size_t& salt_size, const std::size_t& iv_size, const std::size_t& key_size = AlgoT::DEFAULT_KEYLENGTH) noexcept {
+		CryptoPP::SecByteBlock salt(salt_size);
+		CryptoPP::SecByteBlock iv(iv_size);
+		CryptoPP::SecByteBlock key(key_size);
+
 		try {
-			CryptoPP::SecByteBlock salt(salt_size);
-			CryptoPP::SecByteBlock iv(iv_size);
 			RNG().GenerateBlock(salt, salt.size());
 			RNG().GenerateBlock(iv, iv.size());
 
-			CryptoPP::SecByteBlock key(key_size);
 			DeriveKey<CryptoHMAC>(key, salt, password);
 
 			DataType encryptedData;
@@ -74,57 +83,59 @@ namespace StormByte::Crypto::Crypter {
 				)
 			);
 
-			// Prepend salt and IV (header) before the ciphertext so that
-			// Decrypt functions can read header first.
 			DataType finalData;
 			finalData.reserve(salt.size() + iv.size() + encryptedData.size());
 			for (size_t i = 0; i < salt.size(); ++i) finalData.push_back(static_cast<std::byte>(salt[i]));
 			for (size_t i = 0; i < iv.size(); ++i) finalData.push_back(static_cast<std::byte>(iv[i]));
 			finalData.insert(finalData.end(), encryptedData.begin(), encryptedData.end());
 
+			Helpers::SecureWipe(key);
+			Helpers::SecureWipe(salt);
+			Helpers::SecureWipe(iv);
+
 			return output.Write(std::move(finalData));
 		} catch (...) {
+			Helpers::SecureWipe(key);
+			Helpers::SecureWipe(salt);
+			Helpers::SecureWipe(iv);
 			return false;
 		}
 	}
 
 	template<typename AlgoT, typename CryptorT, typename CryptoHMAC>
-	STORMBYTE_CRYPTO_PRIVATE Consumer EncryptCBC(Consumer consumer, const std::string& password, ReadMode mode, const std::size_t& salt_size, const std::size_t& iv_size, const std::size_t& key_size = AlgoT::DEFAULT_KEYLENGTH) noexcept {
+	STORMBYTE_CRYPTO_PRIVATE Consumer EncryptCBC(Consumer consumer, Password password, ReadMode mode, const std::size_t& salt_size, const std::size_t& iv_size, const std::size_t& key_size = AlgoT::DEFAULT_KEYLENGTH) noexcept {
 		Producer producer;
 
-		// Generate and write header synchronously before starting async processing
-		// This prevents race condition where consumer is used before header exists
 		CryptoPP::SecByteBlock salt(salt_size);
 		CryptoPP::SecByteBlock iv(iv_size);
+		CryptoPP::SecByteBlock key(key_size);
+
 		RNG().GenerateBlock(salt, salt.size());
 		RNG().GenerateBlock(iv, iv.size());
 
-		CryptoPP::SecByteBlock key(key_size);
 		DeriveKey<CryptoHMAC>(key, salt, password);
 
-		// Write salt and IV to output in a single batch
 		std::vector<std::byte> headerBytes;
 		headerBytes.reserve(salt.size() + iv.size());
-		for (size_t i = 0; i < salt.size(); ++i) {
+		for (size_t i = 0; i < salt.size(); ++i)
 			headerBytes.push_back(static_cast<std::byte>(salt[i]));
-		}
-		for (size_t i = 0; i < iv.size(); ++i) {
+		for (size_t i = 0; i < iv.size(); ++i)
 			headerBytes.push_back(static_cast<std::byte>(iv[i]));
-		}
 		if (!producer.Write(std::move(headerBytes))) {
+			Helpers::SecureWipe(key);
+			Helpers::SecureWipe(salt);
+			Helpers::SecureWipe(iv);
 			producer.SetError();
 			return producer.Consumer();
 		}
 
-		// Now start async encryption with the derived key and IV
+		Helpers::SecureWipe(salt);
+
 		std::thread([consumer, producer, key = std::move(key), mode, iv = std::move(iv)]() mutable {
 			try {
 				constexpr size_t chunkSize = 4096;
 				CryptorT encryption(key, key.size(), iv);
 
-				// Reuse a single StreamTransformationFilter across chunks to avoid
-				// per-chunk allocations. The filter writes into encryptedChunk which
-				// we will move into the producer and then clear.
 				DataType encryptedChunk;
 				CryptoPP::StreamTransformationFilter filter(
 					encryption,
@@ -148,51 +159,57 @@ namespace StormByte::Crypto::Crypter {
 
 					if (!readResult) {
 						producer.SetError();
+						Helpers::SecureWipe(key);
+						Helpers::SecureWipe(iv);
 						return;
 					}
 
-					// Feed data into the filter; the produced bytes are appended to encryptedChunk
 					filter.Put(reinterpret_cast<const uint8_t*>(data.data()), data.size());
 
 					if (!encryptedChunk.empty()) {
 						if (!producer.Write(std::move(encryptedChunk))) {
 							producer.SetError();
+							Helpers::SecureWipe(key);
+							Helpers::SecureWipe(iv);
 							return;
 						}
 						encryptedChunk.clear();
 					}
 				}
 
-				// Finalize filter and flush any remaining output
 				filter.MessageEnd();
 				if (!encryptedChunk.empty()) {
 					if (!producer.Write(std::move(encryptedChunk))) {
 						producer.SetError();
+						Helpers::SecureWipe(key);
+						Helpers::SecureWipe(iv);
 						return;
 					}
 				}
-				producer.Close(); // Mark processing complete // Update status (EOF or Error)
+				producer.Close();
 			} catch (...) {
 				producer.SetError();
 			}
+
+			Helpers::SecureWipe(key);
+			Helpers::SecureWipe(iv);
 		}).detach();
 
 		return producer.Consumer();
 	}
 
-	template<typename AlgoT,typename CryptorT, typename CryptoHMAC>
-	STORMBYTE_CRYPTO_PRIVATE bool EncryptGCM(std::span<const std::byte> dataSpan, const std::string& password, WriteOnly& output, const std::size_t& salt_size, const std::size_t& iv_size, const std::size_t& key_size = AlgoT::DEFAULT_KEYLENGTH, std::span<const std::byte> aad = {}) noexcept {
+	template<typename AlgoT, typename CryptorT, typename CryptoHMAC>
+	STORMBYTE_CRYPTO_PRIVATE bool EncryptGCM(std::span<const std::byte> dataSpan, const Password& password, WriteOnly& output, const std::size_t& salt_size, const std::size_t& iv_size, const std::size_t& key_size = AlgoT::DEFAULT_KEYLENGTH, std::span<const std::byte> aad = {}) noexcept {
+		CryptoPP::SecByteBlock salt(salt_size);
+		CryptoPP::SecByteBlock iv(iv_size);
+		CryptoPP::SecByteBlock key(key_size);
+
 		try {
-			CryptoPP::SecByteBlock salt(salt_size);
-			CryptoPP::SecByteBlock iv(iv_size);
 			RNG().GenerateBlock(salt, salt.size());
 			RNG().GenerateBlock(iv, iv.size());
 
-			// Derive key from password
-			CryptoPP::SecByteBlock key(key_size);
 			DeriveKey<CryptoHMAC>(key, salt, password);
 
-			// Encrypt using GCM mode
 			DataType encryptedData;
 			CryptorT encryption;
 			SetKeyIV(encryption, key, key.size(), iv, iv.size());
@@ -208,51 +225,60 @@ namespace StormByte::Crypto::Crypter {
 			ef.Put(reinterpret_cast<const uint8_t*>(dataSpan.data()), dataSpan.size_bytes());
 			ef.MessageEnd();
 
-			// Prepend salt and IV (header) before the ciphertext so that
-			// Decrypt functions can read header first.
 			DataType finalData;
 			finalData.reserve(salt.size() + iv.size() + encryptedData.size());
 			for (size_t i = 0; i < salt.size(); ++i) finalData.push_back(static_cast<std::byte>(salt[i]));
 			for (size_t i = 0; i < iv.size(); ++i) finalData.push_back(static_cast<std::byte>(iv[i]));
 			finalData.insert(finalData.end(), encryptedData.begin(), encryptedData.end());
 
+			Helpers::SecureWipe(key);
+			Helpers::SecureWipe(salt);
+			Helpers::SecureWipe(iv);
+
 			return output.Write(std::move(finalData));
 		} catch (...) {
+			Helpers::SecureWipe(key);
+			Helpers::SecureWipe(salt);
+			Helpers::SecureWipe(iv);
 			return false;
 		}
 	}
 
-	template<typename AlgoT,typename CryptorT, typename CryptoHMAC>
-	STORMBYTE_CRYPTO_PRIVATE Consumer EncryptGCM(Consumer consumer, const std::string& password, ReadMode mode, const std::size_t& salt_size, const std::size_t& iv_size, const std::size_t& key_size = AlgoT::DEFAULT_KEYLENGTH, std::span<const std::byte> aad = {}) noexcept {
+	template<typename AlgoT, typename CryptorT, typename CryptoHMAC>
+	STORMBYTE_CRYPTO_PRIVATE Consumer EncryptGCM(Consumer consumer, Password password, ReadMode mode, const std::size_t& salt_size, const std::size_t& iv_size, const std::size_t& key_size = AlgoT::DEFAULT_KEYLENGTH, std::span<const std::byte> aad = {}) noexcept {
 		Producer producer;
 
-		// Generate and write header synchronously before starting async processing
 		CryptoPP::SecByteBlock salt(salt_size);
 		CryptoPP::SecByteBlock iv(iv_size);
+		CryptoPP::SecByteBlock key(key_size);
+
 		RNG().GenerateBlock(salt, salt.size());
 		RNG().GenerateBlock(iv, iv.size());
 
-		CryptoPP::SecByteBlock key(key_size);
 		DeriveKey<CryptoHMAC>(key, salt, password);
 
-		// Write salt and IV to output in a single batch
 		std::vector<std::byte> headerBytes;
 		headerBytes.reserve(salt.size() + iv.size());
 		for (size_t i = 0; i < salt.size(); ++i) headerBytes.push_back(static_cast<std::byte>(salt[i]));
 		for (size_t i = 0; i < iv.size(); ++i) headerBytes.push_back(static_cast<std::byte>(iv[i]));
 		if (!producer.Write(std::move(headerBytes))) {
+			Helpers::SecureWipe(key);
+			Helpers::SecureWipe(salt);
+			Helpers::SecureWipe(iv);
 			producer.SetError();
 			return producer.Consumer();
 		}
 
-		std::thread([consumer, producer, key = std::move(key), mode,iv = std::move(iv), aad]() mutable {
+		Helpers::SecureWipe(salt);
+
+		std::thread([consumer, producer, key = std::move(key), mode, iv = std::move(iv), aad]() mutable {
 			try {
 				constexpr size_t chunkSize = 4096;
 
 				CryptorT encryption;
 				SetKeyIV(encryption, key, key.size(), iv, iv.size());
 
-					DataType encryptedChunk;
+				DataType encryptedChunk;
 				CryptoPP::AuthenticatedEncryptionFilter ef(
 					encryption,
 					new CryptoPP::StringSinkTemplate<DataType>(encryptedChunk)
@@ -273,39 +299,55 @@ namespace StormByte::Crypto::Crypter {
 						readResult = consumer.Read(bytesToRead, data);
 					else
 						readResult = consumer.Extract(bytesToRead, data);
-					if (!readResult) { producer.SetError(); return; }
+					if (!readResult) {
+						producer.SetError();
+						Helpers::SecureWipe(key);
+						Helpers::SecureWipe(iv);
+						return;
+					}
 
 					ef.Put(reinterpret_cast<const uint8_t*>(data.data()), data.size());
 
 					if (!producer.Write(std::move(encryptedChunk))) {
 						producer.SetError();
+						Helpers::SecureWipe(key);
+						Helpers::SecureWipe(iv);
 						return;
 					}
 					encryptedChunk.clear();
 				}
 
 				ef.MessageEnd();
-				if (!encryptedChunk.empty())
+				if (!encryptedChunk.empty()) {
 					if (!producer.Write(std::move(encryptedChunk))) {
 						producer.SetError();
+						Helpers::SecureWipe(key);
+						Helpers::SecureWipe(iv);
 						return;
 					}
+				}
 				producer.Close();
-			} catch (...) { producer.SetError(); }
+			} catch (...) {
+				producer.SetError();
+			}
+
+			Helpers::SecureWipe(key);
+			Helpers::SecureWipe(iv);
 		}).detach();
 
 		return producer.Consumer();
 	}
 
 	template<typename AlgoT, typename CryptorT, typename CryptoHMAC>
-	STORMBYTE_CRYPTO_PRIVATE bool EncryptAEAD(std::span<const std::byte> dataSpan, const std::string& password, WriteOnly& output, const std::size_t& salt_size, const std::size_t& iv_size, const std::size_t& key_size = AlgoT::DEFAULT_KEYLENGTH, std::span<const std::byte> aad = {}) noexcept {
+	STORMBYTE_CRYPTO_PRIVATE bool EncryptAEAD(std::span<const std::byte> dataSpan, const Password& password, WriteOnly& output, const std::size_t& salt_size, const std::size_t& iv_size, const std::size_t& key_size = AlgoT::DEFAULT_KEYLENGTH, std::span<const std::byte> aad = {}) noexcept {
+		CryptoPP::SecByteBlock salt(salt_size);
+		CryptoPP::SecByteBlock iv(iv_size);
+		CryptoPP::SecByteBlock key(key_size);
+
 		try {
-			CryptoPP::SecByteBlock salt(salt_size);
-			CryptoPP::SecByteBlock iv(iv_size);
 			RNG().GenerateBlock(salt, salt.size());
 			RNG().GenerateBlock(iv, iv.size());
 
-			CryptoPP::SecByteBlock key(key_size);
 			DeriveKey<CryptoHMAC>(key, salt, password);
 
 			DataType encryptedData;
@@ -317,7 +359,6 @@ namespace StormByte::Crypto::Crypter {
 				new CryptoPP::StringSinkTemplate<DataType>(encryptedData)
 			);
 
-			// Feed optional AAD (Additional Authenticated Data) into the filter on channel "AAD"
 			if (!aad.empty()) {
 				ef.ChannelPut2("AAD", reinterpret_cast<const CryptoPP::byte*>(aad.data()), aad.size_bytes(), 0, false);
 			}
@@ -325,42 +366,51 @@ namespace StormByte::Crypto::Crypter {
 			ef.Put(reinterpret_cast<const uint8_t*>(dataSpan.data()), dataSpan.size_bytes());
 			ef.MessageEnd();
 
-			// Prepend salt and IV (header) before the ciphertext so that
-			// Decrypt functions can read header first.
 			DataType finalData;
 			finalData.reserve(salt.size() + iv.size() + encryptedData.size());
 			for (size_t i = 0; i < salt.size(); ++i) finalData.push_back(static_cast<std::byte>(salt[i]));
 			for (size_t i = 0; i < iv.size(); ++i) finalData.push_back(static_cast<std::byte>(iv[i]));
 			finalData.insert(finalData.end(), encryptedData.begin(), encryptedData.end());
 
+			Helpers::SecureWipe(key);
+			Helpers::SecureWipe(salt);
+			Helpers::SecureWipe(iv);
+
 			return output.Write(std::move(finalData));
 		} catch (...) {
+			Helpers::SecureWipe(key);
+			Helpers::SecureWipe(salt);
+			Helpers::SecureWipe(iv);
 			return false;
 		}
 	}
 
 	template<typename AlgoT, typename CryptorT, typename CryptoHMAC>
-	STORMBYTE_CRYPTO_PRIVATE Consumer EncryptAEAD(Consumer consumer, const std::string& password, ReadMode mode, const std::size_t& salt_size, const std::size_t& iv_size, const std::size_t& key_size = AlgoT::DEFAULT_KEYLENGTH, std::span<const std::byte> aad = {}) noexcept {
+	STORMBYTE_CRYPTO_PRIVATE Consumer EncryptAEAD(Consumer consumer, Password password, ReadMode mode, const std::size_t& salt_size, const std::size_t& iv_size, const std::size_t& key_size = AlgoT::DEFAULT_KEYLENGTH, std::span<const std::byte> aad = {}) noexcept {
 		Producer producer;
 
-		// Generate and write header synchronously before starting async processing
 		CryptoPP::SecByteBlock salt(salt_size);
 		CryptoPP::SecByteBlock iv(iv_size);
+		CryptoPP::SecByteBlock key(key_size);
+
 		RNG().GenerateBlock(salt, salt.size());
 		RNG().GenerateBlock(iv, iv.size());
 
-		CryptoPP::SecByteBlock key(key_size);
 		DeriveKey<CryptoHMAC>(key, salt, password);
 
-		// Write salt and IV to output in a single batch
 		std::vector<std::byte> headerBytes;
 		headerBytes.reserve(salt.size() + iv.size());
 		for (size_t i = 0; i < salt.size(); ++i) headerBytes.push_back(static_cast<std::byte>(salt[i]));
 		for (size_t i = 0; i < iv.size(); ++i) headerBytes.push_back(static_cast<std::byte>(iv[i]));
 		if (!producer.Write(std::move(headerBytes))) {
+			Helpers::SecureWipe(key);
+			Helpers::SecureWipe(salt);
+			Helpers::SecureWipe(iv);
 			producer.SetError();
 			return producer.Consumer();
 		}
+
+		Helpers::SecureWipe(salt);
 
 		std::thread([consumer, producer, key = std::move(key), mode, iv = std::move(iv), aad]() mutable {
 			try {
@@ -392,6 +442,8 @@ namespace StormByte::Crypto::Crypter {
 						read_result = consumer.Extract(bytesToRead, data);
 					if (!read_result) {
 						producer.SetError();
+						Helpers::SecureWipe(key);
+						Helpers::SecureWipe(iv);
 						return;
 					}
 
@@ -399,6 +451,8 @@ namespace StormByte::Crypto::Crypter {
 
 					if (!producer.Write(std::move(encryptedChunk))) {
 						producer.SetError();
+						Helpers::SecureWipe(key);
+						Helpers::SecureWipe(iv);
 						return;
 					}
 					encryptedChunk.clear();
@@ -408,30 +462,38 @@ namespace StormByte::Crypto::Crypter {
 				if (!encryptedChunk.empty()) {
 					if (!producer.Write(std::move(encryptedChunk))) {
 						producer.SetError();
+						Helpers::SecureWipe(key);
+						Helpers::SecureWipe(iv);
 						return;
 					}
 				}
 				producer.Close();
-			} catch (...) { producer.SetError(); }
+			} catch (...) {
+				producer.SetError();
+			}
+
+			Helpers::SecureWipe(key);
+			Helpers::SecureWipe(iv);
 		}).detach();
 
 		return producer.Consumer();
 	}
 
 	template<typename AlgoT, typename DecryptorT, typename CryptoHMAC>
-	STORMBYTE_CRYPTO_PRIVATE bool DecryptCBC(std::span<const std::byte> dataSpan, const std::string& password, WriteOnly& output, const std::size_t& salt_size, const std::size_t& iv_size, const std::size_t& key_size = AlgoT::DEFAULT_KEYLENGTH) noexcept {
-		try {
-			if (dataSpan.size_bytes() < salt_size + iv_size) {
-				return false;
-			}
+	STORMBYTE_CRYPTO_PRIVATE bool DecryptCBC(std::span<const std::byte> dataSpan, const Password& password, WriteOnly& output, const std::size_t& salt_size, const std::size_t& iv_size, const std::size_t& key_size = AlgoT::DEFAULT_KEYLENGTH) noexcept {
+		CryptoPP::SecByteBlock salt(salt_size);
+		CryptoPP::SecByteBlock iv(iv_size);
+		CryptoPP::SecByteBlock key(key_size);
 
-			CryptoPP::SecByteBlock salt(salt_size), iv(iv_size);
+		try {
+			if (dataSpan.size_bytes() < salt_size + iv_size)
+				return false;
+
 			std::memcpy(salt.data(), dataSpan.data(), salt_size);
 			std::memcpy(iv.data(), dataSpan.data() + salt_size, iv_size);
 
 			auto payload = dataSpan.subspan(salt_size + iv_size);
 
-			CryptoPP::SecByteBlock key(key_size);
 			DeriveKey<CryptoHMAC>(key, salt, password);
 
 			DataType decryptedData;
@@ -440,30 +502,37 @@ namespace StormByte::Crypto::Crypter {
 				reinterpret_cast<const uint8_t*>(payload.data()),
 				payload.size_bytes(),
 				true,
-					new CryptoPP::StreamTransformationFilter(
+				new CryptoPP::StreamTransformationFilter(
 					decryption,
 					new CryptoPP::StringSinkTemplate<DataType>(decryptedData)
 				)
 			);
 
+			Helpers::SecureWipe(key);
+			Helpers::SecureWipe(salt);
+			Helpers::SecureWipe(iv);
+
 			return output.Write(std::move(decryptedData));
 		} catch (...) {
+			Helpers::SecureWipe(key);
+			Helpers::SecureWipe(salt);
+			Helpers::SecureWipe(iv);
 			return false;
 		}
 	}
 
 	template<typename AlgoT, typename DecryptorT, typename CryptoHMAC>
-	STORMBYTE_CRYPTO_PRIVATE Consumer DecryptCBC(Consumer consumer, const std::string& password, ReadMode mode, const std::size_t& salt_size, const std::size_t& iv_size, const std::size_t& key_size = AlgoT::DEFAULT_KEYLENGTH) noexcept {
+	STORMBYTE_CRYPTO_PRIVATE Consumer DecryptCBC(Consumer consumer, Password password, ReadMode mode, const std::size_t& salt_size, const std::size_t& iv_size, const std::size_t& key_size = AlgoT::DEFAULT_KEYLENGTH) noexcept {
 		Producer producer;
 
-		std::thread([consumer, producer, password, mode, salt_size, iv_size, key_size]() mutable {
+		std::thread([consumer, producer, password = std::move(password), mode, salt_size, iv_size, key_size]() mutable {
+			CryptoPP::SecByteBlock salt(salt_size);
+			CryptoPP::SecByteBlock iv(iv_size);
+			CryptoPP::SecByteBlock key(key_size);
+
 			try {
 				constexpr size_t chunkSize = 4096;
-				CryptoPP::SecByteBlock salt(salt_size);
-				CryptoPP::SecByteBlock iv(iv_size);
 
-				// Block until salt is available. Use Extract to obtain an owned buffer
-				// so the memory won't be freed while we copy it out.
 				DataType saltData;
 				auto saltRead = consumer.Extract(salt.size(), saltData);
 				if (!saltRead) {
@@ -473,21 +542,19 @@ namespace StormByte::Crypto::Crypter {
 
 				std::copy_n(reinterpret_cast<const uint8_t*>(saltData.data()), salt.size(), salt.data());
 
-				// Block until IV is available and copy into local SecByteBlock.
 				DataType ivData;
 				auto ivRead = consumer.Extract(iv.size(), ivData);
 				if (!ivRead) {
 					producer.SetError();
+					Helpers::SecureWipe(salt);
 					return;
 				}
 				std::copy_n(reinterpret_cast<const uint8_t*>(ivData.data()), iv.size(), iv.data());
 
-				CryptoPP::SecByteBlock key(key_size);
 				DeriveKey<CryptoHMAC>(key, salt, password);
 
 				DecryptorT decryption(key, key.size(), iv);
 
-				// Reuse a single StreamTransformationFilter for decryption across chunks
 				DataType decryptedChunk;
 				CryptoPP::StreamTransformationFilter filter(
 					decryption,
@@ -510,6 +577,9 @@ namespace StormByte::Crypto::Crypter {
 						readResult = consumer.Extract(bytesToRead, data);
 					if (!readResult) {
 						producer.SetError();
+						Helpers::SecureWipe(key);
+						Helpers::SecureWipe(salt);
+						Helpers::SecureWipe(iv);
 						return;
 					}
 
@@ -518,6 +588,9 @@ namespace StormByte::Crypto::Crypter {
 					if (!decryptedChunk.empty()) {
 						if (!producer.Write(std::move(decryptedChunk))) {
 							producer.SetError();
+							Helpers::SecureWipe(key);
+							Helpers::SecureWipe(salt);
+							Helpers::SecureWipe(iv);
 							return;
 						}
 						decryptedChunk.clear();
@@ -528,36 +601,42 @@ namespace StormByte::Crypto::Crypter {
 				if (!decryptedChunk.empty()) {
 					if (!producer.Write(std::move(decryptedChunk))) {
 						producer.SetError();
+						Helpers::SecureWipe(key);
+						Helpers::SecureWipe(salt);
+						Helpers::SecureWipe(iv);
 						return;
 					}
 				}
-				producer.Close(); // Mark processing complete // Update status (EOF or Error)
+				producer.Close();
 			} catch (...) {
 				producer.SetError();
 			}
+
+			Helpers::SecureWipe(key);
+			Helpers::SecureWipe(salt);
+			Helpers::SecureWipe(iv);
 		}).detach();
 
 		return producer.Consumer();
 	}
 
 	template<typename AlgoT, typename DecryptorT, typename CryptoHMAC>
-	STORMBYTE_CRYPTO_PRIVATE bool DecryptGCM(std::span<const std::byte> encryptedSpan, const std::string& password, WriteOnly& output, const std::size_t& salt_size, const std::size_t& iv_size, const std::size_t& key_size = AlgoT::DEFAULT_KEYLENGTH) noexcept {
-		try {
-			if (encryptedSpan.size_bytes() < salt_size + iv_size) {
-				return false;
-			}
+	STORMBYTE_CRYPTO_PRIVATE bool DecryptGCM(std::span<const std::byte> encryptedSpan, const Password& password, WriteOnly& output, const std::size_t& salt_size, const std::size_t& iv_size, const std::size_t& key_size = AlgoT::DEFAULT_KEYLENGTH) noexcept {
+		CryptoPP::SecByteBlock salt(salt_size);
+		CryptoPP::SecByteBlock iv(iv_size);
+		CryptoPP::SecByteBlock key(key_size);
 
-			CryptoPP::SecByteBlock salt(salt_size), iv(iv_size);
+		try {
+			if (encryptedSpan.size_bytes() < salt_size + iv_size)
+				return false;
+
 			std::memcpy(salt.data(), encryptedSpan.data(), salt_size);
 			std::memcpy(iv.data(), encryptedSpan.data() + salt_size, iv_size);
 
 			encryptedSpan = encryptedSpan.subspan(salt_size + iv_size);
 
-			// Derive key from password
-			CryptoPP::SecByteBlock key(key_size);
 			DeriveKey<CryptoHMAC>(key, salt, password);
 
-			// Decrypt using GCM mode
 			DataType decryptedData;
 			DecryptorT decryption;
 			SetKeyIV(decryption, key, key.size(), iv, iv.size());
@@ -571,35 +650,48 @@ namespace StormByte::Crypto::Crypter {
 			df.Put(reinterpret_cast<const uint8_t*>(encryptedSpan.data()), encryptedSpan.size_bytes());
 			df.MessageEnd();
 
+			Helpers::SecureWipe(key);
+			Helpers::SecureWipe(salt);
+			Helpers::SecureWipe(iv);
+
 			return output.Write(std::move(decryptedData));
 		} catch (...) {
+			Helpers::SecureWipe(key);
+			Helpers::SecureWipe(salt);
+			Helpers::SecureWipe(iv);
 			return false;
 		}
 	}
 
 	template<typename AlgoT, typename DecryptorT, typename CryptoHMAC>
-	STORMBYTE_CRYPTO_PRIVATE Consumer DecryptGCM(Consumer consumer, const std::string& password, ReadMode mode, const std::size_t& salt_size, const std::size_t& iv_size, const std::size_t& key_size = AlgoT::DEFAULT_KEYLENGTH, std::span<const std::byte> aad = {}) noexcept {
+	STORMBYTE_CRYPTO_PRIVATE Consumer DecryptGCM(Consumer consumer, Password password, ReadMode mode, const std::size_t& salt_size, const std::size_t& iv_size, const std::size_t& key_size = AlgoT::DEFAULT_KEYLENGTH, std::span<const std::byte> aad = {}) noexcept {
 		Producer producer;
 
-		std::thread([consumer, producer, password, mode, salt_size, iv_size, key_size, aad]() mutable {
+		std::thread([consumer, producer, password = std::move(password), mode, salt_size, iv_size, key_size, aad]() mutable {
+			CryptoPP::SecByteBlock salt(salt_size);
+			CryptoPP::SecByteBlock iv(iv_size);
+			CryptoPP::SecByteBlock key(key_size);
+
 			try {
 				constexpr size_t chunkSize = 4096;
-				CryptoPP::SecByteBlock salt(salt_size);
-				CryptoPP::SecByteBlock iv(iv_size);
 
-				// Block until salt is available. Use Extract to obtain owned buffer
 				DataType saltData;
 				auto saltRead = consumer.Extract(salt.size(), saltData);
-				if (!saltRead) { producer.SetError(); return; }
+				if (!saltRead) {
+					producer.SetError();
+					return;
+				}
 				std::copy_n(reinterpret_cast<const uint8_t*>(saltData.data()), salt.size(), salt.data());
 
-				// Block until IV is available and copy into local SecByteBlock.
 				DataType ivData;
 				auto ivRead = consumer.Extract(iv.size(), ivData);
-				if (!ivRead) { producer.SetError(); return; }
+				if (!ivRead) {
+					producer.SetError();
+					Helpers::SecureWipe(salt);
+					return;
+				}
 				std::copy_n(reinterpret_cast<const uint8_t*>(ivData.data()), iv.size(), iv.data());
 
-				CryptoPP::SecByteBlock key(key_size);
 				DeriveKey<CryptoHMAC>(key, salt, password);
 
 				DecryptorT decryption;
@@ -627,45 +719,72 @@ namespace StormByte::Crypto::Crypter {
 						readResult = consumer.Read(bytesToRead, data);
 					else
 						readResult = consumer.Extract(bytesToRead, data);
-					if (!readResult) { producer.SetError(); return; }
+					if (!readResult) {
+						producer.SetError();
+						Helpers::SecureWipe(key);
+						Helpers::SecureWipe(salt);
+						Helpers::SecureWipe(iv);
+						return;
+					}
 
 					df.Put(reinterpret_cast<const uint8_t*>(data.data()), data.size());
 					if (!producer.Write(std::move(decryptedChunk))) {
 						producer.SetError();
+						Helpers::SecureWipe(key);
+						Helpers::SecureWipe(salt);
+						Helpers::SecureWipe(iv);
 						return;
 					}
 					decryptedChunk.clear();
 				}
 
-				try { df.MessageEnd(); } catch (const CryptoPP::HashVerificationFilter::HashVerificationFailed&) { producer.SetError(); return; }
+				try {
+					df.MessageEnd();
+				} catch (const CryptoPP::HashVerificationFilter::HashVerificationFailed&) {
+					producer.SetError();
+					Helpers::SecureWipe(key);
+					Helpers::SecureWipe(salt);
+					Helpers::SecureWipe(iv);
+					return;
+				}
 
 				if (!decryptedChunk.empty()) {
 					if (!producer.Write(std::move(decryptedChunk))) {
 						producer.SetError();
+						Helpers::SecureWipe(key);
+						Helpers::SecureWipe(salt);
+						Helpers::SecureWipe(iv);
 						return;
 					}
 				}
 				producer.Close();
-			} catch (...) { producer.SetError(); }
+			} catch (...) {
+				producer.SetError();
+			}
+
+			Helpers::SecureWipe(key);
+			Helpers::SecureWipe(salt);
+			Helpers::SecureWipe(iv);
 		}).detach();
 
 		return producer.Consumer();
 	}
 
 	template<typename AlgoT, typename DecryptorT, typename CryptoHMAC>
-	STORMBYTE_CRYPTO_PRIVATE bool DecryptAEAD(std::span<const std::byte> encryptedSpan, const std::string& password, WriteOnly& output, const std::size_t& salt_size, const std::size_t& iv_size, const std::size_t& key_size = AlgoT::DEFAULT_KEYLENGTH, std::span<const std::byte> aad = {}) noexcept {
-		try {
-			if (encryptedSpan.size_bytes() < salt_size + iv_size) {
-				return false;
-			}
+	STORMBYTE_CRYPTO_PRIVATE bool DecryptAEAD(std::span<const std::byte> encryptedSpan, const Password& password, WriteOnly& output, const std::size_t& salt_size, const std::size_t& iv_size, const std::size_t& key_size = AlgoT::DEFAULT_KEYLENGTH, std::span<const std::byte> aad = {}) noexcept {
+		CryptoPP::SecByteBlock salt(salt_size);
+		CryptoPP::SecByteBlock iv(iv_size);
+		CryptoPP::SecByteBlock key(key_size);
 
-			CryptoPP::SecByteBlock salt(salt_size), iv(iv_size);
+		try {
+			if (encryptedSpan.size_bytes() < salt_size + iv_size)
+				return false;
+
 			std::memcpy(salt.data(), encryptedSpan.data(), salt_size);
 			std::memcpy(iv.data(), encryptedSpan.data() + salt_size, iv_size);
 
 			encryptedSpan = encryptedSpan.subspan(salt_size + iv_size);
 
-			CryptoPP::SecByteBlock key(key_size);
 			DeriveKey<CryptoHMAC>(key, salt, password);
 
 			DataType decryptedData;
@@ -678,7 +797,6 @@ namespace StormByte::Crypto::Crypter {
 				CryptoPP::AuthenticatedDecryptionFilter::DEFAULT_FLAGS
 			);
 
-			// Provide AAD on the "AAD" channel when present
 			if (!aad.empty()) {
 				df.ChannelPut2("AAD", reinterpret_cast<const CryptoPP::byte*>(aad.data()), aad.size_bytes(), 0, false);
 			}
@@ -686,33 +804,48 @@ namespace StormByte::Crypto::Crypter {
 			df.Put(reinterpret_cast<const uint8_t*>(encryptedSpan.data()), encryptedSpan.size_bytes());
 			df.MessageEnd();
 
+			Helpers::SecureWipe(key);
+			Helpers::SecureWipe(salt);
+			Helpers::SecureWipe(iv);
+
 			return output.Write(std::move(decryptedData));
 		} catch (...) {
+			Helpers::SecureWipe(key);
+			Helpers::SecureWipe(salt);
+			Helpers::SecureWipe(iv);
 			return false;
 		}
-	}	
+	}
 
 	template<typename AlgoT, typename DecryptorT, typename CryptoHMAC>
-	STORMBYTE_CRYPTO_PRIVATE Consumer DecryptAEAD(Consumer consumer, const std::string& password, ReadMode mode, const std::size_t& salt_size, const std::size_t& iv_size, const std::size_t& key_size = AlgoT::DEFAULT_KEYLENGTH, std::span<const std::byte> aad = {}) noexcept {
+	STORMBYTE_CRYPTO_PRIVATE Consumer DecryptAEAD(Consumer consumer, Password password, ReadMode mode, const std::size_t& salt_size, const std::size_t& iv_size, const std::size_t& key_size = AlgoT::DEFAULT_KEYLENGTH, std::span<const std::byte> aad = {}) noexcept {
 		Producer producer;
 
-		std::thread([consumer, producer, password, mode, salt_size, iv_size, key_size, aad]() mutable {
+		std::thread([consumer, producer, password = std::move(password), mode, salt_size, iv_size, key_size, aad]() mutable {
+			CryptoPP::SecByteBlock salt(salt_size);
+			CryptoPP::SecByteBlock iv(iv_size);
+			CryptoPP::SecByteBlock key(key_size);
+
 			try {
 				constexpr size_t chunkSize = 4096;
-				CryptoPP::SecByteBlock salt(salt_size);
-				CryptoPP::SecByteBlock iv(iv_size);
 
 				DataType saltData;
 				auto saltRead = consumer.Extract(salt.size(), saltData);
-				if (!saltRead) { producer.SetError(); return; }
+				if (!saltRead) {
+					producer.SetError();
+					return;
+				}
 				std::copy_n(reinterpret_cast<const uint8_t*>(saltData.data()), salt.size(), salt.data());
 
 				DataType ivData;
 				auto ivRead = consumer.Extract(iv.size(), ivData);
-				if (!ivRead) { producer.SetError(); return; }
+				if (!ivRead) {
+					producer.SetError();
+					Helpers::SecureWipe(salt);
+					return;
+				}
 				std::copy_n(reinterpret_cast<const uint8_t*>(ivData.data()), iv.size(), iv.data());
 
-				CryptoPP::SecByteBlock key(key_size);
 				DeriveKey<CryptoHMAC>(key, salt, password);
 
 				DecryptorT decryption;
@@ -740,26 +873,52 @@ namespace StormByte::Crypto::Crypter {
 						readResult = consumer.Read(bytesToRead, data);
 					else
 						readResult = consumer.Extract(bytesToRead, data);
-					if (!readResult) { producer.SetError(); return; }
+					if (!readResult) {
+						producer.SetError();
+						Helpers::SecureWipe(key);
+						Helpers::SecureWipe(salt);
+						Helpers::SecureWipe(iv);
+						return;
+					}
 
 					df.Put(reinterpret_cast<const uint8_t*>(data.data()), data.size());
 					if (!producer.Write(std::move(decryptedChunk))) {
 						producer.SetError();
+						Helpers::SecureWipe(key);
+						Helpers::SecureWipe(salt);
+						Helpers::SecureWipe(iv);
 						return;
 					}
 					decryptedChunk.clear();
 				}
 
-				try { df.MessageEnd(); } catch (const CryptoPP::HashVerificationFilter::HashVerificationFailed&) { producer.SetError(); return; }
+				try {
+					df.MessageEnd();
+				} catch (const CryptoPP::HashVerificationFilter::HashVerificationFailed&) {
+					producer.SetError();
+					Helpers::SecureWipe(key);
+					Helpers::SecureWipe(salt);
+					Helpers::SecureWipe(iv);
+					return;
+				}
 
 				if (!decryptedChunk.empty()) {
 					if (!producer.Write(std::move(decryptedChunk))) {
 						producer.SetError();
+						Helpers::SecureWipe(key);
+						Helpers::SecureWipe(salt);
+						Helpers::SecureWipe(iv);
 						return;
 					}
 				}
 				producer.Close();
-			} catch (...) { producer.SetError(); }
+			} catch (...) {
+				producer.SetError();
+			}
+
+			Helpers::SecureWipe(key);
+			Helpers::SecureWipe(salt);
+			Helpers::SecureWipe(iv);
 		}).detach();
 
 		return producer.Consumer();

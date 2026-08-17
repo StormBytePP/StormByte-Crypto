@@ -15,47 +15,47 @@ namespace StormByte::Crypto::Crypter {
 		public:
 			/**
 			 * @brief Constructor
-			 * @param type The type of crypter.
+			 * @param password The password used for encryption/decryption.
 			 */
-			inline 													TwoFish(const std::string& password):
-			Symmetric(Type::TwoFish, password) {}
+			inline 												TwoFish(class Password password):
+			Symmetric(Type::TwoFish, std::move(password)) {}
 
 			/**
 			 * @brief Copy constructor
 			 * @param other The other TwoFish crypter to copy from.
 			 */
-			TwoFish(const TwoFish& other)							= default;
+			TwoFish(const TwoFish& other)						= default;
 
 			/**
 			 * @brief Move constructor
 			 * @param other The other TwoFish crypter to move from.
 			 */
-			TwoFish(TwoFish&& other) noexcept						= default;
+			TwoFish(TwoFish&& other) noexcept					= default;
 
 			/**
 			 * @brief Virtual destructor
 			 */
-			virtual ~TwoFish() noexcept 							= default;
+			virtual ~TwoFish() noexcept 						= default;
 
 			/**
 			 * @brief Copy assignment operator
 			 * @param other The other TwoFish crypter to copy from.
 			 * @return Reference to this TwoFish crypter.
 			 */
-			TwoFish& operator=(const TwoFish& other)				= default;
+			TwoFish& operator=(const TwoFish& other)			= default;
 
 			/**
 			 * @brief Move assignment operator
 			 * @param other The other TwoFish crypter to move from.
 			 * @return Reference to this TwoFish crypter.
 			 */
-			TwoFish& operator=(TwoFish&& other) noexcept			= default;
+			TwoFish& operator=(TwoFish&& other) noexcept		= default;
 
 			/**
 			 * @brief Clone the TwoFish crypter.
 			 * @return A pointer to the cloned TwoFish crypter.
 			 */
-			inline PointerType 										Clone() const noexcept override {
+			inline PointerType 									Clone() const noexcept override {
 				return std::make_shared<TwoFish>(*this);
 			}
 
@@ -63,7 +63,7 @@ namespace StormByte::Crypto::Crypter {
 			 * @brief Move the TwoFish crypter.
 			 * @return A pointer to the moved TwoFish crypter.
 			 */
-			inline PointerType 										Move() noexcept override {
+			inline PointerType 									Move() noexcept override {
 				return std::make_shared<TwoFish>(std::move(*this));
 			}
 
@@ -74,7 +74,7 @@ namespace StormByte::Crypto::Crypter {
 			 * @param output The output buffer to write the encrypted data to.
 			 * @return true if encryption was successful, false otherwise.
 			 */
-			bool 													DoEncrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
+			bool 												DoEncrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
 
 			/**
 			 * @brief Implementation of the encryption logic for Consumer buffers.
@@ -82,7 +82,7 @@ namespace StormByte::Crypto::Crypter {
 			 * @param mode The read mode indicating copy or move.
 			 * @return A Consumer buffer containing the encrypted data.
 			 */
-			Buffer::Consumer 										DoEncrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
+			Buffer::Consumer 									DoEncrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
 
 			/**
 			 * @brief Implementation of the decryption logic.
@@ -90,14 +90,14 @@ namespace StormByte::Crypto::Crypter {
 			 * @param output The output buffer to write the decrypted data to.
 			 * @return true if decryption was successful, false otherwise.
 			 */
-			bool 													DoDecrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
+			bool 												DoDecrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
 
-			/**	
+			/**
 			 * @brief Implementation of the decryption logic for Consumer buffers.
 			 * @param consumer The Consumer buffer to decrypt.
 			 * @param mode The read mode indicating copy or move.
 			 * @return A Consumer buffer containing the decrypted data.
 			 */
-			Buffer::Consumer 										DoDecrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
+			Buffer::Consumer 									DoDecrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
 	};
 }

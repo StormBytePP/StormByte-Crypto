@@ -1,7 +1,7 @@
 #pragma once
 
-#include <StormByte/crypto/secret/generic.hxx>
 #include <StormByte/crypto/keypair/ecdh.hxx>
+#include <StormByte/crypto/secret/generic.hxx>
 
 /**
  * @namespace Secret
@@ -10,84 +10,93 @@
 namespace StormByte::Crypto::Secret {
 	/**
 	 * @class ECDH
-	 * @brief A generic secret class.
+	 * @brief Elliptic Curve Diffie-Hellman shared-secret derivation.
+	 *
+	 * Uses a @ref KeyPair::ECDH keypair to derive a shared secret with a peer
+	 * public key. Including this header also provides @ref KeyPair::ECDH so
+	 * callers can generate matching keypairs without an extra include.
 	 */
 	class STORMBYTE_CRYPTO_PUBLIC ECDH final: public Generic {
 		public:
 			/**
 			 * @brief Constructor
-			 * @param keypair The keypair used for secret sharing.
+			 * @param keypair The ECDH keypair (must be @ref KeyPair::Type::ECDH).
+			 * @param bits Curve size in bits (default 256). Must match the keypair curve.
 			 */
-			inline 												ECDH(KeyPair::Generic::PointerType keypair):
-			Generic(Type::ECDH, keypair) {}
+			inline 													ECDH(KeyPair::Generic::PointerType keypair, unsigned short bits = 256) noexcept:
+			Generic(Type::ECDH, keypair), m_bits(bits) {}
 
 			/**
 			 * @brief Constructor
-			 * @param keypair The keypair used for secret sharing.
+			 * @param keypair The ECDH keypair.
+			 * @param bits Curve size in bits (default 256).
 			 */
-			inline 												ECDH(const KeyPair::ECDH& keypair):
-			Generic(Type::ECDH, keypair.Clone()) {}
+			inline 													ECDH(const KeyPair::ECDH& keypair, unsigned short bits = 256) noexcept:
+			Generic(Type::ECDH, keypair.Clone()), m_bits(bits) {}
 
 			/**
 			 * @brief Constructor
-			 * @param keypair The keypair used for secret sharing.
+			 * @param keypair The ECDH keypair.
+			 * @param bits Curve size in bits (default 256).
 			 */
-			inline 												ECDH(KeyPair::ECDH&& keypair):
-			Generic(Type::ECDH, keypair.Move()) {}
+			inline 													ECDH(KeyPair::ECDH&& keypair, unsigned short bits = 256) noexcept:
+			Generic(Type::ECDH, keypair.Move()), m_bits(bits) {}
 
 			/**
 			 * @brief Copy constructor
-			 * @param other The other ECDH secret to copy from.
+			 * @param other The other ECDH instance to copy from.
 			 */
-			ECDH(const ECDH& other)								= default;
+			ECDH(const ECDH& other)									= default;
 
 			/**
 			 * @brief Move constructor
-			 * @param other The other ECDH secret to move from.
+			 * @param other The other ECDH instance to move from.
 			 */
-			ECDH(ECDH&& other) noexcept							= default;
+			ECDH(ECDH&& other) noexcept								= default;
 
 			/**
-			 * @brief Virtual destructor
+			 * @brief Destructor
 			 */
-			~ECDH() noexcept 									= default;
+			~ECDH() noexcept override 								= default;
 
 			/**
 			 * @brief Copy assignment operator
-			 * @param other The other ECDH secret to copy from.
-			 * @return Reference to this ECDH secret.
+			 * @param other The other ECDH instance to copy from.
+			 * @return Reference to this ECDH instance.
 			 */
-			ECDH& operator=(const ECDH& other)					= default;
+			ECDH& operator=(const ECDH& other)						= default;
 
 			/**
 			 * @brief Move assignment operator
-			 * @param other The other ECDH secret to move from.
-			 * @return Reference to this ECDH secret.
+			 * @param other The other ECDH instance to move from.
+			 * @return Reference to this ECDH instance.
 			 */
-			ECDH& operator=(ECDH&& other) noexcept				= default;
+			ECDH& operator=(ECDH&& other) noexcept					= default;
 
 			/**
-			 * @brief Clone the ECDH secret.
-			 * @return A pointer to the cloned ECDH secret.
+			 * @brief Clone this ECDH instance.
+			 * @return A pointer to the cloned instance.
 			 */
-			inline PointerType 									Clone() const noexcept override {
+			PointerType 											Clone() const noexcept override {
 				return std::make_shared<ECDH>(*this);
 			}
 
 			/**
-			 * @brief Move the ECDH secret.
-			 * @return A pointer to the moved ECDH secret.
+			 * @brief Move this ECDH instance.
+			 * @return A pointer to the moved instance.
 			 */
-			inline PointerType 									Move() noexcept override {
+			PointerType 											Move() noexcept override {
 				return std::make_shared<ECDH>(std::move(*this));
 			}
 
-		private:
 			/**
-			 * @brief Shares the secret with a peer using their public key.
-			 * @param peerPublicKey The peer's public key.
-			 * @return An optional string containing the shared secret, or std::nullopt on failure.
+			 * @brief Derive a shared secret with a peer public key.
+			 * @param peerPublicKey Peer public key (Base64 / library format).
+			 * @return The shared secret as @ref Password on success, or std::nullopt on failure.
 			 */
-			std::optional<std::string>							DoShare(const std::string& peerPublicKey) const noexcept override;
+			std::optional<Password> 								Share(const std::string& peerPublicKey) const noexcept override;
+
+		private:
+			unsigned short m_bits;									///< Curve size in bits used for agreement
 	};
 }
