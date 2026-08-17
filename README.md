@@ -33,6 +33,7 @@ It is built on [Crypto++](https://www.cryptopp.com/), but **fully encapsulates i
 	- [System](https://dev.stormbyte.org/StormByte-System)
 - [Crypto overview](#crypto-overview)
 - [Password and Vault](#password-and-vault)
+- [KeyPair disk I/O (PEM / DER / CER)](#keypair-disk-io-pem--der--cer)
 - [Public API](#public-api)
 - [Examples](#examples)
 	- [Symmetric encryption](#symmetric-encryption)
@@ -41,6 +42,7 @@ It is built on [Crypto++](https://www.cryptopp.com/), but **fully encapsulates i
 	- [Signing](#signing)
 	- [Hashing](#hashing)
 	- [Compression](#compression)
+	- [KeyPair Save and Load](#keypair-save-and-load)
 - [Design notes](#design-notes)
 - [Testing](#testing)
 - [Contributing](#contributing)
@@ -74,6 +76,7 @@ Exact CMake options (static Crypto++, install prefix, tests) depend on your Stor
 | **Static-friendly** | Crypto++ can be compiled into the library; end users need not install it. |
 | **Secure secret handling** | `Password` and `Vault` with automatic wipe and shared ownership. |
 | **Practical asymmetric crypto** | Pure PK encryption **and** hybrid envelopes (PK + AES-GCM), with auto-detect on decrypt. |
+| **OpenSSL-friendly keys** | Load/Save PEM and DER (CER-style ASN.1 binary) with optional PKCS#8 encryption. |
 | **Streaming as a first-class citizen** | `Buffer::Consumer` / `Producer` pipelines for large data. |
 | **Consistent factories** | `Create(Type, …)` and concrete `Generate` / constructors across the module. |
 
@@ -109,6 +112,12 @@ Exact CMake options (static Crypto++, install prefix, tests) depend on your Stor
 - BZip2 (libbzip2)
 - Block and streaming
 
+### KeyPair persistence
+- **PEM** (text, OpenSSL-compatible) and **DER** (binary ASN.1; same encoding family as many `.cer` / `.crt` key blobs)
+- Separate public/private files or single-file load (public only, private only with public derivation, or concatenated PEM)
+- Optional **PKCS#8** encryption of private keys (PBES2 + PBKDF2 + AES-256-CBC), interoperable with OpenSSL `pkcs8 -topk8 -v2 aes-256-cbc`
+- Type detection from OIDs (RSA, DSA, EC, Ed25519, X25519)
+
 ### Secure containers
 - **`Password`**: reference-counted secret; wipe when the last owner is destroyed
 - **`Vault`**: named map of passwords; non-copyable, movable; `Clear` / `Remove` wipe entries
@@ -125,7 +134,7 @@ Exact CMake options (static Crypto++, install prefix, tests) depend on your Stor
 - Destructor and `Clear()` wipe all entries.
 
 3. **Private keys are binary `Password`s**
-- Public keys stay transport-friendly (e.g. Base64).
+- Public keys stay transport-friendly (e.g. Base64 of SPKI DER).
 - Library structures avoid long-lived `std::string` private material.
 
 4. **Symmetric derivation**
@@ -137,7 +146,10 @@ Exact CMake options (static Crypto++, install prefix, tests) depend on your Stor
 6. **Hybrid envelopes**
 - Large payloads use AES-GCM; only a random symmetric key is wrapped with the recipient public key.
 
-7. **Encapsulation**
+7. **Encrypted private keys on disk**
+- Optional password-protected PKCS#8; wrong or missing password fails closed (`nullptr` / `false`).
+
+8. **Encapsulation**
 - Private implementation headers are not installed.
 - Application code that only uses StormByte-Crypto should never need `#include <cryptopp/...>`.
 
@@ -151,6 +163,7 @@ No API can stop a caller from copying secret bytes into an unmanaged buffer if t
 | **libbzip2** | BZip2 | As configured in the build |
 | **StormByte** (base) | Core utilities, Expected, exceptions | Yes |
 | **StormByte-Buffer** | `Consumer` / `Producer` / FIFO | Yes |
+| **OpenSSL CLI** | Optional; only for generating interop test fixtures | No (runtime library) |
 
 ## Modules
 
@@ -175,7 +188,7 @@ Namespaces under `StormByte::Crypto`:
 | `Compressor` | Zlib, BZip2, … |
 | `Crypter` | Symmetric and asymmetric encrypt/decrypt |
 | `Hasher` | SHA-2/3, BLAKE2 |
-| `KeyPair` | Key generation and key material |
+| `KeyPair` | Key generation, material, **Save / Load** |
 | `Signer` | Sign / verify |
 | `Secret` | ECDH / X25519 shared secrets |
 | *(root)* | `Password`, `Vault` |
@@ -219,6 +232,31 @@ if (*secretA == *secretB) {
 ```
 
 `Vault` is non-copyable and only movable. Moving transfers ownership of the stored `Password` instances; the source vault is left empty.
+
+## KeyPair disk I/O (PEM / DER / CER)
+
+`KeyPair::StorageFormat` selects on-disk encoding:
+
+| Format | Description |
+|--------|-------------|
+| **`PEM`** | OpenSSL-style text (`-----BEGIN …-----`, Base64 body). Default for human-readable exchange. |
+| **`DER`** | Raw ASN.1 binary. Same family of encoding used by many **`.cer` / `.crt`** key and certificate blobs (CER is typically DER under another extension). |
+
+### Save
+
+- **Pair**: public + private under a directory with a base name (`name.pub.pem` / `name.pem`, or `.pub.der` / `.der`).
+- **Public only** / **private only**: dedicated overloads.
+- **Encrypted private**: optional `Password`; writes PKCS#8 **EncryptedPrivateKeyInfo** (PBES2, PBKDF2-HMAC-SHA256, AES-256-CBC), readable by OpenSSL.
+
+### Load
+
+- Separate public and private paths (either may be empty when not needed).
+- Single path: public only, private only (public derived when possible), or multi-block PEM.
+- Encrypted private material requires a `Password`; wrong or missing password fails closed.
+- Algorithm type is detected from ASN.1 OIDs (RSA, DSA, EC family, Ed25519, X25519).
+- Intended interoperability with keys produced by **OpenSSL** (`genpkey`, `pkey`, `pkcs8`, PEM and DER).
+
+Generated keys (RSA, DSA, ECC, ECDSA, ECDH, Ed25519) store standard serializable key material so a **Generate → Save → Load** round-trip remains usable for encrypt, sign, and share operations. X25519 may use compact raw 32-byte library form as well as OpenSSL PKCS#8.
 
 ## Public API
 
@@ -354,6 +392,46 @@ zlib.Compress(messageSpan, compressed);
 zlib.Decompress(compressed, plain);
 ```
 
+### KeyPair Save and Load
+
+```cpp
+#include <StormByte/crypto/keypair/rsa.hxx>
+#include <StormByte/crypto/keypair/generic.hxx>
+#include <StormByte/crypto/password.hxx>
+
+using namespace StormByte::Crypto;
+
+auto kp = KeyPair::RSA::Generate(2048);
+
+// Plain PEM pair into a directory
+kp->Save("/secure/keys", "service", KeyPair::StorageFormat::PEM);
+
+// DER (binary ASN.1; CER-compatible encoding)
+kp->Save("/secure/keys", "service_der", KeyPair::StorageFormat::DER);
+
+// Encrypted private key (OpenSSL-compatible PKCS#8)
+Password diskPass("file-encryption-passphrase");
+kp->Save("/secure/keys", "service_enc", diskPass, KeyPair::StorageFormat::PEM);
+
+// Load pair (plain)
+auto loaded = KeyPair::Load(
+	"/secure/keys/service.pub.pem",
+	"/secure/keys/service.pem"
+);
+
+// Load encrypted private
+auto loadedEnc = KeyPair::Load(
+	"/secure/keys/service_enc.pub.pem",
+	"/secure/keys/service_enc.pem",
+	diskPass
+);
+
+// Single file (private only → public derived when possible)
+auto fromPriv = KeyPair::Load("/secure/keys/service.pem");
+
+// OpenSSL-generated PEM/DER paths work the same way when the encoding matches
+```
+
 ## Design notes
 
 ### Encapsulation of Crypto++
@@ -375,20 +453,23 @@ Decrypt tries this layout first; on failure it falls back to pure asymmetric dec
 
 Streaming encrypt/decrypt/sign/hash/compress runs on a detached thread writing into a `Producer`. The caller holds the paired `Consumer` and should honour `EoF` and error flags (see `test/`).
 
-### Intentionally deferred
+### Intentionally deferred / rejected
 
-- Full PEM save/load of keypairs (pending a dedicated rewrite).
 - Exposing Crypto++ types in public headers (rejected by design).
 
 ## Testing
 
-The `test/` tree covers compressors, symmetric and asymmetric crypters (including Hybrid and auto-detect), hashers, signers, ECDH/X25519, and `Vault` / `Password`.
+The `test/` tree covers compressors, symmetric and asymmetric crypters (including Hybrid and auto-detect), hashers, signers, ECDH/X25519, `Vault` / `Password`, and **KeyPair disk I/O**:
 
-Enable tests in CMake and run CTest from the build directory.
+- OpenSSL-generated PEM/DER/encrypted fixtures (Unix shell and Windows batch generators)
+- Library **Generate → Save → Load** round-trips (PEM/DER, cross-format, encrypted)
+- Invalid / garbage inputs (empty, truncated, mismatched algorithms, missing password)
+
+Fixtures use separate directories under the build tree so parallel `ctest -j` does not race. Enable tests in CMake and run CTest from the build directory.
 
 ## Contributing
 
-Contributions are welcome. Please follow `CONTRIBUTING.md`, keep public headers free of Crypto++ types, and extend tests for security-sensitive changes (wipe paths, hybrid envelopes, key agreement).
+Contributions are welcome. Please follow `CONTRIBUTING.md`, keep public headers free of Crypto++ types, and extend tests for security-sensitive changes (wipe paths, hybrid envelopes, key agreement, Save/Load and encrypted PKCS#8).
 
 ## License
 

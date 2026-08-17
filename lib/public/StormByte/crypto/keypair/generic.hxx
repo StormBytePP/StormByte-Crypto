@@ -29,13 +29,25 @@ namespace StormByte::Crypto::KeyPair {
 	};
 
 	/**
+	 * @enum StorageFormat
+	 * @brief On-disk encoding for key material.
+	 *
+	 * PEM is the usual OpenSSL text form (Base64 + BEGIN/END headers).
+	 * DER is raw ASN.1 binary (also used for many .cer/.crt key blobs).
+	 */
+	enum class StorageFormat {
+		PEM,													///< OpenSSL-compatible PEM (text)
+		DER,													///< Binary DER / CER-style ASN.1
+	};
+
+	/**
 	 * @class Generic
 	 * @brief A generic keypair class.
 	 *
-	 * The public key is stored as a non-secret string (typically Base64/PEM body).
+	 * The public key is stored as a non-secret string (typically Base64 of SPKI DER).
 	 * The private key, when present, is stored as a @ref StormByte::Crypto::Password
-	 * so that sensitive material is reference-counted and zeroized when the last
-	 * owner is destroyed.
+	 * holding PKCS#8 (or algorithm-native) DER bytes, zeroized when the last owner
+	 * is destroyed.
 	 */
 	class STORMBYTE_CRYPTO_PUBLIC Generic: public StormByte::Clonable<Generic> {
 		public:
@@ -52,12 +64,12 @@ namespace StormByte::Crypto::KeyPair {
 			Generic(Generic&& other) noexcept					= default;
 
 			/**
-             * @brief Virtual destructor.
-             *
-             * Releases ownership of the private key handle. The underlying
-             * secret is zeroized when no other @ref Password still shares it.
-             */
-            virtual ~Generic() noexcept							= default;
+			 * @brief Virtual destructor.
+			 *
+			 * Releases ownership of the private key handle. The underlying
+			 * secret is zeroized when no other @ref Password still shares it.
+			 */
+			virtual ~Generic() noexcept							= default;
 
 			/**
 			 * @brief Copy assignment operator
@@ -109,12 +121,59 @@ namespace StormByte::Crypto::KeyPair {
 			}
 
 			/**
-			 * @brief Saves the keypair to the specified directory.
-			 * @param path The directory path to save the keys.
-			 * @param name The base name for the key files.
-			 * @return true if the keypair was saved successfully, false otherwise.
+			 * @brief Save public and private keys as separate files under a directory.
+			 *
+			 * Writes @p baseName + public/private suffixes according to @p format
+			 * (e.g. @c name.pub.pem / @c name.pem, or @c .der).
+			 * Private key is stored unencrypted.
+			 *
+			 * @param directory Directory that must already exist.
+			 * @param baseName Base file name without extension.
+			 * @param format PEM or DER.
+			 * @return true on success, false otherwise.
 			 */
-			virtual bool 										Save(const std::filesystem::path& path, const std::string& name) const noexcept;
+			bool 												Save(const std::filesystem::path& directory, const std::string& baseName, StorageFormat format = StorageFormat::PEM) const noexcept;
+
+			/**
+			 * @brief Save public and private keys as separate files; encrypt the private key.
+			 *
+			 * Public key is always plain. Private key uses OpenSSL-compatible
+			 * traditional PEM encryption when @p format is PEM (AES-256-CBC).
+			 * DER + password is not written as raw DER (would be ambiguous);
+			 * prefer PEM when encrypting.
+			 *
+			 * @param directory Directory that must already exist.
+			 * @param baseName Base file name without extension.
+			 * @param encryptPassword Password used to encrypt the private key.
+			 * @param format Prefer @ref StorageFormat::PEM when encrypting.
+			 * @return true on success, false otherwise.
+			 */
+			bool 												Save(const std::filesystem::path& directory, const std::string& baseName, const Password& encryptPassword, StorageFormat format = StorageFormat::PEM) const noexcept;
+
+			/**
+			 * @brief Save only the public key to a single file.
+			 * @param filePath Destination file path.
+			 * @param format PEM or DER.
+			 * @return true on success, false otherwise.
+			 */
+			bool 												SavePublic(const std::filesystem::path& filePath, StorageFormat format = StorageFormat::PEM) const noexcept;
+
+			/**
+			 * @brief Save only the private key (unencrypted) to a single file.
+			 * @param filePath Destination file path.
+			 * @param format PEM or DER.
+			 * @return true on success, false otherwise.
+			 */
+			bool 												SavePrivate(const std::filesystem::path& filePath, StorageFormat format = StorageFormat::PEM) const noexcept;
+
+			/**
+			 * @brief Save only the private key encrypted to a single file.
+			 * @param filePath Destination file path.
+			 * @param encryptPassword Password used to encrypt the private key.
+			 * @param format Prefer PEM (OpenSSL traditional encrypted private key).
+			 * @return true on success, false otherwise.
+			 */
+			bool 												SavePrivate(const std::filesystem::path& filePath, const Password& encryptPassword, StorageFormat format = StorageFormat::PEM) const noexcept;
 
 		protected:
 			enum Type m_type;									///< The type of keypair
@@ -140,10 +199,49 @@ namespace StormByte::Crypto::KeyPair {
 	STORMBYTE_CRYPTO_PUBLIC Generic::PointerType 				Create(Type type, unsigned short bits) noexcept;
 
 	/**
-	 * @brief Load a keypair from public (and optional private) key files.
-	 * @param publicKeyPath Path to the public key file.
+	 * @brief Load a keypair from separate public and private key files.
+	 *
+	 * Format (PEM vs DER) is auto-detected from content.
+	 * Pass an empty @p privateKeyPath for public-only, or an empty @p publicKeyPath
+	 * when the private file alone is enough (public will be derived when possible).
+	 * If the private key is encrypted, use the overload that takes a @ref Password.
+	 *
+	 * @param publicKeyPath Path to the public key file (may be empty).
 	 * @param privateKeyPath Path to the private key file (may be empty).
 	 * @return A pointer to the loaded keypair, or nullptr on failure.
+	 *
+	 * @note @p privateKeyPath has no default argument so that a single-path
+	 *       call resolves unambiguously to @ref Load(const std::filesystem::path&).
 	 */
 	STORMBYTE_CRYPTO_PUBLIC Generic::PointerType 				Load(const std::filesystem::path& publicKeyPath, const std::filesystem::path& privateKeyPath) noexcept;
+
+	/**
+	 * @brief Load from separate files; decrypt private key with @p password if needed.
+	 * @param publicKeyPath Path to the public key file (may be empty).
+	 * @param privateKeyPath Path to the private key file.
+	 * @param password Password for an encrypted private key.
+	 * @return A pointer to the loaded keypair, or nullptr on failure.
+	 */
+	STORMBYTE_CRYPTO_PUBLIC Generic::PointerType 				Load(const std::filesystem::path& publicKeyPath, const std::filesystem::path& privateKeyPath, const Password& password) noexcept;
+
+	/**
+	 * @brief Load from a single file (auto-detect contents).
+	 *
+	 * Supported layouts:
+	 * - Public only
+	 * - Private only (public is derived when possible)
+	 * - Concatenated PEM blocks (private + public)
+	 *
+	 * @param path Path to the key file.
+	 * @return A pointer to the loaded keypair, or nullptr on failure.
+	 */
+	STORMBYTE_CRYPTO_PUBLIC Generic::PointerType 				Load(const std::filesystem::path& path) noexcept;
+
+	/**
+	 * @brief Load from a single file; decrypt if the private material is encrypted.
+	 * @param path Path to the key file.
+	 * @param password Password for encrypted private key material.
+	 * @return A pointer to the loaded keypair, or nullptr on failure.
+	 */
+	STORMBYTE_CRYPTO_PUBLIC Generic::PointerType 				Load(const std::filesystem::path& path, const Password& password) noexcept;
 }

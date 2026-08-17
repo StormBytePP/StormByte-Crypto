@@ -28,17 +28,28 @@ ECDH::PointerType ECDH::Generate(unsigned short bits) noexcept {
 
 		CryptoPP::ECDH<CryptoPP::ECP>::Domain domain(curve);
 
-		CryptoPP::SecByteBlock priv(domain.PrivateKeyLength());
-		CryptoPP::SecByteBlock pub(domain.PublicKeyLength());
-		domain.GenerateKeyPair(RNG(), priv, pub);
+		CryptoPP::SecByteBlock privRaw(domain.PrivateKeyLength());
+		CryptoPP::SecByteBlock pubRaw(domain.PublicKeyLength());
+		domain.GenerateKeyPair(RNG(), privRaw, pubRaw);
 
-		auto pubStr = EncodeSecBlockBase64(pub);
-		Password privPwd = PasswordFromSecBlock(priv);
-		Helpers::SecureWipe(pub);
+		CryptoPP::Integer x(privRaw.data(), privRaw.size());
+		CryptoPP::ECIES<CryptoPP::ECP>::PrivateKey privateKey;
+		privateKey.Initialize(curve, x);
+		if (!privateKey.Validate(RNG(), 2)) {
+			Helpers::SecureWipe(privRaw);
+			Helpers::SecureWipe(pubRaw);
+			return nullptr;
+		}
+
+		CryptoPP::ECIES<CryptoPP::ECP>::PublicKey publicKey;
+		privateKey.MakePublicKey(publicKey);
+
+		Helpers::SecureWipe(privRaw);
+		Helpers::SecureWipe(pubRaw);
 
 		return std::make_shared<ECDH>(
-			std::move(pubStr),
-			std::move(privPwd)
+			SerializeKey(publicKey),
+			SerializeKeyBinary(privateKey)
 		);
 	} catch (...) {
 		return nullptr;
