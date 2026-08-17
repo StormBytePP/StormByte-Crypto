@@ -14,7 +14,6 @@ on:
 env:
   BUILD_TYPE: Debug
 
-
 jobs:
   build-linux:
     runs-on: ubuntu-latest
@@ -75,8 +74,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        compiler: [clang, clang-libc++, gcc]
-    name: macos-${{ matrix.compiler }}
+        compiler: [gcc, clang]
+    name: macos-${{ matrix.compiler == 'clang' && 'clang-libc++' || matrix.compiler }}
     env:
       DYLD_LIBRARY_PATH: ${{ github.workspace }}/build/thirdparty/buildmaster/install/lib:${{ github.workspace }}/build/lib
 
@@ -99,7 +98,6 @@ jobs:
             -DWITH_CRYPTOPP=BUNDLED
             -DWITH_BZIP2=BUNDLED
             -DWITH_STORMBYTE=BUNDLED
-            ${{ matrix.compiler == 'clang-libc++' && '-DCMAKE_CXX_FLAGS=-stdlib=libc++' || '' }}
           run-tests: true
           ctest-options: --output-on-failure --test-dir ${{ github.workspace }}/build/test
 
