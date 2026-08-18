@@ -179,6 +179,52 @@ int TestECDHMaliciousThirdPartyKey() {
 	RETURN_TEST(fn_name, 0);
 }
 
+int TestECDHShareAllCurves() {
+	const std::string fn_name = "TestECDHShareAllCurves";
+	for (unsigned short bits : {256, 384, 521}) {
+		auto a = KeyPair::ECDH::Generate(bits);
+		auto b = KeyPair::ECDH::Generate(bits);
+		ASSERT_TRUE(fn_name, a);
+		ASSERT_TRUE(fn_name, b);
+		Secret::ECDH ea(a, bits);
+		Secret::ECDH eb(b, bits);
+		auto s1 = ea.Share(b->PublicKey());
+		auto s2 = eb.Share(a->PublicKey());
+		ASSERT_TRUE(fn_name, s1.has_value());
+		ASSERT_TRUE(fn_name, s2.has_value());
+		ASSERT_TRUE(fn_name, *s1 == *s2);
+	}
+	RETURN_TEST(fn_name, 0);
+}
+
+int TestECDHShareWithoutPrivateKey() {
+	const std::string fn_name = "TestECDHShareWithoutPrivateKey";
+	auto full = KeyPair::ECDH::Generate(256);
+	ASSERT_TRUE(fn_name, full);
+	// Public-only view if the API allows; otherwise skip
+	auto pubOnly = std::make_shared<KeyPair::ECDH>(full->PublicKey());
+	Secret::ECDH ecdh(pubOnly, 256);
+	auto peer = KeyPair::ECDH::Generate(256);
+	ASSERT_TRUE(fn_name, peer);
+	ASSERT_FALSE(fn_name, ecdh.Share(peer->PublicKey()).has_value());
+	RETURN_TEST(fn_name, 0);
+}
+
+int TestECDHShareIdempotent() {
+	const std::string fn_name = "TestECDHShareIdempotent";
+	auto a = KeyPair::ECDH::Generate(256);
+	auto b = KeyPair::ECDH::Generate(256);
+	ASSERT_TRUE(fn_name, a);
+	ASSERT_TRUE(fn_name, b);
+	Secret::ECDH ecdh(a, 256);
+	auto s1 = ecdh.Share(b->PublicKey());
+	auto s2 = ecdh.Share(b->PublicKey());
+	ASSERT_TRUE(fn_name, s1.has_value());
+	ASSERT_TRUE(fn_name, s2.has_value());
+	ASSERT_TRUE(fn_name, *s1 == *s2);
+	RETURN_TEST(fn_name, 0);
+}
+
 int main() {
 	int result = 0;
 
@@ -190,6 +236,8 @@ int main() {
 	result += TestECDHSharedSecretCorruptedKeys();
 	result += TestECDHServerClientSharedSecret();
 	result += TestECDHMaliciousThirdPartyKey();
+	result += TestECDHDeriveSharedSecretInvalidKey();
+	result += TestECDHShareAllCurves();
 
 	if (result == 0) {
 		std::cout << "All tests passed!" << std::endl;

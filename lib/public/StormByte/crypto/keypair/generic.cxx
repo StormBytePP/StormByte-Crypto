@@ -5,7 +5,7 @@
 #include <StormByte/crypto/keypair/ecdsa.hxx>
 #include <StormByte/crypto/keypair/ed25519.hxx>
 #include <StormByte/crypto/keypair/generic.hxx>
-#include <StormByte/crypto/keypair/implementation.hxx>
+#include <StormByte/crypto/implementation/keypair/api.hxx>
 #include <StormByte/crypto/keypair/rsa.hxx>
 #include <StormByte/crypto/keypair/x25519.hxx>
 #include <StormByte/crypto/password.hxx>
@@ -463,7 +463,7 @@ namespace {
 
 	Password PrivateDerToPassword(std::span<const CryptoPP::byte> der) {
 		CryptoPP::SecByteBlock block(der.data(), der.size());
-		Password pwd = PasswordFromSecBlock(block);
+		Password pwd = StormByte::Crypto::Implementation::KeyPair::PasswordFromSecBlock(block);
 		SecureWipe(block);
 		return pwd;
 	}
@@ -984,7 +984,7 @@ namespace {
 						} else {
 							CryptoPP::ECIES<CryptoPP::ECP>::PublicKey pub;
 							priv.MakePublicKey(pub);
-							pubStored = SerializeKey(pub);
+							pubStored = StormByte::Crypto::Implementation::KeyPair::SerializeKey(pub);
 						}
 
 						if (type == Type::ECDSA)

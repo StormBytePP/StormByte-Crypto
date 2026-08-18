@@ -128,6 +128,120 @@ int TestBZip2CompressDecompressUsingConsumerProducer() {
 	RETURN_TEST(fn_name, 0);
 }
 
+int TestBzip2StreamingDecompress() {
+	const std::string fn_name = "TestBzip2StreamingDecompress";
+	std::string big(128 * 1024, '\0');
+	for (size_t i = 0; i < big.size(); ++i)
+		big[i] = static_cast<char>('A' + (i % 26));
+
+	Compressor::Bzip2 bzip2;
+	FIFO compressedFifo;
+	auto ok = bzip2.Compress(
+		std::span<const std::byte>(reinterpret_cast<const std::byte*>(big.data()), big.size()),
+		compressedFifo);
+	ASSERT_TRUE(fn_name, ok);
+	ASSERT_FALSE(fn_name, compressedFifo.Empty());
+
+	StormByte::Buffer::Producer producer;
+	auto consumerIn = producer.Consumer();
+	const auto& raw = compressedFifo.Data();
+	const size_t chunk = 4096;
+	for (size_t off = 0; off < raw.size(); off += chunk) {
+		size_t n = std::min(chunk, raw.size() - off);
+		std::vector<std::byte> bytes(raw.begin() + static_cast<std::ptrdiff_t>(off),
+									raw.begin() + static_cast<std::ptrdiff_t>(off + n));
+		(void)producer.Write(bytes);
+	}
+	producer.Close();
+
+	auto decompressedConsumer = bzip2.Decompress(consumerIn);
+	auto decompressedFifo = ReadAllFromConsumer(decompressedConsumer);
+	ASSERT_EQUAL(fn_name, StormByte::String::FromByteVector(decompressedFifo.Data()), big);
+	RETURN_TEST(fn_name, 0);
+}
+
+int TestBzip2StreamingRoundTrip() {
+	const std::string fn_name = "TestBzip2StreamingRoundTrip";
+	std::string big(64 * 1024, '\0');
+	for (size_t i = 0; i < big.size(); ++i)
+		big[i] = static_cast<char>('a' + (i % 26));
+
+	StormByte::Buffer::Producer producer;
+	auto consumerIn = producer.Consumer();
+	const size_t chunk = 2048;
+	for (size_t off = 0; off < big.size(); off += chunk) {
+		size_t n = std::min(chunk, big.size() - off);
+		std::vector<std::byte> bytes(n);
+		std::transform(big.begin() + static_cast<std::ptrdiff_t>(off),
+					big.begin() + static_cast<std::ptrdiff_t>(off + n),
+					bytes.begin(),
+					[](char c) { return static_cast<std::byte>(c); });
+		(void)producer.Write(bytes);
+	}
+	producer.Close();
+
+	Compressor::Bzip2 bzip2;
+	auto compressedConsumer = bzip2.Compress(consumerIn);
+	auto decompressedConsumer = bzip2.Decompress(compressedConsumer);
+	auto outFifo = ReadAllFromConsumer(decompressedConsumer);
+	ASSERT_EQUAL(fn_name, StormByte::String::FromByteVector(outFifo.Data()), big);
+	RETURN_TEST(fn_name, 0);
+}
+
+int TestBzip2EmptyInput() {
+	const std::string fn_name = "TestBzip2EmptyInput";
+	Compressor::Bzip2 bzip2;
+
+	FIFO compressed;
+	auto c = bzip2.Compress(std::span<const std::byte>(), compressed);
+	ASSERT_TRUE(fn_name, c);
+	ASSERT_TRUE(fn_name, compressed.Empty());
+
+	// Use span path: empty input is defined as success with empty output
+	FIFO decompressed;
+	auto d = bzip2.Decompress(std::span<const std::byte>(), decompressed);
+	ASSERT_TRUE(fn_name, d);
+	ASSERT_TRUE(fn_name, decompressed.Empty());
+	RETURN_TEST(fn_name, 0);
+}
+
+int TestBzip2CompressLevelBounds() {
+	const std::string fn_name = "TestBzip2CompressLevelBounds";
+	const std::string input = "level-bounds-test-payload";
+
+	for (unsigned short level : {1, 5, 9}) {
+		Compressor::Bzip2 bzip2(level);
+		FIFO compressed;
+		ASSERT_TRUE(fn_name,
+			bzip2.Compress(
+				std::span<const std::byte>(reinterpret_cast<const std::byte*>(input.data()), input.size()),
+				compressed));
+		FIFO decompressed;
+		ASSERT_TRUE(fn_name, bzip2.Decompress(compressed, decompressed));
+		ASSERT_EQUAL(fn_name, StormByte::String::FromByteVector(decompressed.Data()), input);
+	}
+	RETURN_TEST(fn_name, 0);
+}
+
+int TestBzip2BufferPath() {
+	const std::string fn_name = "TestBzip2BufferPath";
+	std::string src(1024, 'B');
+	FIFO input;
+	std::vector<std::byte> bytes(src.size());
+	std::transform(src.begin(), src.end(), bytes.begin(),
+				[](char c) { return static_cast<std::byte>(c); });
+	input.Write(bytes);
+
+	Compressor::Bzip2 bzip2;
+	FIFO compressed;
+	ASSERT_TRUE(fn_name, bzip2.Compress(input, compressed));
+
+	FIFO decompressed;
+	ASSERT_TRUE(fn_name, bzip2.Decompress(compressed, decompressed));
+	ASSERT_EQUAL(fn_name, StormByte::String::FromByteVector(decompressed.Data()), src);
+	RETURN_TEST(fn_name, 0);
+}
+
 int main() {
 	int result = 0;
 
@@ -135,6 +249,11 @@ int main() {
 	result += TestBzip2CompressionProducesDifferentContent();
 	result += TestBZip2DecompressCorruptedData();
 	result += TestBZip2CompressDecompressUsingConsumerProducer();
+	result += TestBzip2StreamingDecompress();
+	result += TestBzip2StreamingRoundTrip();
+	result += TestBzip2EmptyInput();
+	result += TestBzip2CompressLevelBounds();
+	result += TestBzip2BufferPath();
 
 	if (result == 0) {
 		std::cout << "All tests passed!" << std::endl;

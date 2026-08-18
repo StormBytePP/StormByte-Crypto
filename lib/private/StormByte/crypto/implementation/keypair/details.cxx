@@ -1,8 +1,11 @@
-#include <StormByte/crypto/keypair/implementation.hxx>
+#include <StormByte/crypto/implementation/keypair/details.hxx>
 
-namespace StormByte::Crypto::KeyPair {
+#include <base64.h>
+#include <filters.h>
 
-	std::string EncodeSecBlockBase64(const CryptoPP::SecByteBlock& b) noexcept {
+namespace StormByte::Crypto::Implementation::KeyPair {
+	std::string EncodeSecBlockBase64(const CryptoPP::SecByteBlock& b) noexcept
+	{
 		std::string out;
 		CryptoPP::Base64Encoder enc(new CryptoPP::StringSink(out), false);
 		enc.Put(b.data(), b.size());
@@ -10,7 +13,8 @@ namespace StormByte::Crypto::KeyPair {
 		return out;
 	}
 
-	CryptoPP::SecByteBlock DecodeSecBlockBase64(const std::string& s) noexcept {
+	CryptoPP::SecByteBlock DecodeSecBlockBase64(const std::string& s) noexcept
+	{
 		CryptoPP::Base64Decoder dec;
 		CryptoPP::StringSource ss(s, true, new CryptoPP::Redirector(dec));
 		CryptoPP::SecByteBlock b;

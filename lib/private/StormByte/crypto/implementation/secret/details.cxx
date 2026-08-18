@@ -1,0 +1,178 @@
+#include <StormByte/crypto/implementation/secret/details.hxx>
+#include <StormByte/crypto/helpers/password_view.hxx>
+#include <StormByte/crypto/helpers/secure_wipe.hxx>
+#include <StormByte/crypto/implementation/keypair/api.hxx>
+#include <StormByte/crypto/random.hxx>
+
+#include <eccrypto.h>
+#include <oids.h>
+#include <queue.h>
+#include <xed25519.h>
+
+namespace StormByte::Crypto::Implementation::Secret {
+	namespace {
+		CryptoPP::OID CurveFromBits(unsigned short bits) noexcept
+		{
+			switch (bits) {
+				case 256: return CryptoPP::ASN1::secp256r1();
+				case 384: return CryptoPP::ASN1::secp384r1();
+				case 521: return CryptoPP::ASN1::secp521r1();
+				default:  return CryptoPP::OID();
+			}
+		}
+	}
+
+	std::optional<Password> ECDHShare(const Password& privateKey,
+									const std::string& peerPublicKeyBase64,
+									unsigned short bits) noexcept
+	{
+		CryptoPP::SecByteBlock priv;
+		CryptoPP::SecByteBlock pub;
+		CryptoPP::SecByteBlock secret;
+		try {
+			const CryptoPP::OID curve = CurveFromBits(bits);
+			if (curve.Empty())
+				return std::nullopt;
+
+			CryptoPP::ECDH<CryptoPP::ECP>::Domain domain(curve);
+
+			const unsigned char* privPtr = Helpers::PasswordAccess::Data(privateKey);
+			const std::size_t privLen = Helpers::PasswordAccess::Size(privateKey);
+			if (!privPtr || privLen == 0)
+				return std::nullopt;
+
+			priv.Assign(privPtr, privLen);
+			pub = KeyPair::DecodeSecBlockBase64(peerPublicKeyBase64);
+
+			// Fast path: raw scalar + uncompressed point
+			if (priv.size() == domain.PrivateKeyLength()
+				&& pub.size() == domain.PublicKeyLength()) {
+				secret.CleanNew(domain.AgreedValueLength());
+				const bool ok = domain.Agree(secret, priv, pub);
+				Helpers::SecureWipe(priv);
+				Helpers::SecureWipe(pub);
+				if (!ok) {
+					Helpers::SecureWipe(secret);
+					return std::nullopt;
+				}
+				Password out(secret.data(), secret.size());
+				Helpers::SecureWipe(secret);
+				return out;
+			}
+
+			// ASN.1 / SerializeKey path
+			CryptoPP::ECIES<CryptoPP::ECP>::PrivateKey privKey;
+			{
+				CryptoPP::ArraySource src(privPtr, privLen, true);
+				privKey.Load(src);
+				if (!privKey.Validate(RNG(), 2)) {
+					Helpers::SecureWipe(priv);
+					Helpers::SecureWipe(pub);
+					return std::nullopt;
+				}
+			}
+
+			CryptoPP::ECIES<CryptoPP::ECP>::PublicKey pubKey;
+			{
+				CryptoPP::SecByteBlock pubDer = pub;
+				if (pubDer.empty()) {
+					Helpers::SecureWipe(priv);
+					return std::nullopt;
+				}
+				CryptoPP::ArraySource src(pubDer.data(), pubDer.size(), true);
+				pubKey.Load(src);
+				if (!pubKey.Validate(RNG(), 2)) {
+					Helpers::SecureWipe(priv);
+					Helpers::SecureWipe(pub);
+					Helpers::SecureWipe(pubDer);
+					return std::nullopt;
+				}
+				Helpers::SecureWipe(pubDer);
+			}
+
+			const size_t privLenRaw = domain.PrivateKeyLength();
+			const size_t pubLenRaw = domain.PublicKeyLength();
+			CryptoPP::SecByteBlock privRaw(privLenRaw);
+			CryptoPP::SecByteBlock pubRaw(pubLenRaw);
+
+			CryptoPP::Integer d = privKey.GetPrivateExponent();
+			d.Encode(privRaw.data(), privLenRaw);
+
+			CryptoPP::ECP::Point Q = pubKey.GetPublicElement();
+			const size_t coordLen = (pubLenRaw - 1) / 2;
+			pubRaw[0] = 0x04;
+			Q.x.Encode(pubRaw.data() + 1, coordLen);
+			Q.y.Encode(pubRaw.data() + 1 + coordLen, coordLen);
+
+			Helpers::SecureWipe(priv);
+			Helpers::SecureWipe(pub);
+
+			secret.CleanNew(domain.AgreedValueLength());
+			bool ok = domain.Agree(secret, privRaw, pubRaw);
+			if (!ok)
+				ok = domain.Agree(secret, pubRaw, privRaw);
+
+			Helpers::SecureWipe(privRaw);
+			Helpers::SecureWipe(pubRaw);
+
+			if (!ok) {
+				Helpers::SecureWipe(secret);
+				return std::nullopt;
+			}
+
+			Password out(secret.data(), secret.size());
+			Helpers::SecureWipe(secret);
+			return out;
+		} catch (...) {
+			Helpers::SecureWipe(priv);
+			Helpers::SecureWipe(pub);
+			Helpers::SecureWipe(secret);
+			return std::nullopt;
+		}
+	}
+
+	std::optional<Password> X25519Share(const Password& privateKey,
+										const std::string& peerPublicKeyBase64) noexcept
+	{
+		CryptoPP::SecByteBlock priv;
+		CryptoPP::SecByteBlock pub;
+		CryptoPP::SecByteBlock secret;
+		try {
+			const unsigned char* privPtr = Helpers::PasswordAccess::Data(privateKey);
+			const std::size_t privLen = Helpers::PasswordAccess::Size(privateKey);
+			if (!privPtr || privLen == 0)
+				return std::nullopt;
+
+			priv.Assign(privPtr, privLen);
+			pub = KeyPair::DecodeSecBlockBase64(peerPublicKeyBase64);
+
+			CryptoPP::x25519 agreement;
+			if (priv.size() != agreement.PrivateKeyLength()
+				|| pub.size() != agreement.PublicKeyLength()) {
+				Helpers::SecureWipe(priv);
+				Helpers::SecureWipe(pub);
+				return std::nullopt;
+			}
+
+			secret.CleanNew(agreement.AgreedValueLength());
+			const bool ok = agreement.Agree(secret, priv, pub);
+
+			Helpers::SecureWipe(priv);
+			Helpers::SecureWipe(pub);
+
+			if (!ok) {
+				Helpers::SecureWipe(secret);
+				return std::nullopt;
+			}
+
+			Password out(secret.data(), secret.size());
+			Helpers::SecureWipe(secret);
+			return out;
+		} catch (...) {
+			Helpers::SecureWipe(priv);
+			Helpers::SecureWipe(pub);
+			Helpers::SecureWipe(secret);
+			return std::nullopt;
+		}
+	}
+}

@@ -1,5 +1,5 @@
 #include <StormByte/crypto/keypair/dsa.hxx>
-#include <StormByte/crypto/keypair/implementation.hxx>
+#include <StormByte/crypto/implementation/keypair/api.hxx>
 #include <StormByte/crypto/password.hxx>
 #include <StormByte/crypto/random.hxx>
 
@@ -16,8 +16,8 @@ DSA::PointerType DSA::Generate(unsigned short bits) noexcept {
 		privateKey.MakePublicKey(publicKey);
 
 		return std::make_shared<DSA>(
-			SerializeKey(publicKey),
-			SerializeKeyBinary(privateKey)
+			Implementation::KeyPair::SerializeKey(publicKey),
+			Implementation::KeyPair::SerializeKeyBinary(privateKey)
 		);
 	} catch (...) {
 		return nullptr;

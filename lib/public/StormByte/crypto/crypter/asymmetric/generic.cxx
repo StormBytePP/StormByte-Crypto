@@ -1,6 +1,6 @@
 #include <StormByte/crypto/crypter/asymmetric/ecc.hxx>
-#include <StormByte/crypto/crypter/asymmetric/implementation.hxx>
 #include <StormByte/crypto/crypter/asymmetric/rsa.hxx>
+#include <StormByte/crypto/implementation/crypter/asymmetric/api.hxx>
 #include <StormByte/crypto/keypair/ecc.hxx>
 #include <StormByte/crypto/keypair/rsa.hxx>
 
@@ -9,10 +9,18 @@
 
 using ECIES = CryptoPP::ECIES<CryptoPP::ECP>;
 
-namespace StormByte::Crypto::Crypter {
+using StormByte::Buffer::Consumer;
+using StormByte::Buffer::DataType;
+using StormByte::Buffer::Producer;
+using StormByte::Buffer::WriteOnly;
+using StormByte::Buffer::ReadOnly;
 
-	Generic::PointerType Create(enum Type type, KeyPair::Generic::PointerType keypair) noexcept {
-		/* We need to do sanity checks here to check if keys match */
+namespace StormByte::Crypto::Crypter {
+	Generic::PointerType Create(enum Type type, KeyPair::Generic::PointerType keypair) noexcept
+	{
+		if (!keypair)
+			return nullptr;
+
 		switch (type) {
 			case Type::ECC:
 				if (keypair->Type() != KeyPair::Type::ECC)
@@ -27,11 +35,13 @@ namespace StormByte::Crypto::Crypter {
 		}
 	}
 
-	Generic::PointerType Create(enum Type type, const KeyPair::Generic& keypair) noexcept {
+	Generic::PointerType Create(enum Type type, const KeyPair::Generic& keypair) noexcept
+	{
 		return Create(type, keypair.Clone());
 	}
 
-	Generic::PointerType Create(enum Type type, KeyPair::Generic&& keypair) noexcept {
+	Generic::PointerType Create(enum Type type, KeyPair::Generic&& keypair) noexcept
+	{
 		return Create(type, keypair.Move());
 	}
 
@@ -39,44 +49,66 @@ namespace StormByte::Crypto::Crypter {
 	// Encrypt overloads with Strategy
 	// -------------------------------------------------------------------------
 
-	bool Asymmetric::Encrypt(std::span<const std::byte> input, Buffer::WriteOnly& output, Strategy strategy) const noexcept {
-		if (strategy == Strategy::Native) {
+	bool Asymmetric::Encrypt(std::span<const std::byte> input,
+							WriteOnly& output,
+							Strategy strategy) const noexcept
+	{
+		if (strategy == Strategy::Native)
 			return DoEncrypt(input, output);
-		}
 
-		// Hybrid
+		namespace Impl = Implementation::Crypter::Asymmetric;
+
 		if (Type() == Type::RSA) {
-			return EncryptAsymmetricBlockEnvelope<CryptoPP::RSAES_OAEP_SHA_Encryptor, CryptoPP::RSA::PublicKey>(input, m_keypair, output);
+			return Impl::EncryptAsymmetricBlockEnvelope<
+				CryptoPP::RSAES_OAEP_SHA_Encryptor,
+				CryptoPP::RSA::PublicKey>(input, m_keypair, output);
 		}
 		if (Type() == Type::ECC) {
-			return EncryptAsymmetricBlockEnvelope<ECIES::Encryptor, ECIES::PublicKey>(input, m_keypair, output);
+			return Impl::EncryptAsymmetricBlockEnvelope<
+				ECIES::Encryptor,
+				ECIES::PublicKey>(input, m_keypair, output);
 		}
 		return false;
 	}
 
-	bool Asymmetric::Encrypt(const Buffer::ReadOnly& input, Buffer::WriteOnly& output, Strategy strategy) const noexcept {
-		Buffer::DataType data;
-		if (!const_cast<Buffer::ReadOnly&>(input).Read(data)) return false;
+	bool Asymmetric::Encrypt(const ReadOnly& input,
+							WriteOnly& output,
+							Strategy strategy) const noexcept
+	{
+		DataType data;
+		if (!const_cast<ReadOnly&>(input).Read(data))
+			return false;
 		return Encrypt(std::span<const std::byte>(data.data(), data.size()), output, strategy);
 	}
 
-	bool Asymmetric::Encrypt(Buffer::ReadOnly& input, Buffer::WriteOnly& output, Strategy strategy) const noexcept {
-		Buffer::DataType data;
-		if (!input.Extract(data)) return false;
+	bool Asymmetric::Encrypt(ReadOnly& input,
+							WriteOnly& output,
+							Strategy strategy) const noexcept
+	{
+		DataType data;
+		if (!input.Extract(data))
+			return false;
 		return Encrypt(std::span<const std::byte>(data.data(), data.size()), output, strategy);
 	}
 
-	Buffer::Consumer Asymmetric::Encrypt(Buffer::Consumer consumer, Strategy strategy, ReadMode mode) const noexcept {
-		if (strategy == Strategy::Native) {
-			return DoEncrypt(consumer, mode);
-		}
+	Consumer Asymmetric::Encrypt(Consumer consumer,
+								Strategy strategy,
+								ReadMode mode) const noexcept
+	{
+		if (strategy == Strategy::Native)
+			return DoEncrypt(std::move(consumer), mode);
 
-		// Hybrid streaming
+		namespace Impl = Implementation::Crypter::Asymmetric;
+
 		if (Type() == Type::RSA) {
-			return EncryptAsymmetricBlockEnvelope<CryptoPP::RSAES_OAEP_SHA_Encryptor, CryptoPP::RSA::PublicKey>(consumer, m_keypair, mode);
+			return Impl::EncryptAsymmetricBlockEnvelope<
+				CryptoPP::RSAES_OAEP_SHA_Encryptor,
+				CryptoPP::RSA::PublicKey>(std::move(consumer), m_keypair, mode);
 		}
 		if (Type() == Type::ECC) {
-			return EncryptAsymmetricBlockEnvelope<ECIES::Encryptor, ECIES::PublicKey>(consumer, m_keypair, mode);
+			return Impl::EncryptAsymmetricBlockEnvelope<
+				ECIES::Encryptor,
+				ECIES::PublicKey>(std::move(consumer), m_keypair, mode);
 		}
 
 		Producer producer;
@@ -88,60 +120,75 @@ namespace StormByte::Crypto::Crypter {
 	// Decrypt overloads (auto-detect Native vs Hybrid)
 	// -------------------------------------------------------------------------
 
-	bool Asymmetric::Decrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept {
-		// Try Hybrid first
+	bool Asymmetric::Decrypt(std::span<const std::byte> input,
+							WriteOnly& output) const noexcept
+	{
+		namespace Impl = Implementation::Crypter::Asymmetric;
+
 		bool hybridOk = false;
 		if (Type() == Type::RSA) {
-			hybridOk = DecryptAsymmetricBlockEnvelope<CryptoPP::RSAES_OAEP_SHA_Decryptor, CryptoPP::RSA::PrivateKey>(input, m_keypair, output);
+			hybridOk = Impl::DecryptAsymmetricBlockEnvelope<
+				CryptoPP::RSAES_OAEP_SHA_Decryptor,
+				CryptoPP::RSA::PrivateKey>(input, m_keypair, output);
 		} else if (Type() == Type::ECC) {
-			hybridOk = DecryptAsymmetricBlockEnvelope<ECIES::Decryptor, ECIES::PrivateKey>(input, m_keypair, output);
+			hybridOk = Impl::DecryptAsymmetricBlockEnvelope<
+				ECIES::Decryptor,
+				ECIES::PrivateKey>(input, m_keypair, output);
 		}
 
-		if (hybridOk) return true;
+		if (hybridOk)
+			return true;
 
-		// Fallback to Native
 		return DoDecrypt(input, output);
 	}
 
-	bool Asymmetric::Decrypt(const Buffer::ReadOnly& input, Buffer::WriteOnly& output) const noexcept {
-		Buffer::DataType data;
-		if (!const_cast<Buffer::ReadOnly&>(input).Read(data)) return false;
+	bool Asymmetric::Decrypt(const ReadOnly& input,
+							WriteOnly& output) const noexcept
+	{
+		DataType data;
+		if (!const_cast<ReadOnly&>(input).Read(data))
+			return false;
 		return Decrypt(std::span<const std::byte>(data.data(), data.size()), output);
 	}
 
-	bool Asymmetric::Decrypt(Buffer::ReadOnly& input, Buffer::WriteOnly& output) const noexcept {
-		Buffer::DataType data;
-		if (!input.Extract(data)) return false;
+	bool Asymmetric::Decrypt(ReadOnly& input,
+							WriteOnly& output) const noexcept
+	{
+		DataType data;
+		if (!input.Extract(data))
+			return false;
 		return Decrypt(std::span<const std::byte>(data.data(), data.size()), output);
 	}
 
-	Buffer::Consumer Asymmetric::Decrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept {
-		// Auto-detect using Peek (does not advance the read position)
+	Consumer Asymmetric::Decrypt(Consumer consumer, ReadMode mode) const noexcept
+	{
+		namespace Impl = Implementation::Crypter::Asymmetric;
+
 		DataType headerPeek;
-		if (!consumer.Peek(4, headerPeek) || headerPeek.size() < 4) {
-			// Not enough data → try Native
-			return DoDecrypt(consumer, mode);
-		}
+		if (!consumer.Peek(4, headerPeek) || headerPeek.size() < 4)
+			return DoDecrypt(std::move(consumer), mode);
 
-		uint32_t possibleEskLen = (static_cast<uint32_t>(std::to_integer<unsigned char>(headerPeek[0])) << 24) |
-								(static_cast<uint32_t>(std::to_integer<unsigned char>(headerPeek[1])) << 16) |
-								(static_cast<uint32_t>(std::to_integer<unsigned char>(headerPeek[2])) << 8)  |
-								(static_cast<uint32_t>(std::to_integer<unsigned char>(headerPeek[3])));
+		const uint32_t possibleEskLen =
+			(static_cast<uint32_t>(std::to_integer<unsigned char>(headerPeek[0])) << 24) |
+			(static_cast<uint32_t>(std::to_integer<unsigned char>(headerPeek[1])) << 16) |
+			(static_cast<uint32_t>(std::to_integer<unsigned char>(headerPeek[2])) << 8)  |
+			(static_cast<uint32_t>(std::to_integer<unsigned char>(headerPeek[3])));
 
-		// Heuristic: reasonable ESK length for RSA/ECC is typically 32–512 bytes
 		const bool looksLikeHybrid = (possibleEskLen >= 32 && possibleEskLen <= 512);
 
 		if (looksLikeHybrid) {
 			if (Type() == Type::RSA) {
-				return DecryptAsymmetricBlockEnvelope<CryptoPP::RSAES_OAEP_SHA_Decryptor, CryptoPP::RSA::PrivateKey>(consumer, m_keypair, mode);
+				return Impl::DecryptAsymmetricBlockEnvelope<
+					CryptoPP::RSAES_OAEP_SHA_Decryptor,
+					CryptoPP::RSA::PrivateKey>(std::move(consumer), m_keypair, mode);
 			}
 			if (Type() == Type::ECC) {
-				return DecryptAsymmetricBlockEnvelope<ECIES::Decryptor, ECIES::PrivateKey>(consumer, m_keypair, mode);
+				return Impl::DecryptAsymmetricBlockEnvelope<
+					ECIES::Decryptor,
+					ECIES::PrivateKey>(std::move(consumer), m_keypair, mode);
 			}
 		}
 
-		// Fallback to Native
-		return DoDecrypt(consumer, mode);
+		return DoDecrypt(std::move(consumer), mode);
 	}
-
 }

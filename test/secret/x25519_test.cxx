@@ -126,6 +126,47 @@ int TestX25519MaliciousThirdPartyKey() {
 	RETURN_TEST(fn_name, 0);
 }
 
+int TestX25519DeriveSharedSecretStatic() {
+	const std::string fn_name = "TestX25519DeriveSharedSecretStatic";
+	auto a = KeyPair::X25519::Generate();
+	auto b = KeyPair::X25519::Generate();
+	ASSERT_TRUE(fn_name, a);
+	ASSERT_TRUE(fn_name, b);
+	auto s1 = Secret::X25519::DeriveSharedSecret(a, b->PublicKey());
+	auto s2 = Secret::X25519::DeriveSharedSecret(b, a->PublicKey());
+	ASSERT_TRUE(fn_name, s1.has_value());
+	ASSERT_TRUE(fn_name, s2.has_value());
+	ASSERT_TRUE(fn_name, *s1 == *s2);
+	RETURN_TEST(fn_name, 0);
+}
+
+int TestX25519ShareWithoutPrivateKey() {
+	const std::string fn_name = "TestX25519ShareWithoutPrivateKey";
+	auto full = KeyPair::X25519::Generate();
+	ASSERT_TRUE(fn_name, full);
+	auto pubOnly = std::make_shared<KeyPair::X25519>(full->PublicKey());
+	Secret::X25519 x(pubOnly);
+	auto peer = KeyPair::X25519::Generate();
+	ASSERT_TRUE(fn_name, peer);
+	ASSERT_FALSE(fn_name, x.Share(peer->PublicKey()).has_value());
+	RETURN_TEST(fn_name, 0);
+}
+
+int TestX25519ShareIdempotent() {
+	const std::string fn_name = "TestX25519ShareIdempotent";
+	auto a = KeyPair::X25519::Generate();
+	auto b = KeyPair::X25519::Generate();
+	ASSERT_TRUE(fn_name, a);
+	ASSERT_TRUE(fn_name, b);
+	Secret::X25519 x(a);
+	auto s1 = x.Share(b->PublicKey());
+	auto s2 = x.Share(b->PublicKey());
+	ASSERT_TRUE(fn_name, s1.has_value());
+	ASSERT_TRUE(fn_name, s2.has_value());
+	ASSERT_TRUE(fn_name, *s1 == *s2);
+	RETURN_TEST(fn_name, 0);
+}
+
 int main() {
 	int result = 0;
 
@@ -135,6 +176,8 @@ int main() {
 	result += TestX25519SharedSecretCorruptedKeys();
 	result += TestX25519ServerClientSharedSecret();
 	result += TestX25519MaliciousThirdPartyKey();
+	result += TestX25519DeriveSharedSecretStatic();
+	result += TestX25519ShareWithoutPrivateKey();
 
 	if (result == 0) {
 		std::cout << "All tests passed!" << std::endl;

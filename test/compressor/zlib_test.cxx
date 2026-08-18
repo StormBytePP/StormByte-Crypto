@@ -79,11 +79,112 @@ int TestZlibStreaming() {
 	RETURN_TEST(fn_name, 0);
 }
 
+int TestZlibStreamingDecompress() {
+	const std::string fn_name = "TestZlibStreamingDecompress";
+	std::string big(128 * 1024, '\0');
+	for (size_t i = 0; i < big.size(); ++i)
+		big[i] = static_cast<char>('A' + (i % 26));
+
+	// Compress via span first
+	Compressor::Zlib comp;
+	FIFO compressedFifo;
+	auto ok = comp.Compress(
+		std::span<const std::byte>(reinterpret_cast<const std::byte*>(big.data()), big.size()),
+		compressedFifo);
+	ASSERT_TRUE(fn_name, ok);
+	ASSERT_FALSE(fn_name, compressedFifo.Empty());
+
+	// Feed compressed data as a streaming consumer
+	StormByte::Buffer::Producer producer;
+	auto consumerIn = producer.Consumer();
+	const auto& raw = compressedFifo.Data();
+	const size_t chunk = 4096;
+	for (size_t off = 0; off < raw.size(); off += chunk) {
+		size_t n = std::min(chunk, raw.size() - off);
+		std::vector<std::byte> bytes(raw.begin() + static_cast<std::ptrdiff_t>(off),
+									raw.begin() + static_cast<std::ptrdiff_t>(off + n));
+		(void)producer.Write(bytes);
+	}
+	producer.Close();
+
+	Compressor::Zlib decomp;
+	auto decompressedConsumer = decomp.Decompress(consumerIn);
+	auto decompressedFifo = ReadAllFromConsumer(decompressedConsumer);
+	ASSERT_EQUAL(fn_name, StormByte::String::FromByteVector(decompressedFifo.Data()), big);
+	RETURN_TEST(fn_name, 0);
+}
+
+int TestZlibStreamingRoundTrip() {
+	const std::string fn_name = "TestZlibStreamingRoundTrip";
+	std::string big(64 * 1024, '\0');
+	for (size_t i = 0; i < big.size(); ++i)
+		big[i] = static_cast<char>('a' + (i % 26));
+
+	StormByte::Buffer::Producer producer;
+	auto consumerIn = producer.Consumer();
+	const size_t chunk = 2048;
+	for (size_t off = 0; off < big.size(); off += chunk) {
+		size_t n = std::min(chunk, big.size() - off);
+		std::vector<std::byte> bytes(n);
+		std::transform(big.begin() + static_cast<std::ptrdiff_t>(off),
+					big.begin() + static_cast<std::ptrdiff_t>(off + n),
+					bytes.begin(),
+					[](char c) { return static_cast<std::byte>(c); });
+		(void)producer.Write(bytes);
+	}
+	producer.Close();
+
+	Compressor::Zlib zlib;
+	auto compressedConsumer = zlib.Compress(consumerIn);
+	auto decompressedConsumer = zlib.Decompress(compressedConsumer);
+	auto outFifo = ReadAllFromConsumer(decompressedConsumer);
+	ASSERT_EQUAL(fn_name, StormByte::String::FromByteVector(outFifo.Data()), big);
+	RETURN_TEST(fn_name, 0);
+}
+
+int TestZlibEmptyInput() {
+	const std::string fn_name = "TestZlibEmptyInput";
+	Compressor::Zlib zlib;
+
+	FIFO compressed;
+	auto c = zlib.Compress(std::span<const std::byte>(), compressed);
+	ASSERT_TRUE(fn_name, c);
+
+	FIFO decompressed;
+	auto d = zlib.Decompress(compressed, decompressed);
+	ASSERT_TRUE(fn_name, d);
+	ASSERT_TRUE(fn_name, decompressed.Empty() ||
+				StormByte::String::FromByteVector(decompressed.Data()).empty());
+	RETURN_TEST(fn_name, 0);
+}
+
+int TestZlibCompressLevelBounds() {
+	const std::string fn_name = "TestZlibCompressLevelBounds";
+	const std::string input = "level-bounds-test-payload";
+
+	for (unsigned short level : {1, 5, 9}) {
+		Compressor::Zlib zlib(level);
+		FIFO compressed;
+		ASSERT_TRUE(fn_name,
+			zlib.Compress(
+				std::span<const std::byte>(reinterpret_cast<const std::byte*>(input.data()), input.size()),
+				compressed));
+		FIFO decompressed;
+		ASSERT_TRUE(fn_name, zlib.Decompress(compressed, decompressed));
+		ASSERT_EQUAL(fn_name, StormByte::String::FromByteVector(decompressed.Data()), input);
+	}
+	RETURN_TEST(fn_name, 0);
+}
+
 int main(){
 	int result = 0;
 	result += TestZlibCompressDecompressString();
 	result += TestZlibCompressDecompressBuffer();
 	result += TestZlibStreaming();
+	result += TestZlibStreamingDecompress();
+	result += TestZlibStreamingRoundTrip();
+	result += TestZlibEmptyInput();
+	result += TestZlibCompressLevelBounds();
 	if (result == 0) {
 		std::cout << "All tests passed!" << std::endl;
 	} else {

@@ -1,6 +1,6 @@
 #include <StormByte/crypto/helpers/secure_wipe.hxx>
 #include <StormByte/crypto/keypair/ecdh.hxx>
-#include <StormByte/crypto/keypair/implementation.hxx>
+#include <StormByte/crypto/implementation/keypair/api.hxx>
 #include <StormByte/crypto/password.hxx>
 #include <StormByte/crypto/random.hxx>
 
@@ -48,8 +48,8 @@ ECDH::PointerType ECDH::Generate(unsigned short bits) noexcept {
 		Helpers::SecureWipe(pubRaw);
 
 		return std::make_shared<ECDH>(
-			SerializeKey(publicKey),
-			SerializeKeyBinary(privateKey)
+			Implementation::KeyPair::SerializeKey(publicKey),
+			Implementation::KeyPair::SerializeKeyBinary(privateKey)
 		);
 	} catch (...) {
 		return nullptr;

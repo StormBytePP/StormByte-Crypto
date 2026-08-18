@@ -1,5 +1,5 @@
 #include <StormByte/crypto/keypair/ecdsa.hxx>
-#include <StormByte/crypto/keypair/implementation.hxx>
+#include <StormByte/crypto/implementation/keypair/api.hxx>
 #include <StormByte/crypto/password.hxx>
 #include <StormByte/crypto/random.hxx>
 
@@ -32,8 +32,8 @@ ECDSA::PointerType ECDSA::Generate(unsigned short bits) noexcept {
 		privateKey.MakePublicKey(publicKey);
 
 		return std::make_shared<ECDSA>(
-			SerializeKey(publicKey),
-			SerializeKeyBinary(privateKey)
+			Implementation::KeyPair::SerializeKey(publicKey),
+			Implementation::KeyPair::SerializeKeyBinary(privateKey)
 		);
 	} catch (...) {
 		return nullptr;

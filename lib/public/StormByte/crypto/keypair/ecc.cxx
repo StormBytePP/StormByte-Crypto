@@ -1,5 +1,5 @@
 #include <StormByte/crypto/keypair/ecc.hxx>
-#include <StormByte/crypto/keypair/implementation.hxx>
+#include <StormByte/crypto/implementation/keypair/api.hxx>
 #include <StormByte/crypto/password.hxx>
 #include <StormByte/crypto/random.hxx>
 
@@ -29,8 +29,8 @@ ECC::PointerType ECC::Generate(unsigned short bits) noexcept {
 		CryptoPP::ECIES<CryptoPP::ECP>::Encryptor encryptor(decryptor);
 
 		return std::make_shared<ECC>(
-			SerializeKey(encryptor.GetPublicKey()),
-			SerializeKeyBinary(decryptor.GetPrivateKey())
+			Implementation::KeyPair::SerializeKey(encryptor.GetPublicKey()),
+			Implementation::KeyPair::SerializeKeyBinary(decryptor.GetPrivateKey())
 		);
 	} catch (...) {
 		return nullptr;

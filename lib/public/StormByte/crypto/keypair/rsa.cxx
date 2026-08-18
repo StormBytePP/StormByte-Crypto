@@ -1,5 +1,5 @@
 #include <StormByte/crypto/keypair/rsa.hxx>
-#include <StormByte/crypto/keypair/implementation.hxx>
+#include <StormByte/crypto/implementation/keypair/api.hxx>
 #include <StormByte/crypto/password.hxx>
 #include <StormByte/crypto/random.hxx>
 
@@ -19,8 +19,8 @@ RSA::PointerType RSA::Generate(unsigned short key_size) noexcept {
 		publicKey.AssignFrom(privateKey);
 
 		return std::make_shared<RSA>(
-			SerializeKey(publicKey),
-			SerializeKeyBinary(privateKey)
+			Implementation::KeyPair::SerializeKey(publicKey),
+			Implementation::KeyPair::SerializeKeyBinary(privateKey)
 		);
 	} catch (...) {
 		return nullptr;
