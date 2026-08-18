@@ -1,0 +1,213 @@
+name: CI
+
+permissions:
+  actions: write
+  contents: read
+  pages: write
+  id-token: write
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["master"]
+  workflow_dispatch:
+
+env:
+  BUILD_TYPE: Release
+  # Faster PBKDF2 in unit tests (library reads this define)
+  # Linux/mac: plain -D ; Windows job overrides with /D for MSVC
+  CXXFLAGS: -DSTORMBYTE_CRYPTO_INSECURE_PBKDF2_ITERATIONS_FOR_CI
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ###########################################################################
+  # Bootstraps
+  # Submodule cache is OS-scoped by Actions — one warm job per OS.
+  ###########################################################################
+  checkout-bootstrap:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    name: checkout-bootstrap (${{ matrix.os }})
+    steps:
+      - name: Warm submodule / checkout cache
+        uses: stormbytepp/githubactions/.github/actions/checkout-cached@master
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+  apt-bootstrap:
+    runs-on: ubuntu-latest
+    name: apt-bootstrap
+    steps:
+      - name: Warm APT lists cache
+        uses: stormbytepp/githubactions/.github/actions/update-apt-cached@master
+        with:
+          cache-key: apt-lists
+          rotate-weekly: true
+
+  ###########################################################################
+  # Linux
+  ###########################################################################
+  build-linux:
+    needs: [checkout-bootstrap, apt-bootstrap]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc, clang, clang-libc++]
+    name: linux-${{ matrix.compiler }}
+    env:
+      LD_LIBRARY_PATH: ${{ github.workspace }}/build/lib:${{ github.workspace }}/build/thirdparty/buildmaster/install/lib
+
+    steps:
+      - name: Checkout repository and submodules
+        uses: stormbytepp/githubactions/.github/actions/checkout-cached@master
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Install OpenSSL (CLI for KeyPair fixtures)
+        uses: stormbytepp/githubactions/.github/actions/install-cached@master
+        with:
+          packages: "openssl"
+          cache-key: apt-openssl-v1
+          lists-cache-key: apt-lists
+          rotate-weekly: true
+
+      - name: Build with toolchain
+        uses: stormbytepp/githubactions/.github/actions/build-with-toolchain@master
+        with:
+          toolchain: ${{ matrix.compiler }}
+          ccache-key: v1-release-${{ matrix.compiler }}
+          build-type: ${{ env.BUILD_TYPE }}
+          configure-options: >-
+            -DENABLE_TEST=ON
+            -DWITH_CRYPTOPP=BUNDLED
+            -DWITH_BZIP2=BUNDLED
+            -DWITH_STORMBYTE=BUNDLED
+            ${{ matrix.compiler == 'clang-libc++' && '-DCMAKE_CXX_FLAGS=-stdlib=libc++' || '' }}
+          run-tests: true
+          ctest-options: --output-on-failure --test-dir ${{ github.workspace }}/build/test
+
+  ###########################################################################
+  # macOS
+  ###########################################################################
+  build-macos:
+    needs: [checkout-bootstrap]
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc, clang]
+    name: macos-${{ matrix.compiler }}
+    env:
+      DYLD_LIBRARY_PATH: ${{ github.workspace }}/build/lib:${{ github.workspace }}/build/thirdparty/buildmaster/install/lib
+
+    steps:
+      - name: Checkout repository and submodules
+        uses: stormbytepp/githubactions/.github/actions/checkout-cached@master
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Install OpenSSL (Homebrew via install-cached)
+        uses: stormbytepp/githubactions/.github/actions/install-cached@master
+        with:
+          packages: "openssl@3"
+
+      - name: Put Homebrew OpenSSL on PATH
+        run: |
+          echo "$(brew --prefix openssl@3)/bin" >> "$GITHUB_PATH"
+          openssl version
+
+      - name: Build with toolchain
+        uses: stormbytepp/githubactions/.github/actions/build-with-toolchain@master
+        with:
+          toolchain: ${{ matrix.compiler }}
+          ccache-key: v1-release-${{ matrix.compiler }}
+          build-type: ${{ env.BUILD_TYPE }}
+          configure-options: >-
+            -DENABLE_TEST=ON
+            -DWITH_CRYPTOPP=BUNDLED
+            -DWITH_BZIP2=BUNDLED
+            -DWITH_STORMBYTE=BUNDLED
+          run-tests: true
+          ctest-options: --output-on-failure --test-dir ${{ github.workspace }}/build/test
+
+  ###########################################################################
+  # Windows
+  ###########################################################################
+  build-windows:
+    needs: [checkout-bootstrap]
+    runs-on: windows-latest
+    name: windows-msvc
+    env:
+      CXXFLAGS: /DSTORMBYTE_CRYPTO_INSECURE_PBKDF2_ITERATIONS_FOR_CI
+
+    steps:
+      - name: Checkout repository and submodules
+        uses: stormbytepp/githubactions/.github/actions/checkout-cached@master
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Install OpenSSL (Chocolatey via install-cached)
+        uses: stormbytepp/githubactions/.github/actions/install-cached@master
+        with:
+          packages: "openssl"
+
+      - name: Verify OpenSSL on PATH
+        shell: pwsh
+        run: |
+          foreach ($p in @(
+            "C:\Program Files\OpenSSL-Win64\bin",
+            "C:\Program Files\OpenSSL\bin"
+          )) {
+            if (Test-Path $p) {
+              echo $p | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+            }
+          }
+          openssl version
+
+      - name: Add DLL directories to PATH
+        shell: pwsh
+        run: |
+          echo "${{ github.workspace }}\build\lib" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          echo "${{ github.workspace }}\build\thirdparty\buildmaster\install\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Build with toolchain
+        uses: stormbytepp/githubactions/.github/actions/build-with-toolchain@master
+        with:
+          toolchain: msvc
+          ccache-key: v1-release-msvc
+          build-type: ${{ env.BUILD_TYPE }}
+          configure-options: >-
+            -DENABLE_TEST=ON
+            -DWITH_CRYPTOPP=BUNDLED
+            -DWITH_BZIP2=BUNDLED
+            -DWITH_STORMBYTE=BUNDLED
+          run-tests: true
+          ctest-options: --output-on-failure --test-dir ${{ github.workspace }}/build/test
+
+  ###########################################################################
+  # Docs (StormByteCryptoDoc)
+  ###########################################################################
+  docs:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: [checkout-bootstrap, apt-bootstrap]
+    uses: stormbytepp/githubactions/.github/workflows/generate-and-deploy-docs.yml@master
+    with:
+      doc_target: StormByteCryptoDoc
+      extra-cmake-options: >-
+        -DENABLE_DOC=ON
+        -DWITH_CRYPTOPP=BUNDLED
+        -DWITH_BZIP2=BUNDLED
+        -DWITH_STORMBYTE=BUNDLED
+      docs_output_dir: ./_site
