@@ -1,4 +1,3 @@
-```md
 # StormByte-Crypto
 
 ![Linux](https://img.shields.io/badge/Linux-Supported-1793D1?logo=linux&logoColor=white)
