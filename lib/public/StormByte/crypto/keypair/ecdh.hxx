@@ -26,45 +26,45 @@ namespace StormByte::Crypto::KeyPair {
 			 * @param publicKey The public key material (typically Base64/PEM body).
 			 * @param privateKey Optional private key wrapped in @ref Password.
 			 */
-			inline 												ECDH(std::string publicKey, std::optional<Password> privateKey = std::nullopt):
-			Generic(Type::ECDH, std::move(publicKey), std::move(privateKey)) {}
+			inline ECDH(std::string publicKey, std::optional<Password> privateKey = std::nullopt):
+				Generic(Type::ECDH, std::move(publicKey), std::move(privateKey)) {}
 
 			/**
 			 * @brief Copy constructor
 			 * @param other The other ECDH keypair to copy from.
 			 */
-			ECDH(const ECDH& other)								= default;
+			ECDH(const ECDH& other) = default;
 
 			/**
 			 * @brief Move constructor
 			 * @param other The other ECDH keypair to move from.
 			 */
-			ECDH(ECDH&& other) noexcept							= default;
+			ECDH(ECDH&& other) noexcept = default;
 
 			/**
 			 * @brief Destructor
 			 */
-			~ECDH() noexcept override							= default;
+			~ECDH() noexcept override = default;
 
 			/**
 			 * @brief Copy assignment operator
 			 * @param other The other ECDH keypair to copy from.
 			 * @return Reference to this ECDH keypair.
 			 */
-			ECDH& operator=(const ECDH& other)					= default;
+			ECDH& operator=(const ECDH& other) = default;
 
 			/**
 			 * @brief Move assignment operator
 			 * @param other The other ECDH keypair to move from.
 			 * @return Reference to this ECDH keypair.
 			 */
-			ECDH& operator=(ECDH&& other) noexcept				= default;
+			ECDH& operator=(ECDH&& other) noexcept = default;
 
 			/**
 			 * @brief Clone the ECDH keypair.
 			 * @return A pointer to the cloned ECDH keypair.
 			 */
-			PointerType 										Clone() const override {
+			PointerType Clone() const override {
 				return std::make_shared<ECDH>(*this);
 			}
 
@@ -72,7 +72,7 @@ namespace StormByte::Crypto::KeyPair {
 			 * @brief Move this ECDH keypair into a new owning pointer.
 			 * @return A pointer to the moved ECDH keypair.
 			 */
-			PointerType 										Move() override {
+			PointerType Move() override {
 				return std::make_shared<ECDH>(std::move(*this));
 			}
 
@@ -81,6 +81,6 @@ namespace StormByte::Crypto::KeyPair {
 			 * @param bits The curve size in bits (e.g. 256).
 			 * @return A pointer to the generated ECDH keypair, or nullptr on failure.
 			 */
-			static PointerType 									Generate(unsigned short bits) noexcept;
+			static PointerType Generate(unsigned short bits) noexcept;
 	};
 }

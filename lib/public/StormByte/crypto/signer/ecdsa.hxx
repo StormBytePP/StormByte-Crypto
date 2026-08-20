@@ -18,59 +18,59 @@ namespace StormByte::Crypto::Signer {
 			 * @brief Constructor
 			 * @param keypair The keypair used for signing and verification.
 			 */
-			inline 														ECDSA(KeyPair::Generic::PointerType keypair):
-			Generic(Type::ECDSA, keypair) {}
+			inline ECDSA(KeyPair::Generic::PointerType keypair):
+				Generic(Type::ECDSA, keypair) {}
 
 			/**
 			 * @brief Constructor
 			 * @param keypair The keypair used for signing and verification.
 			 */
-			inline 														ECDSA(const KeyPair::ECDSA& keypair):
-			Generic(Type::ECDSA, keypair) {}
+			inline ECDSA(const KeyPair::ECDSA& keypair):
+				Generic(Type::ECDSA, keypair) {}
 
 			/**
 			 * @brief Constructor
 			 * @param keypair The keypair used for signing and verification.
 			 */
-			inline 														ECDSA(KeyPair::ECDSA&& keypair):
-			Generic(Type::ECDSA, keypair) {}
+			inline ECDSA(KeyPair::ECDSA&& keypair):
+				Generic(Type::ECDSA, keypair) {}
 
 			/**
 			 * @brief Copy constructor
 			 * @param other The other ECDSA signer to copy from.
 			 */
-			ECDSA(const ECDSA& other)									= default;
+			ECDSA(const ECDSA& other) = default;
 
 			/**
 			 * @brief Move constructor
 			 * @param other The other ECDSA signer to move from.
 			 */
-			ECDSA(ECDSA&& other) noexcept								= default;
+			ECDSA(ECDSA&& other) noexcept = default;
 
 			/**
 			 * @brief Destructor
 			 */
-			~ECDSA() noexcept 											= default;
+			~ECDSA() noexcept = default;
 
 			/**
 			 * @brief Copy assignment operator
 			 * @param other The other ECDSA signer to copy from.
 			 * @return Reference to this ECDSA signer.
 			 */
-			ECDSA& operator=(const ECDSA& other)						= default;
+			ECDSA& operator=(const ECDSA& other) = default;
 
 			/**
 			 * @brief Move assignment operator
 			 * @param other The other ECDSA signer to move from.
 			 * @return Reference to this ECDSA signer.
 			 */
-			ECDSA& operator=(ECDSA&& other) noexcept					= default;
+			ECDSA& operator=(ECDSA&& other) noexcept = default;
 
 			/**
 			 * @brief Clone the ECDSA signer.
 			 * @return A pointer to the cloned ECDSA signer.
 			 */
-			PointerType 												Clone() const noexcept override {
+			PointerType Clone() const noexcept override {
 				return std::make_shared<ECDSA>(*this);
 			}
 
@@ -78,7 +78,7 @@ namespace StormByte::Crypto::Signer {
 			 * @brief Move the ECDSA signer.
 			 * @return A pointer to the moved ECDSA signer.
 			 */
-			PointerType 												Move() noexcept override {
+			PointerType Move() noexcept override {
 				return std::make_shared<ECDSA>(std::move(*this));
 			}
 
@@ -89,7 +89,7 @@ namespace StormByte::Crypto::Signer {
 			 * @param output The output buffer to write the signature to.
 			 * @return true if signing was successful, false otherwise.
 			 */
-			bool 														DoSign(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
+			bool DoSign(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
 
 			/**
 			 * @brief Implementation of the signing logic for Consumer buffers.
@@ -97,7 +97,7 @@ namespace StormByte::Crypto::Signer {
 			 * @param mode The read mode indicating copy or move.
 			 * @return A Consumer buffer containing the signature.
 			 */
-			Buffer::Consumer 											DoSign(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
+			Buffer::Consumer DoSign(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
 
 			/**
 			 * @brief Implementation of the verification logic.
@@ -105,7 +105,7 @@ namespace StormByte::Crypto::Signer {
 			 * @param signature The signature to verify against.
 			 * @return true if verification was successful, false otherwise.
 			 */
-			bool 														DoVerify(std::span<const std::byte> input, const std::string& signature) const noexcept override;
+			bool DoVerify(std::span<const std::byte> input, const std::string& signature) const noexcept override;
 
 			/**
 			 * @brief Implementation of the verification logic for Consumer buffers.
@@ -114,6 +114,6 @@ namespace StormByte::Crypto::Signer {
 			 * @param mode The read mode indicating copy or move.
 			 * @return true if verification was successful, false otherwise.
 			 */
-			bool 														DoVerify(Buffer::Consumer consumer, const std::string& signature, ReadMode mode) const noexcept override;
+			bool DoVerify(Buffer::Consumer consumer, const std::string& signature, ReadMode mode) const noexcept override;
 	};
 }

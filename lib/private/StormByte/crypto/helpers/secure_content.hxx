@@ -37,11 +37,13 @@ namespace StormByte::Crypto::Helpers {
 
 			/**
 			 * @brief Byte length of the stored content.
+			 * @return Size in bytes.
 			 */
 			std::size_t Size() const noexcept;
 
 			/**
 			 * @brief Pointer to the stored bytes (valid while this object lives).
+			 * @return Pointer to the data, or valid empty pointer if size is 0.
 			 */
 			const unsigned char* Data() const noexcept;
 

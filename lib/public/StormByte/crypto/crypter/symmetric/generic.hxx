@@ -22,13 +22,13 @@ namespace StormByte::Crypto::Crypter {
 			 * @brief Copy constructor
 			 * @param other The other Symmetric crypter to copy from.
 			 */
-			Symmetric(const Symmetric& other)					= default;
+			Symmetric(const Symmetric& other) = default;
 
 			/**
 			 * @brief Move constructor
 			 * @param other The other Symmetric crypter to move from.
 			 */
-			Symmetric(Symmetric&& other) noexcept				= default;
+			Symmetric(Symmetric&& other) noexcept = default;
 
 			/**
 			 * @brief Virtual destructor
@@ -40,21 +40,21 @@ namespace StormByte::Crypto::Crypter {
 			 * @param other The other Symmetric crypter to copy from.
 			 * @return Reference to this Symmetric crypter.
 			 */
-			Symmetric& operator=(const Symmetric& other)		= default;
+			Symmetric& operator=(const Symmetric& other) = default;
 
 			/**
 			 * @brief Move assignment operator
 			 * @param other The other Symmetric crypter to move from.
 			 * @return Reference to this Symmetric crypter.
 			 */
-			Symmetric& operator=(Symmetric&& other) noexcept	= default;
+			Symmetric& operator=(Symmetric&& other) noexcept = default;
 
 			/**
 			 * @brief Gets the password used for symmetric encryption.
 			 * @return A const reference to the stored @ref Password.
 			 * @note The returned object shares ownership of the underlying data.
 			 */
-			inline const class Password&						Password() const noexcept {
+			inline const class Password& Password() const noexcept {
 				return m_password;
 			}
 
@@ -63,18 +63,18 @@ namespace StormByte::Crypto::Crypter {
 			 * @param length Number of random bytes to generate.
 			 * @return A @ref Password containing raw random bytes (not text/hex).
 			 */
-			static class Password 								RandomPassword(size_t length = 32) noexcept;
+			static class Password RandomPassword(size_t length = 32) noexcept;
 
 		protected:
-			class Password m_password;							///< The password used for symmetric encryption
+			class Password m_password;	///< The password used for symmetric encryption
 
 			/**
 			 * @brief Constructor
 			 * @param type The type of crypter.
 			 * @param password The password to use for encryption/decryption.
 			 */
-			inline 												Symmetric(enum Type type, class Password password):
-			Generic(type), m_password(std::move(password)) {}
+			inline Symmetric(enum Type type, class Password password):
+				Generic(type), m_password(std::move(password)) {}
 	};
 
 	/**
@@ -83,5 +83,5 @@ namespace StormByte::Crypto::Crypter {
 	 * @param password The password to use for the crypter.
 	 * @return A pointer to the created symmetric crypter, or nullptr on failure.
 	 */
-	STORMBYTE_CRYPTO_PUBLIC Generic::PointerType				Create(enum Type type, class Password password) noexcept;
+	STORMBYTE_CRYPTO_PUBLIC Generic::PointerType Create(enum Type type, class Password password) noexcept;
 }

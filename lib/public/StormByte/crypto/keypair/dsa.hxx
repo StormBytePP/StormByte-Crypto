@@ -26,45 +26,45 @@ namespace StormByte::Crypto::KeyPair {
 			 * @param publicKey The public key material (typically Base64/PEM body).
 			 * @param privateKey Optional private key wrapped in @ref Password.
 			 */
-			inline 												DSA(std::string publicKey, std::optional<Password> privateKey = std::nullopt):
-			Generic(Type::DSA, std::move(publicKey), std::move(privateKey)) {}
+			inline DSA(std::string publicKey, std::optional<Password> privateKey = std::nullopt):
+				Generic(Type::DSA, std::move(publicKey), std::move(privateKey)) {}
 
 			/**
 			 * @brief Copy constructor
 			 * @param other The other DSA keypair to copy from.
 			 */
-			DSA(const DSA& other)								= default;
+			DSA(const DSA& other) = default;
 
 			/**
 			 * @brief Move constructor
 			 * @param other The other DSA keypair to move from.
 			 */
-			DSA(DSA&& other) noexcept							= default;
+			DSA(DSA&& other) noexcept = default;
 
 			/**
 			 * @brief Destructor
 			 */
-			~DSA() noexcept override							= default;
+			~DSA() noexcept override = default;
 
 			/**
 			 * @brief Copy assignment operator
 			 * @param other The other DSA keypair to copy from.
 			 * @return Reference to this DSA keypair.
 			 */
-			DSA& operator=(const DSA& other)					= default;
+			DSA& operator=(const DSA& other) = default;
 
 			/**
 			 * @brief Move assignment operator
 			 * @param other The other DSA keypair to move from.
 			 * @return Reference to this DSA keypair.
 			 */
-			DSA& operator=(DSA&& other) noexcept				= default;
+			DSA& operator=(DSA&& other) noexcept = default;
 
 			/**
 			 * @brief Clone the DSA keypair.
 			 * @return A pointer to the cloned DSA keypair.
 			 */
-			PointerType 										Clone() const override {
+			PointerType Clone() const override {
 				return std::make_shared<DSA>(*this);
 			}
 
@@ -72,7 +72,7 @@ namespace StormByte::Crypto::KeyPair {
 			 * @brief Move this DSA keypair into a new owning pointer.
 			 * @return A pointer to the moved DSA keypair.
 			 */
-			PointerType 										Move() override {
+			PointerType Move() override {
 				return std::make_shared<DSA>(std::move(*this));
 			}
 
@@ -81,6 +81,6 @@ namespace StormByte::Crypto::KeyPair {
 			 * @param bits The key size in bits.
 			 * @return A pointer to the generated DSA keypair, or nullptr on failure.
 			 */
-			static PointerType 									Generate(unsigned short bits) noexcept;
+			static PointerType Generate(unsigned short bits) noexcept;
 	};
 }

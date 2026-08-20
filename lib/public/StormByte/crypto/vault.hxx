@@ -29,13 +29,13 @@ namespace StormByte::Crypto {
 			 * @brief Default constructor.
 			 * Creates an empty vault.
 			 */
-			Vault()													= default;
+			Vault() = default;
 
 			/**
 			 * @brief Copy constructor (deleted).
 			 * Copying is disabled to prevent accidental duplication of the vault.
 			 */
-			Vault(const Vault&)										= delete;
+			Vault(const Vault&) = delete;
 
 			/**
 			 * @brief Move constructor.
@@ -52,7 +52,7 @@ namespace StormByte::Crypto {
 			/**
 			 * @brief Copy assignment operator (deleted).
 			 */
-			Vault& operator=(const Vault&)							= delete;
+			Vault& operator=(const Vault&) = delete;
 
 			/**
 			 * @brief Move assignment operator.
@@ -66,7 +66,7 @@ namespace StormByte::Crypto {
 			 * @param name     Identifier for the password.
 			 * @param password The password to store (copied / shared).
 			 */
-			void 													Store(std::string name, Password password) noexcept;
+			void Store(std::string name, Password password) noexcept;
 
 			/**
 			 * @brief Retrieve a password by name.
@@ -76,37 +76,37 @@ namespace StormByte::Crypto {
 			 * @note The returned @ref Password shares ownership of the
 			 *       underlying data (cheap copy).
 			 */
-			ExpectedPassword 										Get(const std::string& name) const noexcept;
+			ExpectedPassword Get(const std::string& name) const noexcept;
 
 			/**
 			 * @brief Check whether a named password exists.
 			 * @param name Identifier to look for.
 			 * @return true if the password exists, false otherwise.
 			 */
-			bool 													Contains(const std::string& name) const noexcept;
+			bool Contains(const std::string& name) const noexcept;
 
 			/**
 			 * @brief Remove a named password.
 			 * @param name Identifier of the password to remove.
 			 */
-			void 													Remove(const std::string& name) noexcept;
+			void Remove(const std::string& name) noexcept;
 
 			/**
 			 * @brief Remove all stored passwords.
 			 */
-			void 													Clear() noexcept;
+			void Clear() noexcept;
 
 			/**
 			 * @brief Get the number of stored passwords.
 			 * @return The number of passwords currently stored in the vault.
 			 */
-			std::size_t 											Size() const noexcept;
+			std::size_t Size() const noexcept;
 
 			/**
 			 * @brief Check whether the vault is empty.
 			 * @return true if no passwords are stored, false otherwise.
 			 */
-			bool 													Empty() const noexcept;
+			bool Empty() const noexcept;
 
 		private:
 			std::unordered_map<std::string, Password> m_passwords;	///< Named passwords storage

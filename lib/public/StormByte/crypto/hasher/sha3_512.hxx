@@ -15,47 +15,46 @@ namespace StormByte::Crypto::Hasher {
 		public:
 			/**
 			 * @brief Constructor
-			 * @param type The type of hasher.
 			 */
-			inline 												SHA3_512():
-			Generic(Type::SHA3_512) {}
+			inline SHA3_512():
+				Generic(Type::SHA3_512) {}
 
 			/**
 			 * @brief Copy constructor
 			 * @param other The other SHA3_512 hasher to copy from.
 			 */
-			SHA3_512(const SHA3_512& other)						= default;
+			SHA3_512(const SHA3_512& other) = default;
 
 			/**
 			 * @brief Move constructor
 			 * @param other The other SHA3_512 hasher to move from.
 			 */
-			SHA3_512(SHA3_512&& other) noexcept					= default;
+			SHA3_512(SHA3_512&& other) noexcept = default;
 
 			/**
 			 * @brief Virtual destructor
 			 */
-			virtual ~SHA3_512() noexcept 						= default;
+			virtual ~SHA3_512() noexcept = default;
 
 			/**
 			 * @brief Copy assignment operator
 			 * @param other The other SHA3_512 hasher to copy from.
 			 * @return Reference to this SHA3_512 hasher.
 			 */
-			SHA3_512& operator=(const SHA3_512& other)			= default;
+			SHA3_512& operator=(const SHA3_512& other) = default;
 
 			/**
 			 * @brief Move assignment operator
 			 * @param other The other SHA3_512 hasher to move from.
 			 * @return Reference to this SHA3_512 hasher.
 			 */
-			SHA3_512& operator=(SHA3_512&& other) noexcept		= default;
+			SHA3_512& operator=(SHA3_512&& other) noexcept = default;
 
 			/**
 			 * @brief Clone the SHA3_512 hasher.
 			 * @return A pointer to the cloned SHA3_512 hasher.
 			 */
-			inline PointerType 									Clone() const noexcept override {
+			inline PointerType Clone() const noexcept override {
 				return std::make_shared<SHA3_512>(*this);
 			}
 
@@ -63,7 +62,7 @@ namespace StormByte::Crypto::Hasher {
 			 * @brief Move the SHA3_512 hasher.
 			 * @return A pointer to the moved SHA3_512 hasher.
 			 */
-			inline PointerType 									Move() noexcept override {
+			inline PointerType Move() noexcept override {
 				return std::make_shared<SHA3_512>(std::move(*this));
 			}
 
@@ -72,10 +71,9 @@ namespace StormByte::Crypto::Hasher {
 			 * @brief Implementation of the hashing logic.
 			 * @param input The input buffer to hash.
 			 * @param output The output buffer to write the hashed data to.
-			 * @param mode The read mode indicating copy or move.
 			 * @return true if hashing was successful, false otherwise.
 			 */
-			bool 												DoHash(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
+			bool DoHash(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
 
 			/**
 			 * @brief Implementation of the hashing logic for Consumer buffers.
@@ -83,6 +81,6 @@ namespace StormByte::Crypto::Hasher {
 			 * @param mode The read mode indicating copy or move.
 			 * @return A Consumer buffer containing the hashed data.
 			 */
-			Buffer::Consumer 									DoHash(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
+			Buffer::Consumer DoHash(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
 	};
 }

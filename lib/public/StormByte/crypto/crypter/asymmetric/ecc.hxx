@@ -18,59 +18,59 @@ namespace StormByte::Crypto::Crypter {
 			 * @brief Constructor
 			 * @param keypair The keypair used for asymmetric encryption.
 			 */
-			inline 												ECC(KeyPair::Generic::PointerType keypair):
-			Asymmetric(Type::ECC, keypair) {}
+			inline ECC(KeyPair::Generic::PointerType keypair):
+				Asymmetric(Type::ECC, keypair) {}
 
 			/**
 			 * @brief Constructor
 			 * @param keypair The keypair used for asymmetric encryption.
 			 */
-			inline 												ECC(const KeyPair::ECC& keypair):
-			Asymmetric(Type::ECC, keypair) {}
+			inline ECC(const KeyPair::ECC& keypair):
+				Asymmetric(Type::ECC, keypair) {}
 
 			/**
 			 * @brief Constructor
 			 * @param keypair The keypair used for asymmetric encryption.
 			 */
-			inline 												ECC(KeyPair::ECC&& keypair):
-			Asymmetric(Type::ECC, std::forward<KeyPair::ECC>(keypair)) {}
+			inline ECC(KeyPair::ECC&& keypair):
+				Asymmetric(Type::ECC, std::forward<KeyPair::ECC>(keypair)) {}
 
 			/**
 			 * @brief Copy constructor
 			 * @param other The other ECC crypter to copy from.
 			 */
-			ECC(const ECC& other)								= default;
+			ECC(const ECC& other) = default;
 
 			/**
 			 * @brief Move constructor
 			 * @param other The other ECC crypter to move from.
 			 */
-			ECC(ECC&& other) noexcept							= default;
+			ECC(ECC&& other) noexcept = default;
 
 			/**
 			 * @brief Virtual destructor
 			 */
-			virtual ~ECC() noexcept 							= default;
+			virtual ~ECC() noexcept = default;
 
 			/**
 			 * @brief Copy assignment operator
 			 * @param other The other ECC crypter to copy from.
 			 * @return Reference to this ECC crypter.
 			 */
-			ECC& operator=(const ECC& other)					= default;
+			ECC& operator=(const ECC& other) = default;
 
 			/**
 			 * @brief Move assignment operator
 			 * @param other The other ECC crypter to move from.
 			 * @return Reference to this ECC crypter.
 			 */
-			ECC& operator=(ECC&& other) noexcept				= default;
+			ECC& operator=(ECC&& other) noexcept = default;
 
 			/**
 			 * @brief Clone the ECC crypter.
 			 * @return A pointer to the cloned ECC crypter.
 			 */
-			inline PointerType 									Clone() const noexcept override {
+			inline PointerType Clone() const noexcept override {
 				return std::make_shared<ECC>(*this);
 			}
 
@@ -78,7 +78,7 @@ namespace StormByte::Crypto::Crypter {
 			 * @brief Move the ECC crypter.
 			 * @return A pointer to the moved ECC crypter.
 			 */
-			inline PointerType 									Move() noexcept override {
+			inline PointerType Move() noexcept override {
 				return std::make_shared<ECC>(std::move(*this));
 			}
 
@@ -89,7 +89,7 @@ namespace StormByte::Crypto::Crypter {
 			 * @param output The output buffer to write the encrypted data to.
 			 * @return true if encryption was successful, false otherwise.
 			 */
-			bool 												DoEncrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
+			bool DoEncrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
 
 			/**
 			 * @brief Implementation of the encryption logic for Consumer buffers.
@@ -97,7 +97,7 @@ namespace StormByte::Crypto::Crypter {
 			 * @param mode The read mode indicating copy or move.
 			 * @return A Consumer buffer containing the encrypted data.
 			 */
-			Buffer::Consumer 									DoEncrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
+			Buffer::Consumer DoEncrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
 
 			/**
 			 * @brief Implementation of the decryption logic.
@@ -105,14 +105,14 @@ namespace StormByte::Crypto::Crypter {
 			 * @param output The output buffer to write the decrypted data to.
 			 * @return true if decryption was successful, false otherwise.
 			 */
-			bool 												DoDecrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
+			bool DoDecrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
 
-			/**	
+			/**
 			 * @brief Implementation of the decryption logic for Consumer buffers.
 			 * @param consumer The Consumer buffer to decrypt.
 			 * @param mode The read mode indicating copy or move.
 			 * @return A Consumer buffer containing the decrypted data.
 			 */
-			Buffer::Consumer 									DoDecrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
+			Buffer::Consumer DoDecrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
 	};
 }

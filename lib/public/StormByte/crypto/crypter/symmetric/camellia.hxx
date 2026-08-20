@@ -17,45 +17,45 @@ namespace StormByte::Crypto::Crypter {
 			 * @brief Constructor
 			 * @param password The password used for encryption/decryption.
 			 */
-			inline 												Camellia(class Password password):
-			Symmetric(Type::Camellia, std::move(password)) {}
+			inline Camellia(class Password password):
+				Symmetric(Type::Camellia, std::move(password)) {}
 
 			/**
 			 * @brief Copy constructor
 			 * @param other The other Camellia crypter to copy from.
 			 */
-			Camellia(const Camellia& other)						= default;
+			Camellia(const Camellia& other) = default;
 
 			/**
 			 * @brief Move constructor
 			 * @param other The other Camellia crypter to move from.
 			 */
-			Camellia(Camellia&& other) noexcept					= default;
+			Camellia(Camellia&& other) noexcept = default;
 
 			/**
 			 * @brief Virtual destructor
 			 */
-			virtual ~Camellia() noexcept 						= default;
+			virtual ~Camellia() noexcept = default;
 
 			/**
 			 * @brief Copy assignment operator
 			 * @param other The other Camellia crypter to copy from.
 			 * @return Reference to this Camellia crypter.
 			 */
-			Camellia& operator=(const Camellia& other)			= default;
+			Camellia& operator=(const Camellia& other) = default;
 
 			/**
 			 * @brief Move assignment operator
 			 * @param other The other Camellia crypter to move from.
 			 * @return Reference to this Camellia crypter.
 			 */
-			Camellia& operator=(Camellia&& other) noexcept		= default;
+			Camellia& operator=(Camellia&& other) noexcept = default;
 
 			/**
 			 * @brief Clone the Camellia crypter.
 			 * @return A pointer to the cloned Camellia crypter.
 			 */
-			inline PointerType 									Clone() const noexcept override {
+			inline PointerType Clone() const noexcept override {
 				return std::make_shared<Camellia>(*this);
 			}
 
@@ -63,7 +63,7 @@ namespace StormByte::Crypto::Crypter {
 			 * @brief Move the Camellia crypter.
 			 * @return A pointer to the moved Camellia crypter.
 			 */
-			inline PointerType 									Move() noexcept override {
+			inline PointerType Move() noexcept override {
 				return std::make_shared<Camellia>(std::move(*this));
 			}
 
@@ -74,7 +74,7 @@ namespace StormByte::Crypto::Crypter {
 			 * @param output The output buffer to write the encrypted data to.
 			 * @return true if encryption was successful, false otherwise.
 			 */
-			bool 												DoEncrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
+			bool DoEncrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
 
 			/**
 			 * @brief Implementation of the encryption logic for Consumer buffers.
@@ -82,7 +82,7 @@ namespace StormByte::Crypto::Crypter {
 			 * @param mode The read mode indicating copy or move.
 			 * @return A Consumer buffer containing the encrypted data.
 			 */
-			Buffer::Consumer 									DoEncrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
+			Buffer::Consumer DoEncrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
 
 			/**
 			 * @brief Implementation of the decryption logic.
@@ -90,7 +90,7 @@ namespace StormByte::Crypto::Crypter {
 			 * @param output The output buffer to write the decrypted data to.
 			 * @return true if decryption was successful, false otherwise.
 			 */
-			bool 												DoDecrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
+			bool DoDecrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
 
 			/**
 			 * @brief Implementation of the decryption logic for Consumer buffers.
@@ -98,6 +98,6 @@ namespace StormByte::Crypto::Crypter {
 			 * @param mode The read mode indicating copy or move.
 			 * @return A Consumer buffer containing the decrypted data.
 			 */
-			Buffer::Consumer 									DoDecrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
+			Buffer::Consumer DoDecrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
 	};
 }

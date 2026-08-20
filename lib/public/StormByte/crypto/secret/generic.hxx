@@ -19,8 +19,8 @@ namespace StormByte::Crypto::Secret {
 	 * @brief The types of key-agreement algorithms available.
 	 */
 	enum class Type {
-		ECDH,													///< Elliptic Curve Diffie-Hellman
-		X25519,													///< X25519 Diffie-Hellman
+		ECDH,		///< Elliptic Curve Diffie-Hellman
+		X25519,		///< X25519 Diffie-Hellman
 	};
 
 	/**
@@ -37,38 +37,38 @@ namespace StormByte::Crypto::Secret {
 			 * @brief Copy constructor.
 			 * @param other The other Generic instance to copy from.
 			 */
-			Generic(const Generic& other)						= default;
+			Generic(const Generic& other) = default;
 
 			/**
 			 * @brief Move constructor.
 			 * @param other The other Generic instance to move from.
 			 */
-			Generic(Generic&& other) noexcept					= default;
+			Generic(Generic&& other) noexcept = default;
 
 			/**
 			 * @brief Virtual destructor.
 			 */
-			virtual ~Generic() noexcept							= default;
+			virtual ~Generic() noexcept = default;
 
 			/**
 			 * @brief Copy assignment operator.
 			 * @param other The other Generic instance to copy from.
 			 * @return Reference to this instance.
 			 */
-			Generic& operator=(const Generic& other)			= default;
+			Generic& operator=(const Generic& other) = default;
 
 			/**
 			 * @brief Move assignment operator.
 			 * @param other The other Generic instance to move from.
 			 * @return Reference to this instance.
 			 */
-			Generic& operator=(Generic&& other) noexcept		= default;
+			Generic& operator=(Generic&& other) noexcept = default;
 
 			/**
 			 * @brief Gets the algorithm type of this instance.
 			 * @return The key-agreement type.
 			 */
-			inline Type											Type() const noexcept {
+			inline Type Type() const noexcept {
 				return m_type;
 			}
 
@@ -77,18 +77,18 @@ namespace StormByte::Crypto::Secret {
 			 * @param peerPublicKey Peer public key encoded as Base64.
 			 * @return Shared secret as @ref Password on success, or nullopt on failure.
 			 */
-			virtual std::optional<Password>						Share(const std::string& peerPublicKey) const noexcept = 0;
+			virtual std::optional<Password> Share(const std::string& peerPublicKey) const noexcept = 0;
 
 		protected:
-			enum Type m_type;									///< Algorithm type
-			KeyPair::Generic::PointerType m_keypair;			///< Local keypair (must include private key)
+			enum Type m_type;							///< Algorithm type
+			KeyPair::Generic::PointerType m_keypair;	///< Local keypair (must include private key)
 
 			/**
 			 * @brief Constructor.
 			 * @param type Algorithm type.
 			 * @param keypair Local keypair used for agreement.
 			 */
-			inline												Generic(enum Type type, KeyPair::Generic::PointerType keypair) noexcept
+			inline Generic(enum Type type, KeyPair::Generic::PointerType keypair) noexcept
 				: m_type(type), m_keypair(std::move(keypair)) {}
 	};
 
@@ -100,8 +100,7 @@ namespace StormByte::Crypto::Secret {
 	 *         (null keypair or type/keypair mismatch).
 	 *
 	 * @note For ECDH the curve size defaults to 256 bits. When using
-	 *       secp384r1 or secp521r1, call @ref ECDH::DeriveSharedSecret
-	 *       with the explicit bit size, or construct @ref ECDH with bits.
+	 *       secp384r1 or secp521r1, construct @ref ECDH with the explicit bit size.
 	 */
-	STORMBYTE_CRYPTO_PUBLIC Generic::PointerType				Create(Type type, KeyPair::Generic::PointerType keypair) noexcept;
+	STORMBYTE_CRYPTO_PUBLIC Generic::PointerType Create(Type type, KeyPair::Generic::PointerType keypair) noexcept;
 }

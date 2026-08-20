@@ -17,45 +17,45 @@ namespace StormByte::Crypto::Crypter {
 			 * @brief Constructor
 			 * @param password The password used for encryption/decryption.
 			 */
-			inline 												AES(class Password password):
-			Symmetric(Type::AES, std::move(password)) {}
+			inline AES(class Password password):
+				Symmetric(Type::AES, std::move(password)) {}
 
 			/**
 			 * @brief Copy constructor
 			 * @param other The other AES crypter to copy from.
 			 */
-			AES(const AES& other)								= default;
+			AES(const AES& other) = default;
 
 			/**
 			 * @brief Move constructor
 			 * @param other The other AES crypter to move from.
 			 */
-			AES(AES&& other) noexcept							= default;
+			AES(AES&& other) noexcept = default;
 
 			/**
 			 * @brief Virtual destructor
 			 */
-			virtual ~AES() noexcept 							= default;
+			virtual ~AES() noexcept = default;
 
 			/**
 			 * @brief Copy assignment operator
 			 * @param other The other AES crypter to copy from.
 			 * @return Reference to this AES crypter.
 			 */
-			AES& operator=(const AES& other)					= default;
+			AES& operator=(const AES& other) = default;
 
 			/**
 			 * @brief Move assignment operator
 			 * @param other The other AES crypter to move from.
 			 * @return Reference to this AES crypter.
 			 */
-			AES& operator=(AES&& other) noexcept				= default;
+			AES& operator=(AES&& other) noexcept = default;
 
 			/**
 			 * @brief Clone the AES crypter.
 			 * @return A pointer to the cloned AES crypter.
 			 */
-			inline PointerType 									Clone() const noexcept override {
+			inline PointerType Clone() const noexcept override {
 				return std::make_shared<AES>(*this);
 			}
 
@@ -63,7 +63,7 @@ namespace StormByte::Crypto::Crypter {
 			 * @brief Move the AES crypter.
 			 * @return A pointer to the moved AES crypter.
 			 */
-			inline PointerType 									Move() noexcept override {
+			inline PointerType Move() noexcept override {
 				return std::make_shared<AES>(std::move(*this));
 			}
 
@@ -74,7 +74,7 @@ namespace StormByte::Crypto::Crypter {
 			 * @param output The output buffer to write the encrypted data to.
 			 * @return true if encryption was successful, false otherwise.
 			 */
-			bool 												DoEncrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
+			bool DoEncrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
 
 			/**
 			 * @brief Implementation of the encryption logic for Consumer buffers.
@@ -82,7 +82,7 @@ namespace StormByte::Crypto::Crypter {
 			 * @param mode The read mode indicating copy or move.
 			 * @return A Consumer buffer containing the encrypted data.
 			 */
-			Buffer::Consumer 									DoEncrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
+			Buffer::Consumer DoEncrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
 
 			/**
 			 * @brief Implementation of the decryption logic.
@@ -90,7 +90,7 @@ namespace StormByte::Crypto::Crypter {
 			 * @param output The output buffer to write the decrypted data to.
 			 * @return true if decryption was successful, false otherwise.
 			 */
-			bool 												DoDecrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
+			bool DoDecrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
 
 			/**
 			 * @brief Implementation of the decryption logic for Consumer buffers.
@@ -98,6 +98,6 @@ namespace StormByte::Crypto::Crypter {
 			 * @param mode The read mode indicating copy or move.
 			 * @return A Consumer buffer containing the decrypted data.
 			 */
-			Buffer::Consumer 									DoDecrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
+			Buffer::Consumer DoDecrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
 	};
 }

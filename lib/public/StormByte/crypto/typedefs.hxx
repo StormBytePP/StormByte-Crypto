@@ -12,14 +12,14 @@
  */
 namespace StormByte::Crypto {
 	class Password;
-	
+
 	/**
 	 * @enum ReadMode
 	 * @brief The types of data operations.
 	 */
 	enum class ReadMode: unsigned short {
-		Copy,											///< Indicates a copy operation
-		Move											///< Indicates a move operation
+		Copy,	///< Indicates a copy operation
+		Move	///< Indicates a move operation
 	};
 
 	using ExpectedPassword = StormByte::Expected<Password, Exception>;

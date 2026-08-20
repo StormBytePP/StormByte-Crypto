@@ -26,45 +26,45 @@ namespace StormByte::Crypto::KeyPair {
 			 * @param publicKey The public key material (typically Base64/PEM body).
 			 * @param privateKey Optional private key wrapped in @ref Password.
 			 */
-			inline 												RSA(std::string publicKey, std::optional<Password> privateKey = std::nullopt):
-			Generic(Type::RSA, std::move(publicKey), std::move(privateKey)) {}
+			inline RSA(std::string publicKey, std::optional<Password> privateKey = std::nullopt):
+				Generic(Type::RSA, std::move(publicKey), std::move(privateKey)) {}
 
 			/**
 			 * @brief Copy constructor
 			 * @param other The other RSA keypair to copy from.
 			 */
-			RSA(const RSA& other)								= default;
+			RSA(const RSA& other) = default;
 
 			/**
 			 * @brief Move constructor
 			 * @param other The other RSA keypair to move from.
 			 */
-			RSA(RSA&& other) noexcept							= default;
+			RSA(RSA&& other) noexcept = default;
 
 			/**
 			 * @brief Destructor
 			 */
-			~RSA() noexcept override							= default;
+			~RSA() noexcept override = default;
 
 			/**
 			 * @brief Copy assignment operator
 			 * @param other The other RSA keypair to copy from.
 			 * @return Reference to this RSA keypair.
 			 */
-			RSA& operator=(const RSA& other)					= default;
+			RSA& operator=(const RSA& other) = default;
 
 			/**
 			 * @brief Move assignment operator
 			 * @param other The other RSA keypair to move from.
 			 * @return Reference to this RSA keypair.
 			 */
-			RSA& operator=(RSA&& other) noexcept				= default;
+			RSA& operator=(RSA&& other) noexcept = default;
 
 			/**
 			 * @brief Clone the RSA keypair.
 			 * @return A pointer to the cloned RSA keypair.
 			 */
-			PointerType 										Clone() const override {
+			PointerType Clone() const override {
 				return std::make_shared<RSA>(*this);
 			}
 
@@ -72,7 +72,7 @@ namespace StormByte::Crypto::KeyPair {
 			 * @brief Move this RSA keypair into a new owning pointer.
 			 * @return A pointer to the moved RSA keypair.
 			 */
-			PointerType 										Move() override {
+			PointerType Move() override {
 				return std::make_shared<RSA>(std::move(*this));
 			}
 
@@ -81,6 +81,6 @@ namespace StormByte::Crypto::KeyPair {
 			 * @param bits The key size in bits.
 			 * @return A pointer to the generated RSA keypair, or nullptr on failure.
 			 */
-			static PointerType 									Generate(unsigned short bits) noexcept;
+			static PointerType Generate(unsigned short bits) noexcept;
 	};
 }

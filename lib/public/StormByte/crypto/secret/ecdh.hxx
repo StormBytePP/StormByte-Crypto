@@ -23,61 +23,61 @@ namespace StormByte::Crypto::Secret {
 			 * @param keypair The ECDH keypair (must be @ref KeyPair::Type::ECDH).
 			 * @param bits Curve size in bits (default 256). Must match the keypair curve.
 			 */
-			inline 													ECDH(KeyPair::Generic::PointerType keypair, unsigned short bits = 256) noexcept:
-			Generic(Type::ECDH, keypair), m_bits(bits) {}
+			inline ECDH(KeyPair::Generic::PointerType keypair, unsigned short bits = 256) noexcept:
+				Generic(Type::ECDH, keypair), m_bits(bits) {}
 
 			/**
 			 * @brief Constructor
 			 * @param keypair The ECDH keypair.
 			 * @param bits Curve size in bits (default 256).
 			 */
-			inline 													ECDH(const KeyPair::ECDH& keypair, unsigned short bits = 256) noexcept:
-			Generic(Type::ECDH, keypair.Clone()), m_bits(bits) {}
+			inline ECDH(const KeyPair::ECDH& keypair, unsigned short bits = 256) noexcept:
+				Generic(Type::ECDH, keypair.Clone()), m_bits(bits) {}
 
 			/**
 			 * @brief Constructor
 			 * @param keypair The ECDH keypair.
 			 * @param bits Curve size in bits (default 256).
 			 */
-			inline 													ECDH(KeyPair::ECDH&& keypair, unsigned short bits = 256) noexcept:
-			Generic(Type::ECDH, keypair.Move()), m_bits(bits) {}
+			inline ECDH(KeyPair::ECDH&& keypair, unsigned short bits = 256) noexcept:
+				Generic(Type::ECDH, keypair.Move()), m_bits(bits) {}
 
 			/**
 			 * @brief Copy constructor
 			 * @param other The other ECDH instance to copy from.
 			 */
-			ECDH(const ECDH& other)									= default;
+			ECDH(const ECDH& other) = default;
 
 			/**
 			 * @brief Move constructor
 			 * @param other The other ECDH instance to move from.
 			 */
-			ECDH(ECDH&& other) noexcept								= default;
+			ECDH(ECDH&& other) noexcept = default;
 
 			/**
 			 * @brief Destructor
 			 */
-			~ECDH() noexcept override 								= default;
+			~ECDH() noexcept override = default;
 
 			/**
 			 * @brief Copy assignment operator
 			 * @param other The other ECDH instance to copy from.
 			 * @return Reference to this ECDH instance.
 			 */
-			ECDH& operator=(const ECDH& other)						= default;
+			ECDH& operator=(const ECDH& other) = default;
 
 			/**
 			 * @brief Move assignment operator
 			 * @param other The other ECDH instance to move from.
 			 * @return Reference to this ECDH instance.
 			 */
-			ECDH& operator=(ECDH&& other) noexcept					= default;
+			ECDH& operator=(ECDH&& other) noexcept = default;
 
 			/**
 			 * @brief Clone this ECDH instance.
 			 * @return A pointer to the cloned instance.
 			 */
-			PointerType 											Clone() const noexcept override {
+			PointerType Clone() const noexcept override {
 				return std::make_shared<ECDH>(*this);
 			}
 
@@ -85,7 +85,7 @@ namespace StormByte::Crypto::Secret {
 			 * @brief Move this ECDH instance.
 			 * @return A pointer to the moved instance.
 			 */
-			PointerType 											Move() noexcept override {
+			PointerType Move() noexcept override {
 				return std::make_shared<ECDH>(std::move(*this));
 			}
 
@@ -94,9 +94,9 @@ namespace StormByte::Crypto::Secret {
 			 * @param peerPublicKey Peer public key (Base64 / library format).
 			 * @return The shared secret as @ref Password on success, or std::nullopt on failure.
 			 */
-			std::optional<Password> 								Share(const std::string& peerPublicKey) const noexcept override;
+			std::optional<Password> Share(const std::string& peerPublicKey) const noexcept override;
 
 		private:
-			unsigned short m_bits;									///< Curve size in bits used for agreement
+			unsigned short m_bits;	///< Curve size in bits used for agreement
 	};
 }

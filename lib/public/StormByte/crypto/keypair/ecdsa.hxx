@@ -26,45 +26,45 @@ namespace StormByte::Crypto::KeyPair {
 			 * @param publicKey The public key material (typically Base64/PEM body).
 			 * @param privateKey Optional private key wrapped in @ref Password.
 			 */
-			inline 												ECDSA(std::string publicKey, std::optional<Password> privateKey = std::nullopt):
-			Generic(Type::ECDSA, std::move(publicKey), std::move(privateKey)) {}
+			inline ECDSA(std::string publicKey, std::optional<Password> privateKey = std::nullopt):
+				Generic(Type::ECDSA, std::move(publicKey), std::move(privateKey)) {}
 
 			/**
 			 * @brief Copy constructor
 			 * @param other The other ECDSA keypair to copy from.
 			 */
-			ECDSA(const ECDSA& other)							= default;
+			ECDSA(const ECDSA& other) = default;
 
 			/**
 			 * @brief Move constructor
 			 * @param other The other ECDSA keypair to move from.
 			 */
-			ECDSA(ECDSA&& other) noexcept						= default;
+			ECDSA(ECDSA&& other) noexcept = default;
 
 			/**
 			 * @brief Destructor
 			 */
-			~ECDSA() noexcept override							= default;
+			~ECDSA() noexcept override = default;
 
 			/**
 			 * @brief Copy assignment operator
 			 * @param other The other ECDSA keypair to copy from.
 			 * @return Reference to this ECDSA keypair.
 			 */
-			ECDSA& operator=(const ECDSA& other)				= default;
+			ECDSA& operator=(const ECDSA& other) = default;
 
 			/**
 			 * @brief Move assignment operator
 			 * @param other The other ECDSA keypair to move from.
 			 * @return Reference to this ECDSA keypair.
 			 */
-			ECDSA& operator=(ECDSA&& other) noexcept			= default;
+			ECDSA& operator=(ECDSA&& other) noexcept = default;
 
 			/**
 			 * @brief Clone the ECDSA keypair.
 			 * @return A pointer to the cloned ECDSA keypair.
 			 */
-			PointerType 										Clone() const override {
+			PointerType Clone() const override {
 				return std::make_shared<ECDSA>(*this);
 			}
 
@@ -72,7 +72,7 @@ namespace StormByte::Crypto::KeyPair {
 			 * @brief Move this ECDSA keypair into a new owning pointer.
 			 * @return A pointer to the moved ECDSA keypair.
 			 */
-			PointerType 										Move() override {
+			PointerType Move() override {
 				return std::make_shared<ECDSA>(std::move(*this));
 			}
 
@@ -81,6 +81,6 @@ namespace StormByte::Crypto::KeyPair {
 			 * @param bits The curve size in bits (e.g. 256).
 			 * @return A pointer to the generated ECDSA keypair, or nullptr on failure.
 			 */
-			static PointerType 									Generate(unsigned short bits) noexcept;
+			static PointerType Generate(unsigned short bits) noexcept;
 	};
 }

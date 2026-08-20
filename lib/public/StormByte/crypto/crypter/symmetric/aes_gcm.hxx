@@ -17,45 +17,45 @@ namespace StormByte::Crypto::Crypter {
 			 * @brief Constructor
 			 * @param password The password used for encryption/decryption.
 			 */
-			inline 												AES_GCM(class Password password):
-			Symmetric(Type::AES_GCM, std::move(password)) {}
+			inline AES_GCM(class Password password):
+				Symmetric(Type::AES_GCM, std::move(password)) {}
 
 			/**
 			 * @brief Copy constructor
 			 * @param other The other AES_GCM crypter to copy from.
 			 */
-			AES_GCM(const AES_GCM& other)						= default;
+			AES_GCM(const AES_GCM& other) = default;
 
 			/**
 			 * @brief Move constructor
 			 * @param other The other AES_GCM crypter to move from.
 			 */
-			AES_GCM(AES_GCM&& other) noexcept					= default;
+			AES_GCM(AES_GCM&& other) noexcept = default;
 
 			/**
 			 * @brief Virtual destructor
 			 */
-			virtual ~AES_GCM() noexcept 						= default;
+			virtual ~AES_GCM() noexcept = default;
 
 			/**
 			 * @brief Copy assignment operator
 			 * @param other The other AES_GCM crypter to copy from.
 			 * @return Reference to this AES_GCM crypter.
 			 */
-			AES_GCM& operator=(const AES_GCM& other)			= default;
+			AES_GCM& operator=(const AES_GCM& other) = default;
 
 			/**
 			 * @brief Move assignment operator
 			 * @param other The other AES_GCM crypter to move from.
 			 * @return Reference to this AES_GCM crypter.
 			 */
-			AES_GCM& operator=(AES_GCM&& other) noexcept		= default;
+			AES_GCM& operator=(AES_GCM&& other) noexcept = default;
 
 			/**
 			 * @brief Clone the AES_GCM crypter.
 			 * @return A pointer to the cloned AES_GCM crypter.
 			 */
-			inline PointerType 									Clone() const noexcept override {
+			inline PointerType Clone() const noexcept override {
 				return std::make_shared<AES_GCM>(*this);
 			}
 
@@ -63,7 +63,7 @@ namespace StormByte::Crypto::Crypter {
 			 * @brief Move the AES_GCM crypter.
 			 * @return A pointer to the moved AES_GCM crypter.
 			 */
-			inline PointerType 									Move() noexcept override {
+			inline PointerType Move() noexcept override {
 				return std::make_shared<AES_GCM>(std::move(*this));
 			}
 
@@ -74,7 +74,7 @@ namespace StormByte::Crypto::Crypter {
 			 * @param output The output buffer to write the encrypted data to.
 			 * @return true if encryption was successful, false otherwise.
 			 */
-			bool 												DoEncrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
+			bool DoEncrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
 
 			/**
 			 * @brief Implementation of the encryption logic for Consumer buffers.
@@ -82,7 +82,7 @@ namespace StormByte::Crypto::Crypter {
 			 * @param mode The read mode indicating copy or move.
 			 * @return A Consumer buffer containing the encrypted data.
 			 */
-			Buffer::Consumer 									DoEncrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
+			Buffer::Consumer DoEncrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
 
 			/**
 			 * @brief Implementation of the decryption logic.
@@ -90,7 +90,7 @@ namespace StormByte::Crypto::Crypter {
 			 * @param output The output buffer to write the decrypted data to.
 			 * @return true if decryption was successful, false otherwise.
 			 */
-			bool 												DoDecrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
+			bool DoDecrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
 
 			/**
 			 * @brief Implementation of the decryption logic for Consumer buffers.
@@ -98,6 +98,6 @@ namespace StormByte::Crypto::Crypter {
 			 * @param mode The read mode indicating copy or move.
 			 * @return A Consumer buffer containing the decrypted data.
 			 */
-			Buffer::Consumer 									DoDecrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
+			Buffer::Consumer DoDecrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
 	};
 }

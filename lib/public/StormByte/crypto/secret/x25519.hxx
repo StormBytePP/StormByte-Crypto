@@ -22,45 +22,45 @@ namespace StormByte::Crypto::Secret {
 			 * @brief Construct from an X25519 keypair.
 			 * @param keypair Keypair that must contain a private key.
 			 */
-			inline explicit										X25519(KeyPair::Generic::PointerType keypair) noexcept
+			inline explicit X25519(KeyPair::Generic::PointerType keypair) noexcept
 				: Generic(Type::X25519, std::move(keypair)) {}
 
 			/**
 			 * @brief Copy constructor.
 			 * @param other The other X25519 instance to copy from.
 			 */
-			X25519(const X25519& other)							= default;
+			X25519(const X25519& other) = default;
 
 			/**
 			 * @brief Move constructor.
 			 * @param other The other X25519 instance to move from.
 			 */
-			X25519(X25519&& other) noexcept						= default;
+			X25519(X25519&& other) noexcept = default;
 
 			/**
 			 * @brief Destructor.
 			 */
-			~X25519() noexcept override							= default;
+			~X25519() noexcept override = default;
 
 			/**
 			 * @brief Copy assignment operator.
 			 * @param other The other X25519 instance to copy from.
 			 * @return Reference to this instance.
 			 */
-			X25519& operator=(const X25519& other)				= default;
+			X25519& operator=(const X25519& other) = default;
 
 			/**
 			 * @brief Move assignment operator.
 			 * @param other The other X25519 instance to move from.
 			 * @return Reference to this instance.
 			 */
-			X25519& operator=(X25519&& other) noexcept			= default;
+			X25519& operator=(X25519&& other) noexcept = default;
 
 			/**
 			 * @brief Clone this instance.
 			 * @return A shared pointer to a copy of this object.
 			 */
-			Generic::PointerType								Clone() const override {
+			Generic::PointerType Clone() const override {
 				return std::make_shared<X25519>(*this);
 			}
 
@@ -68,7 +68,7 @@ namespace StormByte::Crypto::Secret {
 			 * @brief Move this instance into a new shared pointer.
 			 * @return A shared pointer owning the moved object.
 			 */
-			Generic::PointerType								Move() override {
+			Generic::PointerType Move() override {
 				return std::make_shared<X25519>(std::move(*this));
 			}
 
@@ -77,7 +77,7 @@ namespace StormByte::Crypto::Secret {
 			 * @param peerPublicKey Peer public key encoded as Base64.
 			 * @return Shared secret as @ref Password, or nullopt on failure.
 			 */
-			std::optional<Password>								Share(const std::string& peerPublicKey) const noexcept override;
+			std::optional<Password> Share(const std::string& peerPublicKey) const noexcept override;
 
 			/**
 			 * @brief Static helper to derive a shared secret without an instance.
@@ -85,7 +85,7 @@ namespace StormByte::Crypto::Secret {
 			 * @param peerPublicKey Peer public key encoded as Base64.
 			 * @return Shared secret as @ref Password, or nullopt on failure.
 			 */
-			static std::optional<Password>						DeriveSharedSecret(
+			static std::optional<Password> DeriveSharedSecret(
 				KeyPair::Generic::PointerType keypair,
 				const std::string& peerPublicKey) noexcept;
 	};

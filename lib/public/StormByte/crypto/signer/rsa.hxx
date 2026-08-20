@@ -18,59 +18,59 @@ namespace StormByte::Crypto::Signer {
 			 * @brief Constructor
 			 * @param keypair The keypair used for signing and verification.
 			 */
-			inline 													RSA(KeyPair::Generic::PointerType keypair):
-			Generic(Type::RSA, keypair) {}
+			inline RSA(KeyPair::Generic::PointerType keypair):
+				Generic(Type::RSA, keypair) {}
 
 			/**
 			 * @brief Constructor
 			 * @param keypair The keypair used for signing and verification.
 			 */
-			inline 													RSA(const KeyPair::RSA& keypair):
-			Generic(Type::RSA, keypair) {}
+			inline RSA(const KeyPair::RSA& keypair):
+				Generic(Type::RSA, keypair) {}
 
 			/**
 			 * @brief Constructor
 			 * @param keypair The keypair used for signing and verification.
 			 */
-			inline 													RSA(KeyPair::RSA&& keypair):
-			Generic(Type::RSA, keypair) {}
+			inline RSA(KeyPair::RSA&& keypair):
+				Generic(Type::RSA, keypair) {}
 
 			/**
 			 * @brief Copy constructor
 			 * @param other The other RSA signer to copy from.
 			 */
-			RSA(const RSA& other)									= default;
+			RSA(const RSA& other) = default;
 
 			/**
 			 * @brief Move constructor
 			 * @param other The other RSA signer to move from.
 			 */
-			RSA(RSA&& other) noexcept								= default;
+			RSA(RSA&& other) noexcept = default;
 
 			/**
 			 * @brief Destructor
 			 */
-			~RSA() noexcept 										= default;
+			~RSA() noexcept = default;
 
 			/**
 			 * @brief Copy assignment operator
 			 * @param other The other RSA signer to copy from.
 			 * @return Reference to this RSA signer.
 			 */
-			RSA& operator=(const RSA& other)						= default;
+			RSA& operator=(const RSA& other) = default;
 
 			/**
 			 * @brief Move assignment operator
 			 * @param other The other RSA signer to move from.
 			 * @return Reference to this RSA signer.
 			 */
-			RSA& operator=(RSA&& other) noexcept					= default;
+			RSA& operator=(RSA&& other) noexcept = default;
 
 			/**
 			 * @brief Clone the RSA signer.
 			 * @return A pointer to the cloned RSA signer.
 			 */
-			PointerType 											Clone() const noexcept override {
+			PointerType Clone() const noexcept override {
 				return std::make_shared<RSA>(*this);
 			}
 
@@ -78,7 +78,7 @@ namespace StormByte::Crypto::Signer {
 			 * @brief Move the RSA signer.
 			 * @return A pointer to the moved RSA signer.
 			 */
-			PointerType 											Move() noexcept override {
+			PointerType Move() noexcept override {
 				return std::make_shared<RSA>(std::move(*this));
 			}
 
@@ -89,7 +89,7 @@ namespace StormByte::Crypto::Signer {
 			 * @param output The output buffer to write the signature to.
 			 * @return true if signing was successful, false otherwise.
 			 */
-			bool 													DoSign(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
+			bool DoSign(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
 
 			/**
 			 * @brief Implementation of the signing logic for Consumer buffers.
@@ -97,7 +97,7 @@ namespace StormByte::Crypto::Signer {
 			 * @param mode The read mode indicating copy or move.
 			 * @return A Consumer buffer containing the signature.
 			 */
-			Buffer::Consumer 										DoSign(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
+			Buffer::Consumer DoSign(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
 
 			/**
 			 * @brief Implementation of the verification logic.
@@ -105,7 +105,7 @@ namespace StormByte::Crypto::Signer {
 			 * @param signature The signature to verify against.
 			 * @return true if verification was successful, false otherwise.
 			 */
-			bool 													DoVerify(std::span<const std::byte> input, const std::string& signature) const noexcept override;
+			bool DoVerify(std::span<const std::byte> input, const std::string& signature) const noexcept override;
 
 			/**
 			 * @brief Implementation of the verification logic for Consumer buffers.
@@ -114,6 +114,6 @@ namespace StormByte::Crypto::Signer {
 			 * @param mode The read mode indicating copy or move.
 			 * @return true if verification was successful, false otherwise.
 			 */
-			bool 													DoVerify(Buffer::Consumer consumer, const std::string& signature, ReadMode mode) const noexcept override;
+			bool DoVerify(Buffer::Consumer consumer, const std::string& signature, ReadMode mode) const noexcept override;
 	};
 }
