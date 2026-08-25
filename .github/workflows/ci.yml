@@ -158,22 +158,63 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
-      - name: Install OpenSSL (Chocolatey via install-cached)
-        uses: stormbytepp/githubactions/.github/actions/install-cached@master
-        with:
-          packages: "openssl"
-
-      - name: Verify OpenSSL on PATH
+      - name: Install OpenSSL (direct from slproweb)
         shell: pwsh
         run: |
-          foreach ($p in @(
-            "C:\Program Files\OpenSSL-Win64\bin",
-            "C:\Program Files\OpenSSL\bin"
-          )) {
-            if (Test-Path $p) {
-              echo $p | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          $ErrorActionPreference = "Stop"
+
+          # Light is enough for the openssl CLI in tests
+          $candidates = @(
+            "https://slproweb.com/download/Win64OpenSSL_Light-4_0_2.exe",
+            "https://slproweb.com/download/Win64OpenSSL_Light-4_0_2.msi",
+            "https://slproweb.com/download/Win64OpenSSL_Light-3_5_8.exe",
+            "https://slproweb.com/download/Win64OpenSSL_Light-3_5_7.exe",
+            "https://slproweb.com/download/Win64OpenSSL_Light-3_5_4.exe"
+          )
+
+          $installer = Join-Path $env:RUNNER_TEMP "openssl-setup"
+          $url = $null
+          foreach ($c in $candidates) {
+            try {
+              $r = Invoke-WebRequest -Uri $c -Method Head -UseBasicParsing -TimeoutSec 30
+              if ($r.StatusCode -ge 200 -and $r.StatusCode -lt 400) {
+                $url = $c
+                break
+              }
+            } catch {
+              Write-Host "skip (not available): $c"
             }
           }
+
+          if (-not $url) {
+            throw "No working OpenSSL installer URL found on slproweb (catalog lag / 404)."
+          }
+
+          Write-Host "Downloading: $url"
+          $ext = [IO.Path]::GetExtension(([Uri]$url).AbsolutePath)
+          $out = "$installer$ext"
+          Invoke-WebRequest -Uri $url -OutFile $out -UseBasicParsing
+
+          if ($ext -eq ".msi") {
+            Start-Process msiexec.exe -ArgumentList @("/i", $out, "/qn", "/norestart") -Wait -NoNewWindow
+          } else {
+            Start-Process -FilePath $out -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART","/SP-" -Wait -NoNewWindow
+          }
+
+          foreach ($p in @(
+            "${env:ProgramFiles}\OpenSSL-Win64\bin",
+            "${env:ProgramFiles}\OpenSSL\bin",
+            "${env:ProgramFiles(x86)}\OpenSSL-Win64\bin"
+          )) {
+            if (Test-Path $p) {
+              $p | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+              Write-Host "PATH += $p"
+            }
+          }
+
+          # refresh PATH in this step
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" +
+                      [System.Environment]::GetEnvironmentVariable("Path","User")
           openssl version
 
       - name: Add DLL directories to PATH
