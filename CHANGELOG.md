@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.0] - 2026-08-20
 
-Initial public release of **StormByte-Crypto**: a modern C++23 cryptography library built on top of StormByte-Buffer and Crypto++, providing compression, symmetric and asymmetric encryption, hashing, key-pair management, key agreement, digital signatures and secure secret storage for the StormByte ecosystem.
+Initial public release of **StormByte-Crypto**: a modern C++26 cryptography library built on top of StormByte-Buffer and Crypto++, providing compression, symmetric and asymmetric encryption, hashing, key-pair management, key agreement, digital signatures and secure secret storage for the StormByte ecosystem.
 
 ### Added
 
@@ -80,7 +80,7 @@ Initial public release of **StormByte-Crypto**: a modern C++23 cryptography libr
 ### Notes
 
 - This is the first stable release of the StormByte-Crypto library.
-- Requires a C++23 compliant compiler, CMake ≥ 3.12, StormByte-Buffer 1.0.0 and Crypto++.
+- Requires a C++26 compliant compiler, CMake ≥ 3.12, StormByte-Buffer 1.0.0 and Crypto++.
 - Designed as a building block for higher-level StormByte modules that need cryptography.
 
 [Unreleased]: https://github.com/StormBytePP/StormByte-Crypto/compare/v1.0.0...HEAD
