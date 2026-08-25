@@ -142,12 +142,12 @@ jobs:
           ctest-options: --output-on-failure --test-dir ${{ github.workspace }}/build/test
 
   ###########################################################################
-  # Windows
+  # Windows (must build with MSVC in C++23 until CryptoPP accepts clang-cl)
   ###########################################################################
   build-windows:
     needs: [checkout-bootstrap]
     runs-on: windows-latest
-    name: windows-clang-cl
+    name: windows-msvc
     env:
       CXXFLAGS: /DSTORMBYTE_CRYPTO_INSECURE_PBKDF2_ITERATIONS_FOR_CI
 
@@ -226,8 +226,8 @@ jobs:
       - name: Build with toolchain
         uses: stormbytepp/githubactions/.github/actions/build-with-toolchain@master
         with:
-          toolchain: clang-cl
-          ccache-key: v1-release-clang-cl
+          toolchain: msvc
+          ccache-key: v1-release-msvc
           build-type: ${{ env.BUILD_TYPE }}
           configure-options: >-
             -DENABLE_TEST=ON
