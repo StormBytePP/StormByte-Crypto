@@ -13,3 +13,4 @@
 [submodule "StormByte - Build Master"]
 	path = thirdparty/buildmaster
 	url = https://github.com/StormBytePP/StormByte-BuildMaster.git
+	branch = master
