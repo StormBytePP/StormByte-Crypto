@@ -147,7 +147,7 @@ jobs:
   build-windows:
     needs: [checkout-bootstrap]
     runs-on: windows-latest
-    name: windows-msvc
+    name: windows-clang-cl
     env:
       CXXFLAGS: /DSTORMBYTE_CRYPTO_INSECURE_PBKDF2_ITERATIONS_FOR_CI
 
@@ -185,8 +185,8 @@ jobs:
       - name: Build with toolchain
         uses: stormbytepp/githubactions/.github/actions/build-with-toolchain@master
         with:
-          toolchain: msvc
-          ccache-key: v1-release-msvc
+          toolchain: clang-cl
+          ccache-key: v1-release-clang-cl
           build-type: ${{ env.BUILD_TYPE }}
           configure-options: >-
             -DENABLE_TEST=ON
