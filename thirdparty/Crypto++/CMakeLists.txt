@@ -8,31 +8,19 @@ if(WITH_CRYPTOPP STREQUAL "SYSTEM")
 	set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 	find_package(Crypto++ REQUIRED)
 else()
-	set(CRYPTOPP_SRCDIR "${CMAKE_CURRENT_LIST_DIR}/cryptopp-cmake")
-	ensure_build_dir(CRYPTOPP_BUILDDIR)
-	set(CRYPTOPP_COMPONENT "Crypto++ Library")
-	set(CRYPTOPP_OPTIONS
-		"-DCRYPTOPP_BUILD_TESTING=OFF"
-		"-DCRYPTOPP_DEFAULT_BUILD_TYPE=Release"
-		"-DCRYPTOPP_USE_MASTER_BRANCH=ON"
-	)
-
-	create_cmake_component(
-		CRYPTOPP_LIBRARY_CREATE_FILE
-		"CryptoPP"
-		"${CRYPTOPP_COMPONENT}"
-		"${CRYPTOPP_SRCDIR}"
-		"${CRYPTOPP_BUILDDIR}"
-		"${CRYPTOPP_OPTIONS}"
-		"static"
+	buildmaster_component(
+		CryptoPP
+		"Crypto++ Library"
+		"${CMAKE_CURRENT_LIST_DIR}/cmake-port"
+		""
+		static
 		"cryptopp"
-		1
+		"ALIAS=CryptoPP::CryptoPP;GIT={RESET;PATCH=${CMAKE_CURRENT_LIST_DIR}/0001-msvc-drop-stdext.patch;TITLE=MSVC drop stdext;ROOT=src}"
 	)
-	include("${CRYPTOPP_LIBRARY_CREATE_FILE}")
 
-	add_dependencies(StormByte-Crypto CryptoPP_install)
-	add_library(CryptoPP::CryptoPP ALIAS CryptoPP)
-	target_include_directories(CryptoPP SYSTEM INTERFACE ${BUILDMASTER_INSTALL_INCLUDEDIR}/cryptopp)
+	target_include_directories(CryptoPP SYSTEM INTERFACE
+		${BUILDMASTER_INSTALL_INCLUDEDIR}/cryptopp
+	)
 endif()
 
-target_link_libraries(StormByte-Crypto PRIVATE CryptoPP::CryptoPP)
+buildmaster_link(StormByte-Crypto CryptoPP::CryptoPP)
