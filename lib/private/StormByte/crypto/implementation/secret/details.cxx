@@ -20,6 +20,42 @@ namespace StormByte::Crypto::Implementation::Secret {
 				default:  return CryptoPP::OID();
 			}
 		}
+
+		/**
+		 * @brief Normalize X25519 key material to the raw 32-byte form.
+		 *
+		 * Accepts either a bare 32-byte scalar/point or PKCS#8 / SPKI DER that
+		 * embeds a 32-byte OCTET STRING / BIT STRING (OpenSSL / Crypto++ style).
+		 */
+		bool ExtractX25519Raw32(const CryptoPP::SecByteBlock& in,
+								CryptoPP::SecByteBlock& out) noexcept
+		{
+			if (in.size() == 32) {
+				out.Assign(in.data(), 32);
+				return true;
+			}
+
+			const CryptoPP::byte* p = in.data();
+			const size_t n = in.size();
+			for (size_t i = 0; i + 34 <= n; ++i) {
+				// OCTET STRING, length 32
+				if (p[i] == 0x04 && p[i + 1] == 0x20) {
+					out.Assign(p + i + 2, 32);
+					return true;
+				}
+				// BIT STRING, length 33 (0 unused bits + 32 payload)
+				if (p[i] == 0x03 && p[i + 1] == 0x21 && p[i + 2] == 0x00) {
+					out.Assign(p + i + 3, 32);
+					return true;
+				}
+				// OCTET STRING, length 34 with inner 0x04 0x20 (nested wrappers)
+				if (p[i] == 0x04 && p[i + 1] == 0x22 && p[i + 2] == 0x04 && p[i + 3] == 0x20) {
+					out.Assign(p + i + 4, 32);
+					return true;
+				}
+			}
+			return false;
+		}
 	}
 
 	std::optional<Password> ECDHShare(const Password& privateKey,
@@ -134,26 +170,25 @@ namespace StormByte::Crypto::Implementation::Secret {
 	std::optional<Password> X25519Share(const Password& privateKey,
 										const std::string& peerPublicKeyBase64) noexcept
 	{
-		CryptoPP::SecByteBlock priv;
-		CryptoPP::SecByteBlock pub;
-		CryptoPP::SecByteBlock secret;
+		CryptoPP::SecByteBlock privIn, pubIn, priv, pub, secret;
 		try {
 			const unsigned char* privPtr = Helpers::PasswordAccess::Data(privateKey);
 			const std::size_t privLen = Helpers::PasswordAccess::Size(privateKey);
 			if (!privPtr || privLen == 0)
 				return std::nullopt;
 
-			priv.Assign(privPtr, privLen);
-			pub = KeyPair::DecodeSecBlockBase64(peerPublicKeyBase64);
+			privIn.Assign(privPtr, privLen);
+			pubIn = KeyPair::DecodeSecBlockBase64(peerPublicKeyBase64);
 
-			CryptoPP::x25519 agreement;
-			if (priv.size() != agreement.PrivateKeyLength()
-				|| pub.size() != agreement.PublicKeyLength()) {
-				Helpers::SecureWipe(priv);
-				Helpers::SecureWipe(pub);
+			if (!ExtractX25519Raw32(privIn, priv) || !ExtractX25519Raw32(pubIn, pub)) {
+				Helpers::SecureWipe(privIn);
+				Helpers::SecureWipe(pubIn);
 				return std::nullopt;
 			}
+			Helpers::SecureWipe(privIn);
+			Helpers::SecureWipe(pubIn);
 
+			CryptoPP::x25519 agreement;
 			secret.CleanNew(agreement.AgreedValueLength());
 			const bool ok = agreement.Agree(secret, priv, pub);
 
@@ -169,6 +204,8 @@ namespace StormByte::Crypto::Implementation::Secret {
 			Helpers::SecureWipe(secret);
 			return out;
 		} catch (...) {
+			Helpers::SecureWipe(privIn);
+			Helpers::SecureWipe(pubIn);
 			Helpers::SecureWipe(priv);
 			Helpers::SecureWipe(pub);
 			Helpers::SecureWipe(secret);

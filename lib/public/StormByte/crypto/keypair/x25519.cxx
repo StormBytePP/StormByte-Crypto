@@ -10,10 +10,10 @@ using namespace StormByte::Crypto::KeyPair;
 
 X25519::PointerType X25519::Generate(unsigned short /*bits*/) noexcept {
 	try {
-		CryptoPP::x25519 x;
-		CryptoPP::SecByteBlock priv(x.PrivateKeyLength());
-		CryptoPP::SecByteBlock pub(x.PublicKeyLength());
-		x.GenerateKeyPair(RNG(), priv, pub);
+		CryptoPP::x25519 agreement;
+		CryptoPP::SecByteBlock priv(agreement.PrivateKeyLength());
+		CryptoPP::SecByteBlock pub(agreement.PublicKeyLength());
+		agreement.GenerateKeyPair(RNG(), priv, pub);
 
 		auto pubStr = Implementation::KeyPair::EncodeSecBlockBase64(pub);
 		Password privPwd = Implementation::KeyPair::PasswordFromSecBlock(priv);

@@ -434,7 +434,11 @@ namespace {
 	}
 
 	bool IsRaw32(std::span<const CryptoPP::byte> der) noexcept {
-		return der.size() == 32 && der[0] != 0x30;
+		// Any 32-byte blob may be an X25519/Ed25519 raw key. Do NOT reject
+		// payloads whose first byte is 0x30 (ASN.1 SEQUENCE): that value is a
+		// valid random key byte and excluding it caused intermittent Load/Share
+		// failures (~1/256 key pairs).
+		return der.size() == 32;
 	}
 
 	bool ExtractRaw32(std::span<const CryptoPP::byte> der, CryptoPP::SecByteBlock& out) noexcept {
@@ -789,6 +793,17 @@ namespace {
 					break;
 				}
 				case Type::X25519: {
+					// Raw 32-byte private scalar (StormByte Generate / some PEM bodies).
+					if (privDer.size() == 32) {
+						CryptoPP::x25519 agreement;
+						CryptoPP::SecByteBlock pub(agreement.PublicKeyLength());
+						// Crypto++: GeneratePublicKey(rng, privateKey, publicKey)
+						agreement.GeneratePublicKey(RNG(), privDer.data(), pub.data());
+						pubQueue.Put(pub.data(), pub.size());
+						StormByte::Crypto::Helpers::SecureWipe(pub);
+						break;
+					}
+					// PKCS#8 / Crypto++ Load form
 					CryptoPP::ArraySource src(privDer.data(), privDer.size(), true);
 					CryptoPP::x25519 x;
 					x.Load(src);
