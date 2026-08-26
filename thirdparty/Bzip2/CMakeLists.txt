@@ -38,7 +38,7 @@ else()
 		# On Windows the static lib is named bz2_static.lib
 		add_custom_command(TARGET bz2_install POST_BUILD
 			COMMAND ${ENV_CMAKE_SILENT_COMMAND} -E remove -f "${BUILDMASTER_INSTALL_LIBDIR}/bz2.lib"
-			COMMAND ${ENV_CMAKE_SILENT_COMMAND} -E rename
+			COMMAND ${ENV_CMAKE_SILENT_COMMAND} -E copy
 				"${BUILDMASTER_INSTALL_LIBDIR}/bz2_static.lib"
 				"${BUILDMASTER_INSTALL_LIBDIR}/bz2.lib"
 			COMMENT "Renaming bz2_static.lib → bz2.lib"
@@ -46,7 +46,7 @@ else()
 		)
 	else()
 		add_custom_command(TARGET bz2_install POST_BUILD
-			COMMAND ${ENV_CMAKE_SILENT_COMMAND} -E rename
+			COMMAND ${ENV_CMAKE_SILENT_COMMAND} -E copy
 				"${BUILDMASTER_INSTALL_LIBDIR}/libbz2_static.a"
 				"${BUILDMASTER_INSTALL_LIBDIR}/libbz2.a"
 			COMMENT "Renaming libbz2_static.a → libbz2.a"
