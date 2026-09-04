@@ -1,21 +1,21 @@
 /*
- * Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
- *
- * This file is part of StormByte-Crypto.
- *
- * StormByte-Crypto is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License version 3
- * or later, as published by the Free Software Foundation.
- *
- * StormByte-Crypto is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with StormByte-Crypto. If not, see
- * <https://www.gnu.org/licenses/lgpl-3.0.html>.
- */
+* Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
+*
+* This file is part of StormByte-Crypto.
+*
+* StormByte-Crypto is free software: you can redistribute it and/or modify
+* it under the terms of the GNU Lesser General Public License version 3
+* or later, as published by the Free Software Foundation.
+*
+* StormByte-Crypto is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU Lesser General Public License for more details.
+*
+* You should have received a copy of the GNU Lesser General Public License
+* along with StormByte-Crypto. If not, see
+* <https://www.gnu.org/licenses/lgpl-3.0.html>.
+*/
 
 #pragma once
 
@@ -32,114 +32,108 @@ namespace StormByte::Crypto::Helpers {
 }
 
 /**
- * @namespace Crypto
- * @brief The namespace containing all the cryptography-related classes.
+ * @brief Crypto module of the StormByte suite.
  */
 namespace StormByte::Crypto {
-
 	/**
 	 * @class Password
-	 * @brief Secure, reference-counted container for passwords and binary key material.
+	 * @brief Shared, wiped container for passwords and raw key material.
 	 *
-	 * @details
-	 * Stores sensitive bytes inside a shared @ref Helpers::SecureContent with
-	 * automatic wipe when the last owner is destroyed.
-	 *
-	 * - Copyable and movable (shared ownership of the same buffer).
-	 * - No public access to the raw bytes (library code uses a private helper).
-	 * - Binary constructors store the exact size; no trailing null is appended.
-	 *
-	 * Creating unmanaged @c std::string copies of the content is strongly
-	 * discouraged and would bypass the secure lifecycle of this class.
+	 * Bytes live in a shared @ref Helpers::SecureContent and are wiped when
+	 * the last owner is destroyed. Copies share the same buffer. There is no
+	 * public view of the raw bytes.
 	 */
 	class STORMBYTE_CRYPTO_PUBLIC Password {
 		public:
 			/**
-			 * @brief Construct from a @c std::string (copied byte-for-byte, then wiped).
-			 * @param value Password characters. The parameter is securely wiped before return.
+			 * @name Construction
+			 * @{
+			 */
+			/**
+			 * @brief From a string. The argument is wiped before return.
+			 * @param value Password characters.
 			 */
 			explicit Password(std::string value) noexcept;
 
 			/**
-			 * @brief Construct from a C string (copied byte-for-byte up to the terminator).
-			 * @param value Null-terminated password. The pointed memory is not wiped.
+			 * @brief From a C string up to the terminator. The source is not wiped.
+			 * @param value Null-terminated password.
 			 */
 			explicit Password(const char* value) noexcept;
 
 			/**
-			 * @brief Construct from raw bytes (exact size, no null terminator added).
-			 * @param data Pointer to the bytes (may be nullptr if size is 0).
-			 * @param size Number of bytes to store.
+			 * @brief From raw bytes. Exact size; no terminator is added.
+			 * @param data Bytes, or nullptr if size is 0.
+			 * @param size Number of bytes.
 			 */
 			Password(const void* data, std::size_t size) noexcept;
 
 			/**
-			 * @brief Copy constructor.
-			 * @param other The other Password to copy from (shares ownership).
+			 * @brief Copy constructor. Shares the buffer.
+			 * @param other Password to copy.
 			 */
 			Password(const Password& other) = default;
 
 			/**
 			 * @brief Move constructor.
-			 * @param other The other Password to move from.
+			 * @param other Password to move.
 			 */
 			Password(Password&& other) noexcept = default;
 
 			/**
-			 * @brief Destructor.
-			 * Wipes the underlying buffer when this is the last owner.
+			 * @brief Destructor. Wipes the buffer if this is the last owner.
 			 */
 			~Password() = default;
 
 			/**
-			 * @brief Copy assignment operator.
-			 * @param other The other Password to copy from.
-			 * @return Reference to this Password.
+			 * @brief Copy assignment.
+			 * @param other Password to copy.
+			 * @return Reference to this password.
 			 */
 			Password& operator=(const Password& other) = default;
 
 			/**
-			 * @brief Move assignment operator.
-			 * @param other The other Password to move from.
-			 * @return Reference to this Password.
+			 * @brief Move assignment.
+			 * @param other Password to move.
+			 * @return Reference to this password.
 			 */
 			Password& operator=(Password&& other) noexcept = default;
+			/** @} */
 
 			/**
-			 * @brief Length of the stored material in bytes.
-			 * @return Exact byte count (no implied null terminator).
+			 * @brief Stored size in bytes.
+			 * @return Byte count.
 			 */
 			std::size_t Size() const noexcept;
 
 			/**
-			 * @brief Check whether the password is empty.
-			 * @return true if Size() is 0, false otherwise.
+			 * @brief Whether Size() is 0.
+			 * @return true if empty.
 			 */
 			bool Empty() const noexcept;
 
 			/**
-			 * @brief Contextual conversion to bool.
-			 * @return true if the password is not empty, false otherwise.
+			 * @brief true if the password is not empty.
 			 */
 			explicit operator bool() const noexcept;
 
 			/**
-			 * @brief Constant-time equality comparison.
-			 * @param other The other Password to compare with.
-			 * @return true if both have the same length and content, false otherwise.
+			 * @brief Constant-time equality.
+			 * @param other Other password.
+			 * @return true if length and content match.
 			 */
 			bool operator==(const Password& other) const noexcept;
 
 			/**
-			 * @brief Inequality comparison.
-			 * @param other The other Password to compare with.
-			 * @return true if not equal, false otherwise.
+			 * @brief Inequality.
+			 * @param other Other password.
+			 * @return true if not equal.
 			 */
 			bool operator!=(const Password& other) const noexcept;
 
 		private:
 			friend struct Helpers::PasswordAccess;
 
-			std::shared_ptr<Helpers::SecureContent> m_data;	///< Shared secure storage
+			std::shared_ptr<Helpers::SecureContent> m_data;	///< Shared wiped storage
 	};
 }
