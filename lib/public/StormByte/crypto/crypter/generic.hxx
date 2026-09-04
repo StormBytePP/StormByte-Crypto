@@ -1,21 +1,21 @@
 /*
- * Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
- *
- * This file is part of StormByte-Crypto.
- *
- * StormByte-Crypto is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License version 3
- * or later, as published by the Free Software Foundation.
- *
- * StormByte-Crypto is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with StormByte-Crypto. If not, see
- * <https://www.gnu.org/licenses/lgpl-3.0.html>.
- */
+* Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
+*
+* This file is part of StormByte-Crypto.
+*
+* StormByte-Crypto is free software: you can redistribute it and/or modify
+* it under the terms of the GNU Lesser General Public License version 3
+* or later, as published by the Free Software Foundation.
+*
+* StormByte-Crypto is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU Lesser General Public License for more details.
+*
+* You should have received a copy of the GNU Lesser General Public License
+* along with StormByte-Crypto. If not, see
+* <https://www.gnu.org/licenses/lgpl-3.0.html>.
+*/
 
 #pragma once
 
@@ -25,208 +25,222 @@
 #include <StormByte/crypto/visibility.h>
 
 /**
- * @namespace Crypter
- * @brief The namespace containing all the crypter-related classes.
+ * @brief Ciphers of the Crypto module.
  */
 namespace StormByte::Crypto::Crypter {
 	/**
 	 * @enum Type
-	 * @brief The types of crypters available.
+	 * @brief Available ciphers.
 	 */
 	enum class Type {
-		AES_GCM,		///< AES Galois/Counter Mode
-		AES,			///< AES Cipher Block Chaining Mode
-		Camellia,		///< Camellia Cipher Block Chaining Mode
-		ChaChaPoly,		///< ChaCha20-Poly1305 Authenticated Encryption
-		ECC,			///< Elliptic Curve Cryptography Encryption
-		Serpent,		///< Serpent Cipher Block Chaining Mode
-		RSA,			///< RSA Asymmetric Encryption
-		TwoFish,		///< TwoFish Cipher Block Chaining Mode
+		AES_GCM,		///< AES-GCM
+		AES,			///< AES-CBC
+		Camellia,		///< Camellia-CBC
+		ChaChaPoly,		///< ChaCha20-Poly1305
+		ECC,			///< Elliptic-curve encryption
+		Serpent,		///< Serpent-CBC
+		RSA,			///< RSA
+		TwoFish,		///< Twofish-CBC
 	};
 
 	/**
 	 * @class Generic
-	 * @brief A generic crypter class.
+	 * @brief Abstract crypter. Concrete ciphers derive from this.
 	 */
 	class STORMBYTE_CRYPTO_PUBLIC Generic: public StormByte::Clonable<Generic> {
 		public:
 			/**
-			 * @brief Copy constructor
-			 * @param other The other Generic crypter to copy from.
+			 * @name Construction
+			 * @{
+			 */
+			/**
+			 * @brief Copy constructor.
+			 * @param other Crypter to copy.
 			 */
 			Generic(const Generic& other) = default;
 
 			/**
-			 * @brief Move constructor
-			 * @param other The other Generic crypter to move from.
+			 * @brief Move constructor.
+			 * @param other Crypter to move.
 			 */
 			Generic(Generic&& other) noexcept = default;
 
 			/**
-			 * @brief Virtual destructor
+			 * @brief Destructor.
 			 */
 			virtual ~Generic() noexcept = default;
 
 			/**
-			 * @brief Copy assignment operator
-			 * @param other The other Generic crypter to copy from.
-			 * @return Reference to this Generic crypter.
+			 * @brief Copy assignment.
+			 * @param other Crypter to copy.
+			 * @return Reference to this crypter.
 			 */
 			Generic& operator=(const Generic& other) = default;
 
 			/**
-			 * @brief Move assignment operator
-			 * @param other The other Generic crypter to move from.
-			 * @return Reference to this Generic crypter.
+			 * @brief Move assignment.
+			 * @param other Crypter to move.
+			 * @return Reference to this crypter.
 			 */
 			Generic& operator=(Generic&& other) noexcept = default;
+			/** @} */
 
 			/**
-			 * @brief Encrypt data from input buffer to output buffer.
-			 * @param input The input buffer to encrypt.
-			 * @param output The output buffer to write the encrypted data to.
-			 * @return true if encryption was successful, false otherwise.
+			 * @name Encrypt
+			 * @{
+			 */
+			/**
+			 * @brief Encrypt a byte span.
+			 * @param input Input bytes.
+			 * @param output Destination buffer.
+			 * @return true on success.
 			 */
 			inline bool Encrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept {
 				return DoEncrypt(input, output);
 			}
 
 			/**
-			 * @brief Encrypt data from input buffer to output buffer.
-			 * @param input The input buffer to encrypt.
-			 * @param output The output buffer to write the encrypted data to.
-			 * @return true if encryption was successful, false otherwise.
+			 * @brief Encrypt a read-only buffer (copy).
+			 * @param input Input buffer.
+			 * @param output Destination buffer.
+			 * @return true on success.
 			 */
 			inline bool Encrypt(const Buffer::ReadOnly& input, Buffer::WriteOnly& output) const noexcept {
 				return DoEncrypt(const_cast<Buffer::ReadOnly&>(input), output, ReadMode::Copy);
 			}
 
 			/**
-			 * @brief Encrypt data from input buffer to output buffer, moving the input data.
-			 * @param input The input buffer to encrypt.
-			 * @param output The output buffer to write the encrypted data to.
-			 * @return true if encryption was successful, false otherwise.
+			 * @brief Encrypt a buffer, consuming it.
+			 * @param input Input buffer.
+			 * @param output Destination buffer.
+			 * @return true on success.
 			 */
 			inline bool Encrypt(Buffer::ReadOnly& input, Buffer::WriteOnly& output) const noexcept {
 				return DoEncrypt(input, output, ReadMode::Move);
 			}
 
 			/**
-			 * @brief Encrypt data from a Consumer buffer.
-			 * @param consumer The Consumer buffer to encrypt.
-			 * @param mode The read mode indicating copy or move.
-			 * @return A Consumer buffer containing the encrypted data.
+			 * @brief Encrypt a Consumer into another Consumer.
+			 * @param consumer Input consumer.
+			 * @param mode Copy or move.
+			 * @return Consumer with ciphertext.
 			 */
 			inline Buffer::Consumer Encrypt(Buffer::Consumer consumer, ReadMode mode = ReadMode::Move) const noexcept {
 				return DoEncrypt(consumer, mode);
 			}
+			/** @} */
 
 			/**
-			 * @brief Decrypt data from input buffer to output buffer.
-			 * @param input The input buffer to decrypt.
-			 * @param output The output buffer to write the decrypted data to.
-			 * @return true if decryption was successful, false otherwise.
+			 * @name Decrypt
+			 * @{
+			 */
+			/**
+			 * @brief Decrypt a byte span.
+			 * @param input Input bytes.
+			 * @param output Destination buffer.
+			 * @return true on success.
 			 */
 			inline bool Decrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept {
 				return DoDecrypt(input, output);
 			}
 
 			/**
-			 * @brief Decrypt data from input buffer to output buffer.
-			 * @param input The input buffer to decrypt.
-			 * @param output The output buffer to write the decrypted data to.
-			 * @return true if decryption was successful, false otherwise.
+			 * @brief Decrypt a read-only buffer (copy).
+			 * @param input Input buffer.
+			 * @param output Destination buffer.
+			 * @return true on success.
 			 */
 			inline bool Decrypt(const Buffer::ReadOnly& input, Buffer::WriteOnly& output) const noexcept {
 				return DoDecrypt(const_cast<Buffer::ReadOnly&>(input), output, ReadMode::Copy);
 			}
 
 			/**
-			 * @brief Decrypt data from input buffer to output buffer, moving the input data.
-			 * @param input The input buffer to decrypt.
-			 * @param output The output buffer to write the decrypted data to.
-			 * @return true if decryption was successful, false otherwise.
+			 * @brief Decrypt a buffer, consuming it.
+			 * @param input Input buffer.
+			 * @param output Destination buffer.
+			 * @return true on success.
 			 */
 			inline bool Decrypt(Buffer::ReadOnly& input, Buffer::WriteOnly& output) const noexcept {
 				return DoDecrypt(input, output, ReadMode::Move);
 			}
 
 			/**
-			 * @brief Decrypt data from a Consumer buffer.
-			 * @param consumer The Consumer buffer to decrypt.
-			 * @param mode The read mode indicating copy or move.
-			 * @return A Consumer buffer containing the decrypted data.
+			 * @brief Decrypt a Consumer into another Consumer.
+			 * @param consumer Input consumer.
+			 * @param mode Copy or move.
+			 * @return Consumer with plaintext.
 			 */
 			inline Buffer::Consumer Decrypt(Buffer::Consumer consumer, ReadMode mode = ReadMode::Move) const noexcept {
 				return DoDecrypt(consumer, mode);
 			}
+			/** @} */
 
 			/**
-			 * @brief Gets the type of crypter.
-			 * @return The type of crypter.
+			 * @brief Cipher of this crypter.
+			 * @return Crypter type.
 			 */
 			inline enum Type Type() const noexcept {
 				return m_type;
 			}
 
 		protected:
-			enum Type m_type;	///< The type of crypter
+			enum Type m_type;	///< Cipher
 
 			/**
-			 * @brief Constructor
-			 * @param type The type of crypter.
+			 * @brief Construct with a cipher.
+			 * @param type Cipher.
 			 */
 			inline Generic(enum Type type):
 				m_type(type) {}
 
 			/**
-			 * @brief Implementation of the encryption logic.
-			 * @param input The input buffer to encrypt.
-			 * @param output The output buffer to write the encrypted data to.
-			 * @return true if encryption was successful, false otherwise.
+			 * @brief Encrypt a byte span.
+			 * @param input Input bytes.
+			 * @param output Destination buffer.
+			 * @return true on success.
 			 */
 			virtual bool DoEncrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept = 0;
 
 			/**
-			 * @brief Implementation of the encryption logic for Consumer buffers.
-			 * @param consumer The Consumer buffer to encrypt.
-			 * @param mode The read mode indicating copy or move.
-			 * @return A Consumer buffer containing the encrypted data.
+			 * @brief Encrypt a Consumer.
+			 * @param consumer Input consumer.
+			 * @param mode Copy or move.
+			 * @return Consumer with ciphertext.
 			 */
 			virtual Buffer::Consumer DoEncrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept = 0;
 
 			/**
-			 * @brief Implementation of the decryption logic.
-			 * @param input The input buffer to decrypt.
-			 * @param output The output buffer to write the decrypted data to.
-			 * @return true if decryption was successful, false otherwise.
+			 * @brief Decrypt a byte span.
+			 * @param input Input bytes.
+			 * @param output Destination buffer.
+			 * @return true on success.
 			 */
 			virtual bool DoDecrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept = 0;
 
 			/**
-			 * @brief Implementation of the decryption logic for Consumer buffers.
-			 * @param consumer The Consumer buffer to decrypt.
-			 * @param mode The read mode indicating copy or move.
-			 * @return A Consumer buffer containing the decrypted data.
+			 * @brief Decrypt a Consumer.
+			 * @param consumer Input consumer.
+			 * @param mode Copy or move.
+			 * @return Consumer with plaintext.
 			 */
 			virtual Buffer::Consumer DoDecrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept = 0;
 
 		private:
 			/**
-			 * @brief Implementation of the encryption logic.
-			 * @param input The input buffer to encrypt.
-			 * @param output The output buffer to write the encrypted data to.
-			 * @param mode The read mode indicating copy or move.
-			 * @return true if encryption was successful, false otherwise.
+			 * @brief Encrypt a buffer with an explicit read mode.
+			 * @param input Input buffer.
+			 * @param output Destination buffer.
+			 * @param mode Copy or move.
+			 * @return true on success.
 			 */
 			bool DoEncrypt(Buffer::ReadOnly& input, Buffer::WriteOnly& output, ReadMode mode) const noexcept;
 
 			/**
-			 * @brief Implementation of the decryption logic.
-			 * @param input The input buffer to decrypt.
-			 * @param output The output buffer to write the decrypted data to.
-			 * @param mode The read mode indicating copy or move.
-			 * @return true if decryption was successful, false otherwise.
+			 * @brief Decrypt a buffer with an explicit read mode.
+			 * @param input Input buffer.
+			 * @param output Destination buffer.
+			 * @param mode Copy or move.
+			 * @return true on success.
 			 */
 			bool DoDecrypt(Buffer::ReadOnly& input, Buffer::WriteOnly& output, ReadMode mode) const noexcept;
 	};
