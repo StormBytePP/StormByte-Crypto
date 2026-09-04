@@ -1,21 +1,21 @@
 /*
- * Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
- *
- * This file is part of StormByte-Crypto.
- *
- * StormByte-Crypto is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License version 3
- * or later, as published by the Free Software Foundation.
- *
- * StormByte-Crypto is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with StormByte-Crypto. If not, see
- * <https://www.gnu.org/licenses/lgpl-3.0.html>.
- */
+* Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
+*
+* This file is part of StormByte-Crypto.
+*
+* StormByte-Crypto is free software: you can redistribute it and/or modify
+* it under the terms of the GNU Lesser General Public License version 3
+* or later, as published by the Free Software Foundation.
+*
+* StormByte-Crypto is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU Lesser General Public License for more details.
+*
+* You should have received a copy of the GNU Lesser General Public License
+* along with StormByte-Crypto. If not, see
+* <https://www.gnu.org/licenses/lgpl-3.0.html>.
+*/
 
 #pragma once
 
@@ -26,20 +26,19 @@
 #include <memory>
 
 /**
- * @namespace Crypto
- * @brief The namespace containing all the cryptographic-related classes.
+ * @brief Crypto module of the StormByte suite.
  */
 namespace StormByte::Crypto {
 	class Password;
 
 	/**
 	 * @enum ReadMode
-	 * @brief The types of data operations.
+	 * @brief How a source buffer is consumed.
 	 */
 	enum class ReadMode: unsigned short {
-		Copy,	///< Indicates a copy operation
-		Move	///< Indicates a move operation
+		Copy,	///< Copy the input
+		Move	///< Consume the input
 	};
 
-	using ExpectedPassword = StormByte::Expected<Password, Exception>;
+	using ExpectedPassword = StormByte::Expected<Password, Exception>;	///< Password or Crypto exception
 }

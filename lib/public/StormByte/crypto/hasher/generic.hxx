@@ -1,21 +1,21 @@
 /*
- * Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
- *
- * This file is part of StormByte-Crypto.
- *
- * StormByte-Crypto is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License version 3
- * or later, as published by the Free Software Foundation.
- *
- * StormByte-Crypto is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with StormByte-Crypto. If not, see
- * <https://www.gnu.org/licenses/lgpl-3.0.html>.
- */
+* Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
+*
+* This file is part of StormByte-Crypto.
+*
+* StormByte-Crypto is free software: you can redistribute it and/or modify
+* it under the terms of the GNU Lesser General Public License version 3
+* or later, as published by the Free Software Foundation.
+*
+* StormByte-Crypto is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU Lesser General Public License for more details.
+*
+* You should have received a copy of the GNU Lesser General Public License
+* along with StormByte-Crypto. If not, see
+* <https://www.gnu.org/licenses/lgpl-3.0.html>.
+*/
 
 #pragma once
 
@@ -25,149 +25,158 @@
 #include <StormByte/crypto/visibility.h>
 
 /**
- * @namespace Hasher
- * @brief The namespace containing all the hasher-related classes.
+ * @brief Hash algorithms of the Crypto module.
  */
 namespace StormByte::Crypto::Hasher {
 	/**
 	 * @enum Type
-	 * @brief The types of hashers available.
+	 * @brief Available hash algorithms.
 	 */
 	enum class Type {
-		Blake2b,	///< BLAKE2b Hash Function
-		Blake2s,	///< BLAKE2s Hash Function
-		SHA3_256,	///< SHA3-256 Hash Function
-		SHA3_512,	///< SHA3-512 Hash Function
-		SHA256,		///< SHA-256 Hash Function
-		SHA512,		///< SHA-512 Hash Function
+		Blake2b,	///< BLAKE2b
+		Blake2s,	///< BLAKE2s
+		SHA3_256,	///< SHA3-256
+		SHA3_512,	///< SHA3-512
+		SHA256,		///< SHA-256
+		SHA512,		///< SHA-512
 	};
 
 	/**
 	 * @class Generic
-	 * @brief A generic hasher class.
+	 * @brief Abstract hasher. Concrete algorithms derive from this.
 	 */
 	class STORMBYTE_CRYPTO_PUBLIC Generic: public StormByte::Clonable<Generic> {
 		public:
 			/**
-			 * @brief Copy constructor
-			 * @param other The other Generic hasher to copy from.
+			 * @name Construction
+			 * @{
+			 */
+			/**
+			 * @brief Copy constructor.
+			 * @param other Hasher to copy.
 			 */
 			Generic(const Generic& other) = default;
 
 			/**
-			 * @brief Move constructor
-			 * @param other The other Generic hasher to move from.
+			 * @brief Move constructor.
+			 * @param other Hasher to move.
 			 */
 			Generic(Generic&& other) noexcept = default;
 
 			/**
-			 * @brief Virtual destructor
+			 * @brief Destructor.
 			 */
 			virtual ~Generic() noexcept = default;
 
 			/**
-			 * @brief Copy assignment operator
-			 * @param other The other Generic hasher to copy from.
-			 * @return Reference to this Generic hasher.
+			 * @brief Copy assignment.
+			 * @param other Hasher to copy.
+			 * @return Reference to this hasher.
 			 */
 			Generic& operator=(const Generic& other) = default;
 
 			/**
-			 * @brief Move assignment operator
-			 * @param other The other Generic hasher to move from.
-			 * @return Reference to this Generic hasher.
+			 * @brief Move assignment.
+			 * @param other Hasher to move.
+			 * @return Reference to this hasher.
 			 */
 			Generic& operator=(Generic&& other) noexcept = default;
+			/** @} */
 
 			/**
-			 * @brief Hash data from input buffer to output buffer.
-			 * @param input The input buffer to hash.
-			 * @param output The output buffer to write the hashed data to.
-			 * @return true if hashing was successful, false otherwise.
+			 * @name Hash
+			 * @{
+			 */
+			/**
+			 * @brief Hash a byte span into an output buffer.
+			 * @param input Input bytes.
+			 * @param output Destination buffer.
+			 * @return true on success.
 			 */
 			inline bool Hash(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept {
 				return DoHash(input, output);
 			}
 
 			/**
-			 * @brief Hash data from input buffer to output buffer.
-			 * @param input The input buffer to hash.
-			 * @param output The output buffer to write the hashed data to.
-			 * @return true if hashing was successful, false otherwise.
+			 * @brief Hash a read-only buffer (copy).
+			 * @param input Input buffer.
+			 * @param output Destination buffer.
+			 * @return true on success.
 			 */
 			inline bool Hash(const Buffer::ReadOnly& input, Buffer::WriteOnly& output) const noexcept {
 				return DoHash(const_cast<Buffer::ReadOnly&>(input), output, ReadMode::Copy);
 			}
 
 			/**
-			 * @brief Hash data from input buffer to output buffer, moving the input data.
-			 * @param input The input buffer to hash.
-			 * @param output The output buffer to write the hashed data to.
-			 * @return true if hashing was successful, false otherwise.
+			 * @brief Hash a buffer, consuming it.
+			 * @param input Input buffer.
+			 * @param output Destination buffer.
+			 * @return true on success.
 			 */
 			inline bool Hash(Buffer::ReadOnly& input, Buffer::WriteOnly& output) const noexcept {
 				return DoHash(input, output, ReadMode::Move);
 			}
 
 			/**
-			 * @brief Hash data from a Consumer buffer.
-			 * @param consumer The Consumer buffer to hash.
-			 * @param mode The read mode indicating copy or move.
-			 * @return A Consumer buffer containing the hashed data.
+			 * @brief Hash a Consumer into another Consumer.
+			 * @param consumer Input consumer.
+			 * @param mode Copy or move.
+			 * @return Consumer with the digest.
 			 */
 			inline Buffer::Consumer Hash(Buffer::Consumer consumer, ReadMode mode = ReadMode::Move) const noexcept {
 				return DoHash(consumer, mode);
 			}
 
 			/**
-			 * @brief Gets the type of hasher.
-			 * @return The type of hasher.
+			 * @brief Algorithm of this hasher.
+			 * @return Hasher type.
 			 */
 			inline enum Type Type() const noexcept {
 				return m_type;
 			}
+			/** @} */
 
 		protected:
-			enum Type m_type;	///< The type of hasher
+			enum Type m_type;	///< Algorithm
 
 			/**
-			 * @brief Constructor
-			 * @param type The type of hasher.
+			 * @brief Construct with an algorithm.
+			 * @param type Algorithm.
 			 */
 			inline Generic(enum Type type):
 				m_type(type) {}
 
 		private:
 			/**
-			 * @brief Implementation of the hashing logic.
-			 * @param input The input buffer to hash.
-			 * @param output The output buffer to write the hashed data to.
-			 * @param mode The read mode indicating copy or move.
-			 * @return true if hashing was successful, false otherwise.
+			 * @brief Hash a buffer with an explicit read mode.
+			 * @param input Input buffer.
+			 * @param output Destination buffer.
+			 * @param mode Copy or move.
+			 * @return true on success.
 			 */
 			bool DoHash(Buffer::ReadOnly& input, Buffer::WriteOnly& output, ReadMode mode) const noexcept;
 
 			/**
-			 * @brief Implementation of the hashing logic.
-			 * @param input The input buffer to hash.
-			 * @param output The output buffer to write the hashed data to.
-			 * @return true if hashing was successful, false otherwise.
+			 * @brief Hash a byte span.
+			 * @param input Input bytes.
+			 * @param output Destination buffer.
+			 * @return true on success.
 			 */
 			virtual bool DoHash(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept = 0;
 
 			/**
-			 * @brief Implementation of the hashing logic for Consumer buffers.
-			 * @param consumer The Consumer buffer to hash.
-			 * @param mode The read mode indicating copy or move.
-			 * @return A Consumer buffer containing the hashed data.
+			 * @brief Hash a Consumer.
+			 * @param consumer Input consumer.
+			 * @param mode Copy or move.
+			 * @return Consumer with the digest.
 			 */
 			virtual Buffer::Consumer DoHash(Buffer::Consumer consumer, ReadMode mode) const noexcept = 0;
 	};
 
 	/**
-	 * @brief Factory method to create a hasher.
-	 * @param type The type of hasher to create.
-	 * @return A pointer to the created hasher.
+	 * @brief Factory for a hasher.
+	 * @param type Algorithm.
+	 * @return Hasher pointer.
 	 */
 	STORMBYTE_CRYPTO_PUBLIC Generic::PointerType Create(Type type) noexcept;
 }

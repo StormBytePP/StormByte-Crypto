@@ -1,21 +1,21 @@
 /*
- * Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
- *
- * This file is part of StormByte-Crypto.
- *
- * StormByte-Crypto is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License version 3
- * or later, as published by the Free Software Foundation.
- *
- * StormByte-Crypto is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with StormByte-Crypto. If not, see
- * <https://www.gnu.org/licenses/lgpl-3.0.html>.
- */
+* Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
+*
+* This file is part of StormByte-Crypto.
+*
+* StormByte-Crypto is free software: you can redistribute it and/or modify
+* it under the terms of the GNU Lesser General Public License version 3
+* or later, as published by the Free Software Foundation.
+*
+* StormByte-Crypto is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU Lesser General Public License for more details.
+*
+* You should have received a copy of the GNU Lesser General Public License
+* along with StormByte-Crypto. If not, see
+* <https://www.gnu.org/licenses/lgpl-3.0.html>.
+*/
 
 #pragma once
 
@@ -25,221 +25,235 @@
 #include <StormByte/crypto/visibility.h>
 
 /**
- * @namespace Compressor
- * @brief The namespace containing all the compressor-related classes.
+ * @brief Compressors of the Crypto module.
  */
 namespace StormByte::Crypto::Compressor {
 	/**
 	 * @enum Type
-	 * @brief The types of compressors available.
+	 * @brief Available compressors.
 	 */
 	enum class Type {
-		Bzip2,	///< Bzip2 compressor
-		Zlib	///< Zlib compressor
+		Bzip2,	///< bzip2
+		Zlib	///< zlib
 	};
 
 	/**
 	 * @class Generic
-	 * @brief A generic compressor class.
+	 * @brief Abstract compressor. Concrete codecs derive from this.
 	 */
 	class STORMBYTE_CRYPTO_PUBLIC Generic: public StormByte::Clonable<Generic> {
 		public:
 			/**
-			 * @brief Copy constructor
-			 * @param other The other Generic compressor to copy from.
+			 * @name Construction
+			 * @{
+			 */
+			/**
+			 * @brief Copy constructor.
+			 * @param other Compressor to copy.
 			 */
 			Generic(const Generic& other) = default;
 
 			/**
-			 * @brief Move constructor
-			 * @param other The other Generic compressor to move from.
+			 * @brief Move constructor.
+			 * @param other Compressor to move.
 			 */
 			Generic(Generic&& other) noexcept = default;
 
 			/**
-			 * @brief Virtual destructor
+			 * @brief Destructor.
 			 */
 			virtual ~Generic() noexcept = default;
 
 			/**
-			 * @brief Copy assignment operator
-			 * @param other The other Generic compressor to copy from.
-			 * @return Reference to this Generic compressor.
+			 * @brief Copy assignment.
+			 * @param other Compressor to copy.
+			 * @return Reference to this compressor.
 			 */
 			Generic& operator=(const Generic& other) = default;
 
 			/**
-			 * @brief Move assignment operator
-			 * @param other The other Generic compressor to move from.
-			 * @return Reference to this Generic compressor.
+			 * @brief Move assignment.
+			 * @param other Compressor to move.
+			 * @return Reference to this compressor.
 			 */
 			Generic& operator=(Generic&& other) noexcept = default;
+			/** @} */
 
 			/**
-			 * @brief Compress data from input buffer to output buffer.
-			 * @param input The input buffer to compress.
-			 * @param output The output buffer to write the compressed data to.
-			 * @return true if compression was successful, false otherwise.
+			 * @name Compress
+			 * @{
+			 */
+			/**
+			 * @brief Compress a byte span.
+			 * @param input Input bytes.
+			 * @param output Destination buffer.
+			 * @return true on success.
 			 */
 			inline bool Compress(const std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept {
 				return DoCompress(input, output);
 			}
 
 			/**
-			 * @brief Compress data from input buffer to output buffer.
-			 * @param input The input buffer to compress.
-			 * @param output The output buffer to write the compressed data to.
-			 * @return true if compression was successful, false otherwise.
+			 * @brief Compress a read-only buffer (copy).
+			 * @param input Input buffer.
+			 * @param output Destination buffer.
+			 * @return true on success.
 			 */
 			inline bool Compress(const Buffer::ReadOnly& input, Buffer::WriteOnly& output) const noexcept {
 				return DoCompress(const_cast<Buffer::ReadOnly&>(input), output, ReadMode::Copy);
 			}
 
 			/**
-			 * @brief Compress data from input buffer to output buffer, moving the input data.
-			 * @param input The input buffer to compress.
-			 * @param output The output buffer to write the compressed data to.
-			 * @return true if compression was successful, false otherwise.
+			 * @brief Compress a buffer, consuming it.
+			 * @param input Input buffer.
+			 * @param output Destination buffer.
+			 * @return true on success.
 			 */
 			inline bool Compress(Buffer::ReadOnly& input, Buffer::WriteOnly& output) const noexcept {
 				return DoCompress(input, output, ReadMode::Move);
 			}
 
 			/**
-			 * @brief Compress data from a Consumer buffer.
-			 * @param consumer The Consumer buffer to compress.
-			 * @param mode The read mode indicating copy or move.
-			 * @return A Consumer buffer containing the compressed data.
+			 * @brief Compress a Consumer into another Consumer.
+			 * @param consumer Input consumer.
+			 * @param mode Copy or move.
+			 * @return Consumer with compressed data.
 			 */
 			inline Buffer::Consumer Compress(Buffer::Consumer consumer, ReadMode mode = ReadMode::Move) const noexcept {
 				return DoCompress(consumer, mode);
 			}
+			/** @} */
 
 			/**
-			 * @brief Decompress data from input buffer to output buffer.
-			 * @param input The input buffer to decompress.
-			 * @param output The output buffer to write the decompressed data to.
-			 * @return true if decompression was successful, false otherwise.
+			 * @name Decompress
+			 * @{
+			 */
+			/**
+			 * @brief Decompress a byte span.
+			 * @param input Input bytes.
+			 * @param output Destination buffer.
+			 * @return true on success.
 			 */
 			inline bool Decompress(const std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept {
 				return DoDecompress(input, output);
 			}
 
 			/**
-			 * @brief Decompress data from input buffer to output buffer.
-			 * @param input The input buffer to decompress.
-			 * @param output The output buffer to write the decompressed data to.
-			 * @return true if decompression was successful, false otherwise.
+			 * @brief Decompress a read-only buffer (copy).
+			 * @param input Input buffer.
+			 * @param output Destination buffer.
+			 * @return true on success.
 			 */
 			inline bool Decompress(const Buffer::ReadOnly& input, Buffer::WriteOnly& output) const noexcept {
 				return DoDecompress(const_cast<Buffer::ReadOnly&>(input), output, ReadMode::Copy);
 			}
 
 			/**
-			 * @brief Decompress data from input buffer to output buffer, moving the input data.
-			 * @param input The input buffer to decompress.
-			 * @param output The output buffer to write the decompressed data to.
-			 * @return true if decompression was successful, false otherwise.
+			 * @brief Decompress a buffer, consuming it.
+			 * @param input Input buffer.
+			 * @param output Destination buffer.
+			 * @return true on success.
 			 */
 			inline bool Decompress(Buffer::ReadOnly& input, Buffer::WriteOnly& output) const noexcept {
 				return DoDecompress(input, output, ReadMode::Move);
 			}
 
 			/**
-			 * @brief Decompress data from a Consumer buffer.
-			 * @param consumer The Consumer buffer to decompress.
-			 * @param mode The read mode indicating copy or move.
-			 * @return A Consumer buffer containing the decompressed data.
+			 * @brief Decompress a Consumer into another Consumer.
+			 * @param consumer Input consumer.
+			 * @param mode Copy or move.
+			 * @return Consumer with decompressed data.
 			 */
 			inline Buffer::Consumer Decompress(Buffer::Consumer consumer, ReadMode mode = ReadMode::Move) const noexcept {
 				return DoDecompress(consumer, mode);
 			}
+			/** @} */
 
 			/**
-			 * @brief Gets the compression level.
-			 * @return The compression level.
+			 * @brief Compression level.
+			 * @return Level.
 			 */
 			unsigned short Level() const noexcept {
 				return m_level;
 			}
 
 			/**
-			 * @brief Gets the type of compressor.
-			 * @return The type of compressor.
+			 * @brief Codec of this compressor.
+			 * @return Compressor type.
 			 */
 			inline enum Type Type() const noexcept {
 				return m_type;
 			}
 
 		protected:
-			enum Type m_type;			///< The type of compressor
-			unsigned short m_level = 0;	///< The compression level
+			enum Type m_type;			///< Codec
+			unsigned short m_level = 0;	///< Compression level
 
 			/**
-			 * @brief Constructor
-			 * @param type The type of compressor.
-			 * @param level The compression level.
+			 * @brief Construct with a codec and level.
+			 * @param type Codec.
+			 * @param level Compression level.
 			 */
 			inline Generic(enum Type type, unsigned short level = 5):
 				m_type(type), m_level(level) {}
 
 		private:
 			/**
-			 * @brief Implementation of the compression logic.
-			 * @param input The input buffer to compress.
-			 * @param output The output buffer to write the compressed data to.
-			 * @return true if compression was successful, false otherwise.
+			 * @brief Compress a byte span.
+			 * @param input Input bytes.
+			 * @param output Destination buffer.
+			 * @return true on success.
 			 */
 			virtual bool DoCompress(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept = 0;
 
 			/**
-			 * @brief Implementation of the compression logic.
-			 * @param input The input buffer to compress.
-			 * @param output The output buffer to write the compressed data to.
-			 * @param mode The read mode indicating copy or move.
-			 * @return true if compression was successful, false otherwise.
+			 * @brief Compress a buffer with an explicit read mode.
+			 * @param input Input buffer.
+			 * @param output Destination buffer.
+			 * @param mode Copy or move.
+			 * @return true on success.
 			 */
 			bool DoCompress(Buffer::ReadOnly& input, Buffer::WriteOnly& output, ReadMode mode) const noexcept;
 
 			/**
-			 * @brief Implementation of the compression logic for Consumer buffers.
-			 * @param consumer The Consumer buffer to compress.
-			 * @param mode The read mode indicating copy or move.
-			 * @return A Consumer buffer containing the compressed data.
+			 * @brief Compress a Consumer.
+			 * @param consumer Input consumer.
+			 * @param mode Copy or move.
+			 * @return Consumer with compressed data.
 			 */
 			virtual Buffer::Consumer DoCompress(Buffer::Consumer consumer, ReadMode mode) const noexcept = 0;
 
 			/**
-			 * @brief Implementation of the decompression logic.
-			 * @param input The input buffer to decompress.
-			 * @param output The output buffer to write the decompressed data to.
-			 * @return true if decompression was successful, false otherwise.
+			 * @brief Decompress a byte span.
+			 * @param input Input bytes.
+			 * @param output Destination buffer.
+			 * @return true on success.
 			 */
 			virtual bool DoDecompress(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept = 0;
 
 			/**
-			 * @brief Implementation of the decompression logic.
-			 * @param input The input buffer to decompress.
-			 * @param output The output buffer to write the decomcompressed data to.
-			 * @param mode The read mode indicating copy or move.
-			 * @return true if decompression was successful, false otherwise.
+			 * @brief Decompress a buffer with an explicit read mode.
+			 * @param input Input buffer.
+			 * @param output Destination buffer.
+			 * @param mode Copy or move.
+			 * @return true on success.
 			 */
 			bool DoDecompress(Buffer::ReadOnly& input, Buffer::WriteOnly& output, ReadMode mode) const noexcept;
 
 			/**
-			 * @brief Implementation of the decompression logic for Consumer buffers.
-			 * @param consumer The Consumer buffer to decompress.
-			 * @param mode The read mode indicating copy or move.
-			 * @return A Consumer buffer containing the decompressed data.
+			 * @brief Decompress a Consumer.
+			 * @param consumer Input consumer.
+			 * @param mode Copy or move.
+			 * @return Consumer with decompressed data.
 			 */
 			virtual Buffer::Consumer DoDecompress(Buffer::Consumer consumer, ReadMode mode) const noexcept = 0;
 	};
 
 	/**
-	 * @brief Factory method to create a Generic compressor.
-	 * @param type The type of compressor to create.
-	 * @param level The compression level.
-	 * @return A pointer to the created Generic compressor.
+	 * @brief Factory for a compressor.
+	 * @param type Codec.
+	 * @param level Compression level.
+	 * @return Compressor pointer.
 	 */
 	STORMBYTE_CRYPTO_PUBLIC Generic::PointerType Create(Type type, unsigned short level) noexcept;
 }
