@@ -1,86 +1,90 @@
 /*
- * Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
- *
- * This file is part of StormByte-Crypto.
- *
- * StormByte-Crypto is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License version 3
- * or later, as published by the Free Software Foundation.
- *
- * StormByte-Crypto is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with StormByte-Crypto. If not, see
- * <https://www.gnu.org/licenses/lgpl-3.0.html>.
- */
+* Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
+*
+* This file is part of StormByte-Crypto.
+*
+* StormByte-Crypto is free software: you can redistribute it and/or modify
+* it under the terms of the GNU Lesser General Public License version 3
+* or later, as published by the Free Software Foundation.
+*
+* StormByte-Crypto is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU Lesser General Public License for more details.
+*
+* You should have received a copy of the GNU Lesser General Public License
+* along with StormByte-Crypto. If not, see
+* <https://www.gnu.org/licenses/lgpl-3.0.html>.
+*/
 
 #pragma once
 
 #include <StormByte/crypto/crypter/symmetric/generic.hxx>
 
 /**
- * @namespace Crypter
- * @brief The namespace containing all the crypter-related classes.
+ * @brief Ciphers of the Crypto module.
  */
 namespace StormByte::Crypto::Crypter {
 	/**
 	 * @class Camellia
-	 * @brief A symmetric crypter class.
+	 * @brief Camellia-CBC crypter.
 	 */
 	class STORMBYTE_CRYPTO_PUBLIC Camellia final: public Symmetric {
 		public:
 			/**
-			 * @brief Constructor
-			 * @param password The password used for encryption/decryption.
+			 * @name Construction
+			 * @{
+			 */
+			/**
+			 * @brief Construct with a password.
+			 * @param password Password.
 			 */
 			inline Camellia(class Password password):
 				Symmetric(Type::Camellia, std::move(password)) {}
 
 			/**
-			 * @brief Copy constructor
-			 * @param other The other Camellia crypter to copy from.
+			 * @brief Copy constructor.
+			 * @param other Crypter to copy.
 			 */
 			Camellia(const Camellia& other) = default;
 
 			/**
-			 * @brief Move constructor
-			 * @param other The other Camellia crypter to move from.
+			 * @brief Move constructor.
+			 * @param other Crypter to move.
 			 */
 			Camellia(Camellia&& other) noexcept = default;
 
 			/**
-			 * @brief Virtual destructor
+			 * @brief Destructor.
 			 */
 			virtual ~Camellia() noexcept = default;
 
 			/**
-			 * @brief Copy assignment operator
-			 * @param other The other Camellia crypter to copy from.
-			 * @return Reference to this Camellia crypter.
+			 * @brief Copy assignment.
+			 * @param other Crypter to copy.
+			 * @return Reference to this crypter.
 			 */
 			Camellia& operator=(const Camellia& other) = default;
 
 			/**
-			 * @brief Move assignment operator
-			 * @param other The other Camellia crypter to move from.
-			 * @return Reference to this Camellia crypter.
+			 * @brief Move assignment.
+			 * @param other Crypter to move.
+			 * @return Reference to this crypter.
 			 */
 			Camellia& operator=(Camellia&& other) noexcept = default;
+			/** @} */
 
 			/**
-			 * @brief Clone the Camellia crypter.
-			 * @return A pointer to the cloned Camellia crypter.
+			 * @brief Clone this crypter.
+			 * @return Shared pointer to the clone.
 			 */
 			inline PointerType Clone() const noexcept override {
 				return std::make_shared<Camellia>(*this);
 			}
 
 			/**
-			 * @brief Move the Camellia crypter.
-			 * @return A pointer to the moved Camellia crypter.
+			 * @brief Move this crypter into a new instance.
+			 * @return Shared pointer to the moved crypter.
 			 */
 			inline PointerType Move() noexcept override {
 				return std::make_shared<Camellia>(std::move(*this));
@@ -88,34 +92,34 @@ namespace StormByte::Crypto::Crypter {
 
 		private:
 			/**
-			 * @brief Implementation of the encryption logic.
-			 * @param input The input buffer to encrypt.
-			 * @param output The output buffer to write the encrypted data to.
-			 * @return true if encryption was successful, false otherwise.
+			 * @brief Encrypt a byte span.
+			 * @param input Input bytes.
+			 * @param output Destination buffer.
+			 * @return true on success.
 			 */
 			bool DoEncrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
 
 			/**
-			 * @brief Implementation of the encryption logic for Consumer buffers.
-			 * @param consumer The Consumer buffer to encrypt.
-			 * @param mode The read mode indicating copy or move.
-			 * @return A Consumer buffer containing the encrypted data.
+			 * @brief Encrypt a Consumer.
+			 * @param consumer Input consumer.
+			 * @param mode Copy or move.
+			 * @return Consumer with ciphertext.
 			 */
 			Buffer::Consumer DoEncrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
 
 			/**
-			 * @brief Implementation of the decryption logic.
-			 * @param input The input buffer to decrypt.
-			 * @param output The output buffer to write the decrypted data to.
-			 * @return true if decryption was successful, false otherwise.
+			 * @brief Decrypt a byte span.
+			 * @param input Input bytes.
+			 * @param output Destination buffer.
+			 * @return true on success.
 			 */
 			bool DoDecrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
 
 			/**
-			 * @brief Implementation of the decryption logic for Consumer buffers.
-			 * @param consumer The Consumer buffer to decrypt.
-			 * @param mode The read mode indicating copy or move.
-			 * @return A Consumer buffer containing the decrypted data.
+			 * @brief Decrypt a Consumer.
+			 * @param consumer Input consumer.
+			 * @param mode Copy or move.
+			 * @return Consumer with plaintext.
 			 */
 			Buffer::Consumer DoDecrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
 	};
