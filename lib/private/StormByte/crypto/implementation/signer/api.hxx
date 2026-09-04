@@ -1,26 +1,26 @@
 /*
- * Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
- *
- * This file is part of StormByte-Crypto.
- *
- * StormByte-Crypto is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License version 3
- * or later, as published by the Free Software Foundation.
- *
- * StormByte-Crypto is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with StormByte-Crypto. If not, see
- * <https://www.gnu.org/licenses/lgpl-3.0.html>.
- */
+* Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
+*
+* This file is part of StormByte-Crypto.
+*
+* StormByte-Crypto is free software: you can redistribute it and/or modify
+* it under the terms of the GNU Lesser General Public License version 3
+* or later, as published by the Free Software Foundation.
+*
+* StormByte-Crypto is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU Lesser General Public License for more details.
+*
+* You should have received a copy of the GNU Lesser General Public License
+* along with StormByte-Crypto. If not, see
+* <https://www.gnu.org/licenses/lgpl-3.0.html>.
+*/
 
 #pragma once
 
-#include <StormByte/crypto/implementation/signer/details.hxx>
 #include <StormByte/crypto/implementation/keypair/api.hxx>
+#include <StormByte/crypto/implementation/signer/details.hxx>
 #include <StormByte/crypto/keypair/generic.hxx>
 #include <StormByte/crypto/password.hxx>
 #include <StormByte/crypto/random.hxx>
@@ -32,15 +32,28 @@
 #include <span>
 #include <string>
 
+/**
+ * @brief Private signer implementation.
+ */
 namespace StormByte::Crypto::Implementation::Signer {
 	namespace {
+		/**
+		 * @struct ConcreteSignBox
+		 * @brief Crypto++ SignerFilter wrapped as SignBox.
+		 * @tparam SignerT Crypto++ signer type.
+		 * @tparam PrivateKeyT Crypto++ private key type.
+		 */
 		template<typename SignerT, typename PrivateKeyT>
 		struct ConcreteSignBox final : SignBox {
-			std::unique_ptr<PrivateKeyT> key;
-			std::unique_ptr<SignerT> signer;
-			Buffer::DataType signature;
-			std::unique_ptr<CryptoPP::SignerFilter> filter;
+			std::unique_ptr<PrivateKeyT> key;					///< Loaded private key
+			std::unique_ptr<SignerT> signer;					///< Crypto++ signer
+			Buffer::DataType signature;							///< Accumulated signature
+			std::unique_ptr<CryptoPP::SignerFilter> filter;		///< Filter writing into signature
 
+			/**
+			 * @brief Load the private key and build the filter.
+			 * @param privKey DER private key.
+			 */
 			explicit ConcreteSignBox(const Password& privKey)
 			{
 				auto keyRes = KeyPair::DeserializeKey<PrivateKeyT>(privKey);
@@ -58,6 +71,11 @@ namespace StormByte::Crypto::Implementation::Signer {
 				);
 			}
 
+			/**
+			 * @brief Feed one message chunk.
+			 * @param in Input bytes.
+			 * @return true on success.
+			 */
 			bool Update(std::span<const std::byte> in) override
 			{
 				if (!filter)
@@ -72,6 +90,11 @@ namespace StormByte::Crypto::Implementation::Signer {
 				}
 			}
 
+			/**
+			 * @brief Finish signing and move the signature out.
+			 * @param out Destination.
+			 * @return true on success.
+			 */
 			bool Finalize(Buffer::DataType& out) override
 			{
 				if (!filter)
@@ -87,13 +110,23 @@ namespace StormByte::Crypto::Implementation::Signer {
 			}
 		};
 
+		/**
+		 * @struct ConcreteVerifyBox
+		 * @brief Crypto++ SignatureVerificationFilter wrapped as VerifyBox.
+		 * @tparam VerifierT Crypto++ verifier type.
+		 * @tparam PublicKeyT Crypto++ public key type.
+		 */
 		template<typename VerifierT, typename PublicKeyT>
 		struct ConcreteVerifyBox final : VerifyBox {
-			std::unique_ptr<PublicKeyT> key;
-			std::unique_ptr<VerifierT> verifier;
-			bool result = false;
-			std::unique_ptr<CryptoPP::SignatureVerificationFilter> filter;
+			std::unique_ptr<PublicKeyT> key;										///< Loaded public key
+			std::unique_ptr<VerifierT> verifier;									///< Crypto++ verifier
+			bool result = false;													///< PUT_RESULT sink
+			std::unique_ptr<CryptoPP::SignatureVerificationFilter> filter;			///< Filter
 
+			/**
+			 * @brief Load the public key.
+			 * @param pubKey Base64 public key.
+			 */
 			explicit ConcreteVerifyBox(const std::string& pubKey)
 			{
 				auto keyRes = KeyPair::DeserializeKey<PublicKeyT>(pubKey);
@@ -107,6 +140,11 @@ namespace StormByte::Crypto::Implementation::Signer {
 				verifier = std::make_unique<VerifierT>(*key);
 			}
 
+			/**
+			 * @brief Push the signature before message bytes.
+			 * @param signature Signature.
+			 * @return true on success.
+			 */
 			bool Begin(const std::string& signature) override
 			{
 				if (!verifier)
@@ -129,6 +167,11 @@ namespace StormByte::Crypto::Implementation::Signer {
 				}
 			}
 
+			/**
+			 * @brief Feed one message chunk.
+			 * @param in Input bytes.
+			 * @return true on success.
+			 */
 			bool Update(std::span<const std::byte> in) override
 			{
 				if (!filter)
@@ -143,6 +186,10 @@ namespace StormByte::Crypto::Implementation::Signer {
 				}
 			}
 
+			/**
+			 * @brief Finish verification.
+			 * @return true if the signature is valid.
+			 */
 			bool Finalize() override
 			{
 				if (!filter)
@@ -158,8 +205,15 @@ namespace StormByte::Crypto::Implementation::Signer {
 		};
 	}
 
-	// ----- Sign -----
-
+	/**
+	 * @brief One-shot sign from a Password.
+	 * @tparam SignerT Crypto++ signer type.
+	 * @tparam PrivateKeyT Crypto++ private key type.
+	 * @param data Input.
+	 * @param privKey Private key.
+	 * @param output Signature destination.
+	 * @return true on success.
+	 */
 	template<typename SignerT, typename PrivateKeyT>
 	bool Sign(std::span<const std::byte> data,
 			const Password& privKey,
@@ -170,6 +224,15 @@ namespace StormByte::Crypto::Implementation::Signer {
 			std::make_unique<ConcreteSignBox<SignerT, PrivateKeyT>>(privKey));
 	}
 
+	/**
+	 * @brief One-shot sign from a KeyPair.
+	 * @tparam SignerT Crypto++ signer type.
+	 * @tparam PrivateKeyT Crypto++ private key type.
+	 * @param data Input.
+	 * @param keypair Key pair with private key.
+	 * @param output Signature destination.
+	 * @return true on success.
+	 */
 	template<typename SignerT, typename PrivateKeyT>
 	bool Sign(std::span<const std::byte> data,
 			const StormByte::Crypto::KeyPair::Generic::PointerType keypair,
@@ -180,6 +243,15 @@ namespace StormByte::Crypto::Implementation::Signer {
 		return Sign<SignerT, PrivateKeyT>(data, *keypair->PrivateKey(), output);
 	}
 
+	/**
+	 * @brief Streaming sign from a Password.
+	 * @tparam SignerT Crypto++ signer type.
+	 * @tparam PrivateKeyT Crypto++ private key type.
+	 * @param consumer Input consumer.
+	 * @param privKey Private key.
+	 * @param mode Copy or move.
+	 * @return Consumer with the signature.
+	 */
 	template<typename SignerT, typename PrivateKeyT>
 	Buffer::Consumer Sign(Buffer::Consumer consumer,
 						Password privKey,
@@ -190,6 +262,15 @@ namespace StormByte::Crypto::Implementation::Signer {
 			std::make_unique<ConcreteSignBox<SignerT, PrivateKeyT>>(std::move(privKey)));
 	}
 
+	/**
+	 * @brief Streaming sign from a KeyPair.
+	 * @tparam SignerT Crypto++ signer type.
+	 * @tparam PrivateKeyT Crypto++ private key type.
+	 * @param consumer Input consumer.
+	 * @param keypair Key pair with private key.
+	 * @param mode Copy or move.
+	 * @return Consumer with the signature, or error if no private key.
+	 */
 	template<typename SignerT, typename PrivateKeyT>
 	Buffer::Consumer Sign(Buffer::Consumer consumer,
 						const StormByte::Crypto::KeyPair::Generic::PointerType keypair,
@@ -204,8 +285,15 @@ namespace StormByte::Crypto::Implementation::Signer {
 			std::move(consumer), *keypair->PrivateKey(), mode);
 	}
 
-	// ----- Verify -----
-
+	/**
+	 * @brief One-shot verify from a public key string.
+	 * @tparam VerifierT Crypto++ verifier type.
+	 * @tparam PublicKeyT Crypto++ public key type.
+	 * @param data Input.
+	 * @param signature Signature.
+	 * @param pubKey Base64 public key.
+	 * @return true if valid.
+	 */
 	template<typename VerifierT, typename PublicKeyT>
 	bool Verify(std::span<const std::byte> data,
 				const std::string& signature,
@@ -216,6 +304,15 @@ namespace StormByte::Crypto::Implementation::Signer {
 			std::make_unique<ConcreteVerifyBox<VerifierT, PublicKeyT>>(pubKey));
 	}
 
+	/**
+	 * @brief One-shot verify from a KeyPair.
+	 * @tparam VerifierT Crypto++ verifier type.
+	 * @tparam PublicKeyT Crypto++ public key type.
+	 * @param data Input.
+	 * @param signature Signature.
+	 * @param keypair Key pair.
+	 * @return true if valid.
+	 */
 	template<typename VerifierT, typename PublicKeyT>
 	bool Verify(std::span<const std::byte> data,
 				const std::string& signature,
@@ -226,6 +323,16 @@ namespace StormByte::Crypto::Implementation::Signer {
 		return Verify<VerifierT, PublicKeyT>(data, signature, keypair->PublicKey());
 	}
 
+	/**
+	 * @brief Streaming verify from a public key string.
+	 * @tparam VerifierT Crypto++ verifier type.
+	 * @tparam PublicKeyT Crypto++ public key type.
+	 * @param consumer Input consumer.
+	 * @param signature Signature.
+	 * @param pubKey Base64 public key.
+	 * @param mode Copy or move.
+	 * @return true if valid.
+	 */
 	template<typename VerifierT, typename PublicKeyT>
 	bool Verify(Buffer::Consumer consumer,
 				const std::string& signature,
@@ -237,6 +344,16 @@ namespace StormByte::Crypto::Implementation::Signer {
 			std::make_unique<ConcreteVerifyBox<VerifierT, PublicKeyT>>(pubKey));
 	}
 
+	/**
+	 * @brief Streaming verify from a KeyPair.
+	 * @tparam VerifierT Crypto++ verifier type.
+	 * @tparam PublicKeyT Crypto++ public key type.
+	 * @param consumer Input consumer.
+	 * @param signature Signature.
+	 * @param keypair Key pair.
+	 * @param mode Copy or move.
+	 * @return true if valid.
+	 */
 	template<typename VerifierT, typename PublicKeyT>
 	bool Verify(Buffer::Consumer consumer,
 				const std::string& signature,

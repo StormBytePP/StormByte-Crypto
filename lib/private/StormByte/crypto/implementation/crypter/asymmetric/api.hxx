@@ -1,21 +1,21 @@
 /*
- * Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
- *
- * This file is part of StormByte-Crypto.
- *
- * StormByte-Crypto is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License version 3
- * or later, as published by the Free Software Foundation.
- *
- * StormByte-Crypto is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with StormByte-Crypto. If not, see
- * <https://www.gnu.org/licenses/lgpl-3.0.html>.
- */
+* Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
+*
+* This file is part of StormByte-Crypto.
+*
+* StormByte-Crypto is free software: you can redistribute it and/or modify
+* it under the terms of the GNU Lesser General Public License version 3
+* or later, as published by the Free Software Foundation.
+*
+* StormByte-Crypto is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU Lesser General Public License for more details.
+*
+* You should have received a copy of the GNU Lesser General Public License
+* along with StormByte-Crypto. If not, see
+* <https://www.gnu.org/licenses/lgpl-3.0.html>.
+*/
 
 #pragma once
 
@@ -31,12 +31,25 @@
 #include <memory>
 #include <span>
 
+/**
+ * @brief Private asymmetric crypter implementation.
+ */
 namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 	namespace {
+		/**
+		 * @struct EncryptBox
+		 * @brief Public-key encryptor as PkBox.
+		 * @tparam CryptorT Crypto++ encryptor type.
+		 * @tparam KeyT Crypto++ public key type.
+		 */
 		template<typename CryptorT, typename KeyT>
 		struct EncryptBox final : PkBox {
-			std::unique_ptr<KeyT> key;
+			std::unique_ptr<KeyT> key;	///< Loaded public key
 
+			/**
+			 * @brief Load the public key from a KeyPair.
+			 * @param keypair Key pair.
+			 */
 			explicit EncryptBox(StormByte::Crypto::KeyPair::Generic::PointerType keypair)
 			{
 				if (!keypair)
@@ -49,6 +62,12 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 					key.reset();
 			}
 
+			/**
+			 * @brief Encrypt one blob.
+			 * @param in Input.
+			 * @param out Destination.
+			 * @return true on success.
+			 */
 			bool Transform(std::span<const std::byte> in, Buffer::DataType& out) override
 			{
 				if (!key)
@@ -68,10 +87,20 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 			}
 		};
 
+		/**
+		 * @struct DecryptBox
+		 * @brief Private-key decryptor as PkBox.
+		 * @tparam DecryptorT Crypto++ decryptor type.
+		 * @tparam KeyT Crypto++ private key type.
+		 */
 		template<typename DecryptorT, typename KeyT>
 		struct DecryptBox final : PkBox {
-			std::unique_ptr<KeyT> key;
+			std::unique_ptr<KeyT> key;	///< Loaded private key
 
+			/**
+			 * @brief Load the private key from a KeyPair.
+			 * @param keypair Key pair with private key.
+			 */
 			explicit DecryptBox(StormByte::Crypto::KeyPair::Generic::PointerType keypair)
 			{
 				if (!keypair || !keypair->HasPrivateKey())
@@ -84,6 +113,10 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 					key.reset();
 			}
 
+			/**
+			 * @brief Load the private key from a Password.
+			 * @param privKey DER private key.
+			 */
 			explicit DecryptBox(const Password& privKey)
 			{
 				auto keyRes = KeyPair::DeserializeKey<KeyT>(privKey);
@@ -94,6 +127,12 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 					key.reset();
 			}
 
+			/**
+			 * @brief Decrypt one blob.
+			 * @param in Input.
+			 * @param out Destination.
+			 * @return true on success.
+			 */
 			bool Transform(std::span<const std::byte> in, Buffer::DataType& out) override
 			{
 				if (!key)
@@ -113,8 +152,17 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 			}
 		};
 
-	} // namespace
+	}
 
+	/**
+	 * @brief Native one-shot encrypt.
+	 * @tparam CryptorT Crypto++ encryptor type.
+	 * @tparam PublicKeyT Crypto++ public key type.
+	 * @param data Input.
+	 * @param keypair Key pair.
+	 * @param output Destination.
+	 * @return true on success.
+	 */
 	template<typename CryptorT, typename PublicKeyT>
 	bool EncryptAsymmetric(std::span<const std::byte> data,
 						StormByte::Crypto::KeyPair::Generic::PointerType keypair,
@@ -125,6 +173,15 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 			std::make_unique<EncryptBox<CryptorT, PublicKeyT>>(std::move(keypair)));
 	}
 
+	/**
+	 * @brief Native streaming encrypt.
+	 * @tparam CryptorT Crypto++ encryptor type.
+	 * @tparam PublicKeyT Crypto++ public key type.
+	 * @param consumer Input consumer.
+	 * @param keypair Key pair.
+	 * @param mode Copy or move.
+	 * @return Consumer with the ciphertext.
+	 */
 	template<typename CryptorT, typename PublicKeyT>
 	Buffer::Consumer EncryptAsymmetric(Buffer::Consumer consumer,
 									StormByte::Crypto::KeyPair::Generic::PointerType keypair,
@@ -135,6 +192,15 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 			std::make_unique<EncryptBox<CryptorT, PublicKeyT>>(std::move(keypair)));
 	}
 
+	/**
+	 * @brief Hybrid one-shot encrypt (AES-GCM + PK-wrapped session key).
+	 * @tparam EncryptorT Crypto++ encryptor type.
+	 * @tparam PublicKeyT Crypto++ public key type.
+	 * @param data Input.
+	 * @param keypair Key pair.
+	 * @param output Destination.
+	 * @return true on success.
+	 */
 	template<typename EncryptorT, typename PublicKeyT>
 	bool EncryptAsymmetricBlockEnvelope(std::span<const std::byte> data,
 										StormByte::Crypto::KeyPair::Generic::PointerType keypair,
@@ -145,6 +211,15 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 			std::make_unique<EncryptBox<EncryptorT, PublicKeyT>>(std::move(keypair)));
 	}
 
+	/**
+	 * @brief Hybrid streaming encrypt.
+	 * @tparam EncryptorT Crypto++ encryptor type.
+	 * @tparam PublicKeyT Crypto++ public key type.
+	 * @param consumer Input consumer.
+	 * @param keypair Key pair.
+	 * @param mode Copy or move.
+	 * @return Consumer with the envelope.
+	 */
 	template<typename EncryptorT, typename PublicKeyT>
 	Buffer::Consumer EncryptAsymmetricBlockEnvelope(Buffer::Consumer consumer,
 													StormByte::Crypto::KeyPair::Generic::PointerType keypair,
@@ -155,6 +230,15 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 			std::make_unique<EncryptBox<EncryptorT, PublicKeyT>>(std::move(keypair)));
 	}
 
+	/**
+	 * @brief Native one-shot decrypt.
+	 * @tparam DecryptorT Crypto++ decryptor type.
+	 * @tparam PrivateKeyT Crypto++ private key type.
+	 * @param data Input.
+	 * @param keypair Key pair with private key.
+	 * @param output Destination.
+	 * @return true on success.
+	 */
 	template<typename DecryptorT, typename PrivateKeyT>
 	bool DecryptAsymmetric(std::span<const std::byte> data,
 						StormByte::Crypto::KeyPair::Generic::PointerType keypair,
@@ -165,6 +249,15 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 			std::make_unique<DecryptBox<DecryptorT, PrivateKeyT>>(std::move(keypair)));
 	}
 
+	/**
+	 * @brief Native streaming decrypt.
+	 * @tparam DecryptorT Crypto++ decryptor type.
+	 * @tparam PrivateKeyT Crypto++ private key type.
+	 * @param consumer Input consumer.
+	 * @param keypair Key pair with private key.
+	 * @param mode Copy or move.
+	 * @return Consumer with the plaintext, or error if no private key.
+	 */
 	template<typename DecryptorT, typename PrivateKeyT>
 	Buffer::Consumer DecryptAsymmetric(Buffer::Consumer consumer,
 									StormByte::Crypto::KeyPair::Generic::PointerType keypair,
@@ -180,6 +273,15 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 			std::make_unique<DecryptBox<DecryptorT, PrivateKeyT>>(*keypair->PrivateKey()));
 	}
 
+	/**
+	 * @brief Hybrid one-shot decrypt.
+	 * @tparam DecryptorT Crypto++ decryptor type.
+	 * @tparam PrivateKeyT Crypto++ private key type.
+	 * @param data Input.
+	 * @param keypair Key pair with private key.
+	 * @param output Destination.
+	 * @return true on success.
+	 */
 	template<typename DecryptorT, typename PrivateKeyT>
 	bool DecryptAsymmetricBlockEnvelope(std::span<const std::byte> data,
 										StormByte::Crypto::KeyPair::Generic::PointerType keypair,
@@ -190,6 +292,15 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 			std::make_unique<DecryptBox<DecryptorT, PrivateKeyT>>(std::move(keypair)));
 	}
 
+	/**
+	 * @brief Hybrid streaming decrypt.
+	 * @tparam DecryptorT Crypto++ decryptor type.
+	 * @tparam PrivateKeyT Crypto++ private key type.
+	 * @param consumer Input consumer.
+	 * @param keypair Key pair with private key.
+	 * @param mode Copy or move.
+	 * @return Consumer with the plaintext, or error if no private key.
+	 */
 	template<typename DecryptorT, typename PrivateKeyT>
 	Buffer::Consumer DecryptAsymmetricBlockEnvelope(Buffer::Consumer consumer,
 													StormByte::Crypto::KeyPair::Generic::PointerType keypair,
