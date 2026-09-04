@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.28)
 set(CMAKE_DISABLE_IN_SOURCE_BUILD ON)
-set(CMAKE_CXX_STANDARD 26)
+# Crypto++ on Windows must use MSVC, not clang-cl
+# (https://github.com/llvm/llvm-project/issues/63492).
+# MSVC has no /std:c++26; cap at 23 until that changes
+# or Crypto++ builds with clang-cl.
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
