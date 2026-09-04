@@ -16,17 +16,20 @@ set_target_properties(StormByte-Crypto PROPERTIES
 	VISIBILITY_INLINES_HIDDEN ON
 )
 
-if(MSVC)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 	target_compile_options(StormByte-Crypto PRIVATE
 		/EHsc
 		$<$<CONFIG:Release>:/O2>
 		$<$<CONFIG:Debug>:/Od>
 	)
-	target_compile_definitions(StormByte-Crypto PUBLIC UNICODE NOMINMAX)
 else()
 	target_compile_options(StormByte-Crypto PRIVATE
 		$<$<CONFIG:Debug>:-pipe -g -ggdb -Wall -Wextra -Wnon-virtual-dtor -pedantic -pedantic-errors -O0>
 	)
+endif()
+
+if(WIN32)
+	target_compile_definitions(StormByte-Crypto PUBLIC UNICODE NOMINMAX)
 endif()
 
 target_include_directories(StormByte-Crypto
