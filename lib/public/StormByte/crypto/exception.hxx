@@ -23,28 +23,27 @@
 #include <StormByte/exception.hxx>
 
 /**
- * @namespace Crypto
- * @brief The namespace containing all the cryptographic-related classes.
+ * @brief Crypto module of the StormByte suite.
  */
 namespace StormByte::Crypto {
 	/**
 	 * @class Exception
-	 * @brief A class representing an exception in the crypto module.
+	 * @brief Base exception for the crypto module.
 	 */
 	class STORMBYTE_CRYPTO_PUBLIC Exception: public StormByte::Exception {
 		public:
 			/**
-			 * @brief Constructor
-			 * @param message The exception message.
+			 * @brief Constructor.
+			 * @param message Exception message.
 			 */
 			inline Exception(const std::string& message):
 				StormByte::Exception("Crypto", message) {}
 
 			/**
-			 * @brief Constructor
-			 * @param component The component where the exception occurred.
-			 * @param fmt The format string for the exception message.
-			 * @param args The arguments for the format string.
+			 * @brief Constructor with a component prefix and a format string.
+			 * @param component Component where the exception occurred.
+			 * @param fmt Format string.
+			 * @param args Format arguments.
 			 */
 			template <typename... Args>
 			inline Exception(const std::string& component, std::format_string<Args...> fmt, Args&&... args):
@@ -55,20 +54,20 @@ namespace StormByte::Crypto {
 
 	/**
 	 * @class CompressorException
-	 * @brief A class representing an exception in the compressor component of the crypto module.
+	 * @brief Exception from the compressor component.
 	 */
 	class STORMBYTE_CRYPTO_PUBLIC CompressorException: public Exception {
 		public:
 			/**
-			 * @brief Non-templated constructor for plain string messages.
-			 * This resolves MSVC overload ambiguities when passing `const char*` or `std::string`.
+			 * @brief Plain-string constructor (avoids MSVC overload ambiguity with `const char*`).
+			 * @param message Exception message.
 			 */
 			inline CompressorException(const std::string& message): Exception(std::string("Compressor: ") + message) {}
 
 			/**
-			 * @brief Constructor
-			 * @param fmt The format string for the exception message.
-			 * @param args The arguments for the format string.
+			 * @brief Format-string constructor.
+			 * @param fmt Format string.
+			 * @param args Format arguments.
 			 */
 			template <typename... Args>
 			inline CompressorException(std::format_string<Args...> fmt, Args&&... args):
@@ -77,19 +76,20 @@ namespace StormByte::Crypto {
 
 	/**
 	 * @class CrypterException
-	 * @brief A class representing an exception in the crypter component of the crypto module.
+	 * @brief Exception from the crypter component.
 	 */
 	class STORMBYTE_CRYPTO_PUBLIC CrypterException: public Exception {
 		public:
 			/**
-			 * @brief Non-templated constructor for plain string messages.
+			 * @brief Plain-string constructor.
+			 * @param message Exception message.
 			 */
 			inline CrypterException(const std::string& message): Exception(std::string("Crypter: ") + message) {}
 
 			/**
-			 * @brief Constructor
-			 * @param fmt The format string for the exception message.
-			 * @param args The arguments for the format string.
+			 * @brief Format-string constructor.
+			 * @param fmt Format string.
+			 * @param args Format arguments.
 			 */
 			template <typename... Args>
 			inline CrypterException(std::format_string<Args...> fmt, Args&&... args):
@@ -98,19 +98,20 @@ namespace StormByte::Crypto {
 
 	/**
 	 * @class HasherException
-	 * @brief A class representing an exception in the hasher component of the crypto module.
+	 * @brief Exception from the hasher component.
 	 */
 	class STORMBYTE_CRYPTO_PUBLIC HasherException: public Exception {
 		public:
 			/**
-			 * @brief Non-templated constructor for plain string messages.
+			 * @brief Plain-string constructor.
+			 * @param message Exception message.
 			 */
 			inline HasherException(const std::string& message): Exception(std::string("Hasher: ") + message) {}
 
 			/**
-			 * @brief Constructor
-			 * @param fmt The format string for the exception message.
-			 * @param args The arguments for the format string.
+			 * @brief Format-string constructor.
+			 * @param fmt Format string.
+			 * @param args Format arguments.
 			 */
 			template <typename... Args>
 			inline HasherException(std::format_string<Args...> fmt, Args&&... args):
@@ -119,19 +120,20 @@ namespace StormByte::Crypto {
 
 	/**
 	 * @class KeyPairException
-	 * @brief A class representing an exception in the keypair component of the crypto module.
+	 * @brief Exception from the keypair component.
 	 */
 	class STORMBYTE_CRYPTO_PUBLIC KeyPairException: public Exception {
 		public:
 			/**
-			 * @brief Non-templated constructor for plain string messages.
+			 * @brief Plain-string constructor.
+			 * @param message Exception message.
 			 */
 			inline KeyPairException(const std::string& message): Exception(std::string("KeyPair: ") + message) {}
 
 			/**
-			 * @brief Constructor
-			 * @param fmt The format string for the exception message.
-			 * @param args The arguments for the format string.
+			 * @brief Format-string constructor.
+			 * @param fmt Format string.
+			 * @param args Format arguments.
 			 */
 			template <typename... Args>
 			inline KeyPairException(std::format_string<Args...> fmt, Args&&... args):
@@ -140,19 +142,20 @@ namespace StormByte::Crypto {
 
 	/**
 	 * @class SecretException
-	 * @brief A class representing an exception in the secret component of the crypto module.
+	 * @brief Exception from the secret component.
 	 */
 	class STORMBYTE_CRYPTO_PUBLIC SecretException: public Exception {
 		public:
 			/**
-			 * @brief Non-templated constructor for plain string messages.
+			 * @brief Plain-string constructor.
+			 * @param message Exception message.
 			 */
 			inline SecretException(const std::string& message): Exception(std::string("Secret: ") + message) {}
 
 			/**
-			 * @brief Constructor
-			 * @param fmt The format string for the exception message.
-			 * @param args The arguments for the format string.
+			 * @brief Format-string constructor.
+			 * @param fmt Format string.
+			 * @param args Format arguments.
 			 */
 			template <typename... Args>
 			inline SecretException(std::format_string<Args...> fmt, Args&&... args):
@@ -161,19 +164,20 @@ namespace StormByte::Crypto {
 
 	/**
 	 * @class SignerException
-	 * @brief A class representing an exception in the signer component of the crypto module.
+	 * @brief Exception from the signer component.
 	 */
 	class STORMBYTE_CRYPTO_PUBLIC SignerException: public Exception {
 		public:
 			/**
-			 * @brief Non-templated constructor for plain string messages.
+			 * @brief Plain-string constructor.
+			 * @param message Exception message.
 			 */
 			inline SignerException(const std::string& message): Exception(std::string("Signer: ") + message) {}
 
 			/**
-			 * @brief Constructor
-			 * @param fmt The format string for the exception message.
-			 * @param args The arguments for the format string.
+			 * @brief Format-string constructor.
+			 * @param fmt Format string.
+			 * @param args Format arguments.
 			 */
 			template <typename... Args>
 			inline SignerException(std::format_string<Args...> fmt, Args&&... args):
