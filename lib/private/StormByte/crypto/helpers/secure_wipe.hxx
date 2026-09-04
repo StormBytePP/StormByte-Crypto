@@ -1,21 +1,21 @@
 /*
- * Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
- *
- * This file is part of StormByte-Crypto.
- *
- * StormByte-Crypto is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License version 3
- * or later, as published by the Free Software Foundation.
- *
- * StormByte-Crypto is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with StormByte-Crypto. If not, see
- * <https://www.gnu.org/licenses/lgpl-3.0.html>.
- */
+* Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
+*
+* This file is part of StormByte-Crypto.
+*
+* StormByte-Crypto is free software: you can redistribute it and/or modify
+* it under the terms of the GNU Lesser General Public License version 3
+* or later, as published by the Free Software Foundation.
+*
+* StormByte-Crypto is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU Lesser General Public License for more details.
+*
+* You should have received a copy of the GNU Lesser General Public License
+* along with StormByte-Crypto. If not, see
+* <https://www.gnu.org/licenses/lgpl-3.0.html>.
+*/
 
 #pragma once
 
@@ -27,10 +27,12 @@
 
 #include <secblock.h>
 
+/**
+ * @brief Private helpers of the Crypto module.
+ */
 namespace StormByte::Crypto::Helpers {
-
 	/**
-	 * @brief Securely zero and clear a std::string.
+	 * @brief Zero and clear a string.
 	 * @param s String to wipe.
 	 */
 	inline void SecureWipe(std::string& s) noexcept {
@@ -45,7 +47,7 @@ namespace StormByte::Crypto::Helpers {
 	}
 
 	/**
-	 * @brief Securely zero a CryptoPP::SecByteBlock.
+	 * @brief Zero a Crypto++ SecByteBlock.
 	 * @param block Block to wipe.
 	 */
 	inline void SecureWipe(CryptoPP::SecByteBlock& block) noexcept {
@@ -54,8 +56,8 @@ namespace StormByte::Crypto::Helpers {
 	}
 
 	/**
-	 * @brief Securely zero an optional string.
-	 * @param opt Optional string to wipe.
+	 * @brief Zero an optional string.
+	 * @param opt Optional to wipe.
 	 */
 	inline void SecureWipe(std::optional<std::string>& opt) noexcept {
 		if (opt.has_value()) {
@@ -65,7 +67,7 @@ namespace StormByte::Crypto::Helpers {
 	}
 
 	/**
-	 * @brief Securely zero a vector of bytes.
+	 * @brief Zero a vector of bytes.
 	 * @param data Vector to wipe.
 	 */
 	inline void SecureWipe(std::vector<std::byte>& data) noexcept {
