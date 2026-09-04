@@ -1,41 +1,47 @@
 /*
- * Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
- *
- * This file is part of StormByte-Crypto.
- *
- * StormByte-Crypto is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License version 3
- * or later, as published by the Free Software Foundation.
- *
- * StormByte-Crypto is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with StormByte-Crypto. If not, see
- * <https://www.gnu.org/licenses/lgpl-3.0.html>.
- */
+* Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
+*
+* This file is part of StormByte-Crypto.
+*
+* StormByte-Crypto is free software: you can redistribute it and/or modify
+* it under the terms of the GNU Lesser General Public License version 3
+* or later, as published by the Free Software Foundation.
+*
+* StormByte-Crypto is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU Lesser General Public License for more details.
+*
+* You should have received a copy of the GNU Lesser General Public License
+* along with StormByte-Crypto. If not, see
+* <https://www.gnu.org/licenses/lgpl-3.0.html>.
+*/
 
 #pragma once
 
-#include <StormByte/crypto/implementation/keypair/details.hxx>
 #include <StormByte/crypto/helpers/password_view.hxx>
 #include <StormByte/crypto/helpers/secure_wipe.hxx>
+#include <StormByte/crypto/implementation/keypair/details.hxx>
 #include <StormByte/crypto/password.hxx>
 #include <StormByte/crypto/random.hxx>
 #include <StormByte/crypto/visibility.h>
 
 #include <base64.h>
 #include <filters.h>
-#include <queue.h>
 #include <memory>
 #include <optional>
+#include <queue.h>
 #include <string>
 
+/**
+ * @brief Private keypair implementation.
+ */
 namespace StormByte::Crypto::Implementation::KeyPair {
 	/**
-	 * @brief Serialize a Crypto++ key to Base64 (public material).
+	 * @brief Serialize a Crypto++ key to Base64.
+	 * @tparam KeyT Key type.
+	 * @param key Key.
+	 * @return Base64, or empty on failure.
 	 */
 	template<typename KeyT>
 	std::string SerializeKey(const KeyT& key) noexcept
@@ -54,8 +60,10 @@ namespace StormByte::Crypto::Implementation::KeyPair {
 	}
 
 	/**
-	 * @brief Serialize a Crypto++ key to raw ASN.1/DER bytes for secure storage.
-	 * @return Password holding the binary key material, or empty Password on failure.
+	 * @brief Serialize a Crypto++ key to DER inside a Password.
+	 * @tparam KeyT Key type.
+	 * @param key Key.
+	 * @return Password, or empty on failure.
 	 */
 	template<typename KeyT>
 	Password SerializeKeyBinary(const KeyT& key) noexcept
@@ -75,7 +83,10 @@ namespace StormByte::Crypto::Implementation::KeyPair {
 	}
 
 	/**
-	 * @brief Deserialize a key from Base64 (public keys).
+	 * @brief Deserialize a key from Base64.
+	 * @tparam KeyT Key type.
+	 * @param keyString Base64.
+	 * @return Shared key, or nullptr.
 	 */
 	template<typename KeyT>
 	std::shared_ptr<KeyT> DeserializeKey(const std::string& keyString) noexcept
@@ -94,7 +105,10 @@ namespace StormByte::Crypto::Implementation::KeyPair {
 	}
 
 	/**
-	 * @brief Deserialize a key from raw ASN.1/DER bytes (private keys in Password).
+	 * @brief Deserialize a key from DER in a Password.
+	 * @tparam KeyT Key type.
+	 * @param keyBinary Password.
+	 * @return Shared key, or nullptr.
 	 */
 	template<typename KeyT>
 	std::shared_ptr<KeyT> DeserializeKey(const Password& keyBinary) noexcept
@@ -116,7 +130,10 @@ namespace StormByte::Crypto::Implementation::KeyPair {
 	}
 
 	/**
-	 * @brief Deserialize from optional binary private key.
+	 * @brief Deserialize from optional Password.
+	 * @tparam KeyT Key type.
+	 * @param keyBinary Optional Password.
+	 * @return Shared key, or nullptr.
 	 */
 	template<typename KeyT>
 	std::shared_ptr<KeyT> DeserializeKey(const std::optional<Password>& keyBinary) noexcept
@@ -127,7 +144,10 @@ namespace StormByte::Crypto::Implementation::KeyPair {
 	}
 
 	/**
-	 * @brief Generate an Agreement/Domain keypair; private stays binary in Password.
+	 * @brief Generate an Agreement keypair. Private stays in Password.
+	 * @tparam KeyPairT Public wrapper type.
+	 * @tparam AgreementT Crypto++ agreement type.
+	 * @return Shared KeyPairT, or nullptr.
 	 */
 	template<typename KeyPairT, typename AgreementT, typename... CtorArgs>
 	std::shared_ptr<KeyPairT> AgreementGenerateKeyPair(CtorArgs&&... args) noexcept

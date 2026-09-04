@@ -1,21 +1,21 @@
 /*
- * Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
- *
- * This file is part of StormByte-Crypto.
- *
- * StormByte-Crypto is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License version 3
- * or later, as published by the Free Software Foundation.
- *
- * StormByte-Crypto is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with StormByte-Crypto. If not, see
- * <https://www.gnu.org/licenses/lgpl-3.0.html>.
- */
+* Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
+*
+* This file is part of StormByte-Crypto.
+*
+* StormByte-Crypto is free software: you can redistribute it and/or modify
+* it under the terms of the GNU Lesser General Public License version 3
+* or later, as published by the Free Software Foundation.
+*
+* StormByte-Crypto is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU Lesser General Public License for more details.
+*
+* You should have received a copy of the GNU Lesser General Public License
+* along with StormByte-Crypto. If not, see
+* <https://www.gnu.org/licenses/lgpl-3.0.html>.
+*/
 
 #pragma once
 
@@ -23,23 +23,22 @@
 #include <StormByte/crypto/typedefs.hxx>
 #include <StormByte/crypto/visibility.h>
 
-#include <hex.h>
 #include <filters.h>
+#include <hex.h>
+#include <memory>
 #include <secblock.h>
 #include <span>
-#include <memory>
 
+/**
+ * @brief Private hasher implementation.
+ */
 namespace StormByte::Crypto::Implementation::Hasher {
 	/**
-	 * @brief One-shot hash (span).
-	 *
-	 * Thin template that only creates the concrete Ops and delegates
-	 * to the non-templated helpers.
-	 *
-	 * @tparam HasherT Concrete Crypto++ hash type (e.g. CryptoPP::SHA256).
-	 * @param dataSpan Input data.
-	 * @param output   Destination for the hex-encoded digest.
-	 * @return true on success, false on failure.
+	 * @brief One-shot hash. Builds Ops and delegates.
+	 * @tparam HasherT Crypto++ hash type.
+	 * @param dataSpan Input.
+	 * @param output Hex digest destination.
+	 * @return true on success.
 	 */
 	template<class HasherT>
 	STORMBYTE_CRYPTO_PRIVATE bool Hash(
@@ -79,15 +78,11 @@ namespace StormByte::Crypto::Implementation::Hasher {
 	}
 
 	/**
-	 * @brief Streaming hash (Consumer).
-	 *
-	 * Thin template that only creates the concrete Ops and delegates
-	 * to the non-templated streaming helper.
-	 *
-	 * @tparam HasherT Concrete Crypto++ hash type.
-	 * @param consumer Source of input data.
-	 * @param mode     Copy or Move semantics.
-	 * @return Consumer that yields the final hex-encoded digest.
+	 * @brief Streaming hash. Builds Ops and delegates.
+	 * @tparam HasherT Crypto++ hash type.
+	 * @param consumer Input consumer.
+	 * @param mode Copy or move.
+	 * @return Consumer with the hex digest.
 	 */
 	template<class HasherT>
 	STORMBYTE_CRYPTO_PRIVATE Buffer::Consumer Hash(

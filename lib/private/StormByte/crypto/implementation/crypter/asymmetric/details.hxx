@@ -1,21 +1,21 @@
 /*
- * Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
- *
- * This file is part of StormByte-Crypto.
- *
- * StormByte-Crypto is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License version 3
- * or later, as published by the Free Software Foundation.
- *
- * StormByte-Crypto is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with StormByte-Crypto. If not, see
- * <https://www.gnu.org/licenses/lgpl-3.0.html>.
- */
+* Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
+*
+* This file is part of StormByte-Crypto.
+*
+* StormByte-Crypto is free software: you can redistribute it and/or modify
+* it under the terms of the GNU Lesser General Public License version 3
+* or later, as published by the Free Software Foundation.
+*
+* StormByte-Crypto is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU Lesser General Public License for more details.
+*
+* You should have received a copy of the GNU Lesser General Public License
+* along with StormByte-Crypto. If not, see
+* <https://www.gnu.org/licenses/lgpl-3.0.html>.
+*/
 
 #pragma once
 
@@ -23,32 +23,30 @@
 #include <StormByte/crypto/typedefs.hxx>
 #include <StormByte/crypto/visibility.h>
 
+#include <cstddef>
+#include <cstdint>
+#include <memory>
 #include <secblock.h>
 #include <span>
-#include <memory>
-#include <cstdint>
-#include <cstddef>
 
+/**
+ * @brief Private asymmetric crypter implementation.
+ */
 namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
-	/** @brief AES-256 key length used in hybrid envelopes. */
-	inline constexpr std::size_t kSymKeyLen = 32;
-
-	/** @brief GCM IV length used in hybrid envelopes. */
-	inline constexpr std::size_t kIvLen = 12;
+	inline constexpr std::size_t kSymKeyLen = 32;	///< AES-256 key in hybrid envelopes
+	inline constexpr std::size_t kIvLen = 12;		///< GCM IV in hybrid envelopes
 
 	/**
-	 * @brief Type-erased public/private key transform (encrypt or decrypt).
-	 *
-	 * Concrete implementations wrap a Crypto++ PK encryptor/decryptor.
-	 * All hybrid and native helpers below only depend on this interface.
+	 * @struct PkBox
+	 * @brief Type-erased public/private transform.
 	 */
 	struct PkBox {
 		virtual ~PkBox() = default;
 
 		/**
-		 * @brief Transform raw bytes with the asymmetric key.
-		 * @param in  Input bytes.
-		 * @param out Destination for the result.
+		 * @brief Transform raw bytes with the key.
+		 * @param in Input.
+		 * @param out Destination.
 		 * @return true on success.
 		 */
 		virtual bool Transform(std::span<const std::byte> in,
@@ -56,7 +54,11 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 	};
 
 	/**
-	 * @brief Write hybrid envelope header: eskLen(4 BE) || esk || iv.
+	 * @brief Write hybrid header: eskLen(4 BE) || esk || iv.
+	 * @param esk Encrypted session key.
+	 * @param iv IV.
+	 * @param out Destination.
+	 * @return true on success.
 	 */
 	bool WriteEnvelopeHeader(const Buffer::DataType& esk,
 							const CryptoPP::SecByteBlock& iv,
@@ -64,58 +66,72 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 
 	/**
 	 * @brief Parse eskLen (4 bytes, big-endian).
-	 * @return Length, or 0 if @p lenBytes is not exactly 4 bytes.
+	 * @param lenBytes Length field.
+	 * @return Length, or 0 if size is not 4.
 	 */
 	std::uint32_t ParseEskLength(const Buffer::DataType& lenBytes) noexcept;
 
-	// -------------------------------------------------------------------------
-	// Native (each call / each stream chunk = one full PK transform)
-	// -------------------------------------------------------------------------
-
 	/**
-	 * @brief One-shot native asymmetric encrypt/decrypt.
+	 * @brief One-shot native PK transform.
+	 * @param data Input.
+	 * @param output Destination.
+	 * @param box Engine.
+	 * @return true on success.
 	 */
 	bool NativeProcessSpan(std::span<const std::byte> data,
 						Buffer::WriteOnly& output,
 						std::unique_ptr<PkBox> box) noexcept;
 
 	/**
-	 * @brief Streaming native asymmetric encrypt/decrypt.
-	 * Each chunk is transformed independently.
+	 * @brief Streaming native PK. Each chunk is independent.
+	 * @param consumer Input consumer.
+	 * @param mode Copy or move.
+	 * @param box Engine.
+	 * @return Consumer with the result.
 	 */
 	Buffer::Consumer NativeProcessStream(Buffer::Consumer consumer,
 										ReadMode mode,
 										std::unique_ptr<PkBox> box) noexcept;
 
-	// -------------------------------------------------------------------------
-	// Hybrid envelope (AES-GCM + PK-wrapped session key)
-	// -------------------------------------------------------------------------
-
 	/**
-	 * @brief One-shot hybrid envelope encryption.
-	 * @param box Must encrypt the raw session key (public-key encrypt).
+	 * @brief One-shot hybrid encrypt. box wraps the session key.
+	 * @param data Input.
+	 * @param output Destination.
+	 * @param box Public-key box.
+	 * @return true on success.
 	 */
 	bool HybridEncryptSpan(std::span<const std::byte> data,
 						Buffer::WriteOnly& output,
 						std::unique_ptr<PkBox> box) noexcept;
 
 	/**
-	 * @brief Streaming hybrid envelope encryption.
+	 * @brief Streaming hybrid encrypt.
+	 * @param consumer Input consumer.
+	 * @param mode Copy or move.
+	 * @param box Public-key box.
+	 * @return Consumer with the envelope.
 	 */
 	Buffer::Consumer HybridEncryptStream(Buffer::Consumer consumer,
 										ReadMode mode,
 										std::unique_ptr<PkBox> box) noexcept;
 
 	/**
-	 * @brief One-shot hybrid envelope decryption.
-	 * @param box Must decrypt the encrypted session key (private-key decrypt).
+	 * @brief One-shot hybrid decrypt. box unwraps the session key.
+	 * @param data Input.
+	 * @param output Destination.
+	 * @param box Private-key box.
+	 * @return true on success.
 	 */
 	bool HybridDecryptSpan(std::span<const std::byte> data,
 						Buffer::WriteOnly& output,
 						std::unique_ptr<PkBox> box) noexcept;
 
 	/**
-	 * @brief Streaming hybrid envelope decryption.
+	 * @brief Streaming hybrid decrypt.
+	 * @param consumer Input consumer.
+	 * @param mode Copy or move.
+	 * @param box Private-key box.
+	 * @return Consumer with the plaintext.
 	 */
 	Buffer::Consumer HybridDecryptStream(Buffer::Consumer consumer,
 										ReadMode mode,
