@@ -1,21 +1,21 @@
 /*
- * Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
- *
- * This file is part of StormByte-Crypto.
- *
- * StormByte-Crypto is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License version 3
- * or later, as published by the Free Software Foundation.
- *
- * StormByte-Crypto is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with StormByte-Crypto. If not, see
- * <https://www.gnu.org/licenses/lgpl-3.0.html>.
- */
+* Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
+*
+* This file is part of StormByte-Crypto.
+*
+* StormByte-Crypto is free software: you can redistribute it and/or modify
+* it under the terms of the GNU Lesser General Public License version 3
+* or later, as published by the Free Software Foundation.
+*
+* StormByte-Crypto is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU Lesser General Public License for more details.
+*
+* You should have received a copy of the GNU Lesser General Public License
+* along with StormByte-Crypto. If not, see
+* <https://www.gnu.org/licenses/lgpl-3.0.html>.
+*/
 
 #pragma once
 
@@ -26,79 +26,79 @@
 #include <string>
 
 /**
- * @namespace KeyPair
- * @brief The namespace containing all the keypair-related classes.
+ * @brief Keypairs of the Crypto module.
  */
 namespace StormByte::Crypto::KeyPair {
 	/**
 	 * @class ED25519
-	 * @brief An ED25519 keypair class.
-	 *
-	 * The private key, when present, is stored as a @ref StormByte::Crypto::Password
-	 * so sensitive material is reference-counted and zeroized when the last owner
-	 * is destroyed.
+	 * @brief Ed25519 keypair.
 	 */
 	class STORMBYTE_CRYPTO_PUBLIC ED25519 final: public Generic {
 		public:
 			/**
-			 * @brief Constructor
-			 * @param publicKey The public key material (typically Base64/PEM body).
-			 * @param privateKey Optional private key wrapped in @ref Password.
+			 * @name Construction
+			 * @{
+			 */
+			/**
+			 * @brief Construct from public material and optional private Password.
+			 * @param publicKey Public key.
+			 * @param privateKey Optional private key.
 			 */
 			inline ED25519(std::string publicKey, std::optional<Password> privateKey = std::nullopt):
 				Generic(Type::ED25519, std::move(publicKey), std::move(privateKey)) {}
 
 			/**
-			 * @brief Copy constructor
-			 * @param other The other ED25519 keypair to copy from.
+			 * @brief Copy constructor.
+			 * @param other Keypair to copy.
 			 */
 			ED25519(const ED25519& other) = default;
 
 			/**
-			 * @brief Move constructor
-			 * @param other The other ED25519 keypair to move from.
+			 * @brief Move constructor.
+			 * @param other Keypair to move.
 			 */
 			ED25519(ED25519&& other) noexcept = default;
 
 			/**
-			 * @brief Destructor
+			 * @brief Destructor.
 			 */
 			~ED25519() noexcept override = default;
 
 			/**
-			 * @brief Copy assignment operator
-			 * @param other The other ED25519 keypair to copy from.
-			 * @return Reference to this ED25519 keypair.
+			 * @brief Copy assignment.
+			 * @param other Keypair to copy.
+			 * @return Reference to this keypair.
 			 */
 			ED25519& operator=(const ED25519& other) = default;
 
 			/**
-			 * @brief Move assignment operator
-			 * @param other The other ED25519 keypair to move from.
-			 * @return Reference to this ED25519 keypair.
+			 * @brief Move assignment.
+			 * @param other Keypair to move.
+			 * @return Reference to this keypair.
 			 */
 			ED25519& operator=(ED25519&& other) noexcept = default;
+			/** @} */
 
 			/**
-			 * @brief Clone the ED25519 keypair.
-			 * @return A pointer to the cloned ED25519 keypair.
+			 * @brief Clone this keypair.
+			 * @return Shared pointer to the clone.
 			 */
 			PointerType Clone() const override {
 				return std::make_shared<ED25519>(*this);
 			}
 
 			/**
-			 * @brief Move this ED25519 keypair into a new owning pointer.
-			 * @return A pointer to the moved ED25519 keypair.
+			 * @brief Move this keypair into a new instance.
+			 * @return Shared pointer to the moved keypair.
 			 */
 			PointerType Move() override {
 				return std::make_shared<ED25519>(std::move(*this));
 			}
 
 			/**
-			 * @brief Generate a new ED25519 keypair.
-			 * @param bits Ignored (ED25519 is fixed-size); kept for API uniformity.
-			 * @return A pointer to the generated ED25519 keypair, or nullptr on failure.
+			 * @brief Generate an Ed25519 keypair.
+			 * @param bits Ignored (fixed size). Kept for API uniformity.
+			 * @return Keypair pointer, or nullptr.
 			 */
 			static PointerType Generate(unsigned short bits = 0) noexcept;
 	};
