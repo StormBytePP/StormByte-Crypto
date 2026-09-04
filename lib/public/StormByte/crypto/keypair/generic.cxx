@@ -1,3 +1,22 @@
+/*
+ * Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
+ *
+ * This file is part of StormByte-Crypto.
+ *
+ * StormByte-Crypto is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License version 3
+ * or later, as published by the Free Software Foundation.
+ *
+ * StormByte-Crypto is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with StormByte-Crypto. If not, see
+ * <https://www.gnu.org/licenses/lgpl-3.0.html>.
+ */
+
 #include <StormByte/crypto/helpers/secure_wipe.hxx>
 #include <StormByte/crypto/keypair/dsa.hxx>
 #include <StormByte/crypto/keypair/ecc.hxx>
@@ -10,7 +29,6 @@
 #include <StormByte/crypto/keypair/x25519.hxx>
 #include <StormByte/crypto/password.hxx>
 #include <StormByte/crypto/random.hxx>
-
 #include <algorithm>
 #include <array>
 #include <cctype>
@@ -21,7 +39,6 @@
 #include <string>
 #include <string_view>
 #include <vector>
-
 #include <aes.h>
 #include <asn.h>
 #include <base64.h>
@@ -39,36 +56,29 @@
 #include <secblock.h>
 #include <sha.h>
 #include <xed25519.h>
-
 using namespace StormByte::Crypto::KeyPair;
 using StormByte::Crypto::Password;
 using StormByte::Crypto::RNG;
 using StormByte::Crypto::Helpers::PasswordAccess;
 using StormByte::Crypto::Helpers::SecureWipe;
-
 namespace {
-
 	constexpr unsigned int kPkcs8Pbkdf2Iterations = 10000;
-
 	struct PemBlock {
 		std::string label;
 		std::vector<CryptoPP::byte> der;
 	};
-
 	CryptoPP::OID MakeOid(std::initializer_list<CryptoPP::word32> arcs) {
 		CryptoPP::OID oid;
 		for (CryptoPP::word32 a : arcs)
 			oid += a;
 		return oid;
 	}
-
 	const CryptoPP::OID kOidPBES2 = MakeOid({1, 2, 840, 113549, 1, 5, 13});
 	const CryptoPP::OID kOidPBKDF2 = MakeOid({1, 2, 840, 113549, 1, 5, 12});
 	const CryptoPP::OID kOidHmacSha256 = MakeOid({1, 2, 840, 113549, 2, 9});
 	const CryptoPP::OID kOidAes128Cbc = MakeOid({2, 16, 840, 1, 101, 3, 4, 1, 2});
 	const CryptoPP::OID kOidAes192Cbc = MakeOid({2, 16, 840, 1, 101, 3, 4, 1, 22});
 	const CryptoPP::OID kOidAes256Cbc = MakeOid({2, 16, 840, 1, 101, 3, 4, 1, 42});
-
 	std::vector<CryptoPP::byte> ReadFileBytes(const std::filesystem::path& path) noexcept {
 		try {
 			std::ifstream ifs(path, std::ios::in | std::ios::binary);
@@ -82,7 +92,6 @@ namespace {
 			return {};
 		}
 	}
-
 	bool WriteFileBytes(const std::filesystem::path& path, const CryptoPP::byte* data, size_t len) noexcept {
 		try {
 			std::ofstream ofs(path, std::ios::out | std::ios::binary | std::ios::trunc);
@@ -95,7 +104,6 @@ namespace {
 			return false;
 		}
 	}
-
 	bool IsPemText(std::span<const CryptoPP::byte> data) noexcept {
 		if (data.size() < 11)
 			return false;
@@ -105,7 +113,6 @@ namespace {
 		);
 		return head.find("-----BEGIN") != std::string_view::npos;
 	}
-
 	std::string Base64Encode(const CryptoPP::byte* data, size_t len) {
 		std::string out;
 		CryptoPP::StringSource(
@@ -114,7 +121,6 @@ namespace {
 		);
 		return out;
 	}
-
 	std::vector<CryptoPP::byte> Base64Decode(std::string_view b64) {
 		std::string filtered;
 		filtered.reserve(b64.size());
@@ -132,7 +138,6 @@ namespace {
 			reinterpret_cast<const CryptoPP::byte*>(decoded.data()) + decoded.size()
 		);
 	}
-
 	std::string PemEncode(std::string_view label, const CryptoPP::byte* der, size_t derLen) {
 		const std::string b64 = Base64Encode(der, derLen);
 		std::string pem;
@@ -149,7 +154,6 @@ namespace {
 		pem += "-----\n";
 		return pem;
 	}
-
 	std::vector<PemBlock> PemDecodeAll(std::span<const CryptoPP::byte> data) {
 		std::vector<PemBlock> blocks;
 		const std::string_view text(reinterpret_cast<const char*>(data.data()), data.size());
@@ -162,17 +166,14 @@ namespace {
 			const size_t labelEnd = text.find("-----", labelStart);
 			if (labelEnd == std::string_view::npos)
 				break;
-
 			std::string_view labelView = text.substr(labelStart, labelEnd - labelStart);
 			while (!labelView.empty() && std::isspace(static_cast<unsigned char>(labelView.back())))
 				labelView.remove_suffix(1);
-
 			const size_t headerEnd = labelEnd + 5;
 			const std::string endToken = std::string("-----END ") + std::string(labelView) + "-----";
 			const size_t endMark = text.find(endToken, headerEnd);
 			if (endMark == std::string_view::npos)
 				break;
-
 			const std::string_view body = text.substr(headerEnd, endMark - headerEnd);
 			PemBlock block;
 			block.label.assign(labelView);
@@ -183,11 +184,9 @@ namespace {
 		}
 		return blocks;
 	}
-
 	bool LabelIsPublic(std::string_view label) noexcept {
 		return label == "PUBLIC KEY" || label == "RSA PUBLIC KEY" || label == "EC PUBLIC KEY";
 	}
-
 	bool LabelIsPrivate(std::string_view label) noexcept {
 		return label == "PRIVATE KEY"
 			|| label == "RSA PRIVATE KEY"
@@ -195,14 +194,12 @@ namespace {
 			|| label == "DSA PRIVATE KEY"
 			|| label == "ENCRYPTED PRIVATE KEY";
 	}
-
 	bool LabelIsEncrypted(std::string_view label, std::string_view fullText) noexcept {
 		if (label == "ENCRYPTED PRIVATE KEY")
 			return true;
 		return fullText.find("Proc-Type:") != std::string_view::npos
 			&& fullText.find("ENCRYPTED") != std::string_view::npos;
 	}
-
 	bool ContainsOid(std::span<const CryptoPP::byte> der, std::span<const CryptoPP::byte> oid) noexcept {
 		if (oid.empty() || der.size() < oid.size())
 			return false;
@@ -212,7 +209,6 @@ namespace {
 		}
 		return false;
 	}
-
 	bool TryLoadRsaPrivate(std::span<const CryptoPP::byte> der, CryptoPP::RSA::PrivateKey& priv) noexcept {
 		try {
 			CryptoPP::ArraySource src(der.data(), der.size(), true);
@@ -227,7 +223,6 @@ namespace {
 			return false;
 		}
 	}
-
 	bool TryLoadDsaPrivate(std::span<const CryptoPP::byte> der, CryptoPP::DSA::PrivateKey& priv) noexcept {
 		try {
 			CryptoPP::ArraySource src(der.data(), der.size(), true);
@@ -242,23 +237,18 @@ namespace {
 			return false;
 		}
 	}
-
 	bool TryLoadEcPrivateSec1(std::span<const CryptoPP::byte> der, CryptoPP::ECIES<CryptoPP::ECP>::PrivateKey& priv) noexcept {
 		try {
 			CryptoPP::ArraySource src(der.data(), der.size(), true);
 			CryptoPP::BERSequenceDecoder seq(src);
-
 			CryptoPP::word32 version = 0;
 			CryptoPP::BERDecodeUnsigned(seq, version);
-
 			CryptoPP::SecByteBlock privateKey;
 			CryptoPP::BERDecodeOctetString(seq, privateKey);
 			if (privateKey.empty())
 				return false;
-
 			CryptoPP::OID curveOid;
 			bool haveCurve = false;
-
 			while (!seq.EndReached()) {
 				CryptoPP::byte next = 0;
 				seq.Peek(next);
@@ -269,7 +259,6 @@ namespace {
 				}
 				const CryptoPP::byte tag = static_cast<CryptoPP::byte>(next & 0x1f);
 				const bool constructed = (next & CryptoPP::CONSTRUCTED) != 0;
-
 				if (tag == 0) {
 					CryptoPP::BERGeneralDecoder params(
 						seq,
@@ -297,10 +286,8 @@ namespace {
 				}
 			}
 			seq.MessageEnd();
-
 			if (!haveCurve)
 				curveOid = CryptoPP::ASN1::secp256r1();
-
 			priv.AccessGroupParameters().Initialize(curveOid);
 			const CryptoPP::Integer x(privateKey.data(), privateKey.size());
 			priv.SetPrivateExponent(x);
@@ -309,7 +296,6 @@ namespace {
 			return false;
 		}
 	}
-
 	bool TryLoadEcPrivate(std::span<const CryptoPP::byte> der, CryptoPP::ECIES<CryptoPP::ECP>::PrivateKey& priv) noexcept {
 		try {
 			CryptoPP::ArraySource src(der.data(), der.size(), true);
@@ -323,7 +309,6 @@ namespace {
 		} catch (...) {}
 		return TryLoadEcPrivateSec1(der, priv);
 	}
-
 	// Re-encode private keys to PKCS#8 so crypter/signer always see one format
 	std::vector<CryptoPP::byte> RsaPrivateToPkcs8Der(const CryptoPP::RSA::PrivateKey& priv) {
 		CryptoPP::ByteQueue q;
@@ -333,7 +318,6 @@ namespace {
 			q.Get(out.data(), out.size());
 		return out;
 	}
-
 	std::vector<CryptoPP::byte> EcPrivateToPkcs8Der(const CryptoPP::ECIES<CryptoPP::ECP>::PrivateKey& priv) {
 		CryptoPP::ByteQueue q;
 		priv.Save(q);
@@ -342,7 +326,6 @@ namespace {
 			q.Get(out.data(), out.size());
 		return out;
 	}
-
 	std::vector<CryptoPP::byte> DsaPrivateToPkcs8Der(const CryptoPP::DSA::PrivateKey& priv) {
 		CryptoPP::ByteQueue q;
 		priv.Save(q);
@@ -351,7 +334,6 @@ namespace {
 			q.Get(out.data(), out.size());
 		return out;
 	}
-
 	bool DetectTypeFromDer(std::span<const CryptoPP::byte> der, Type& out) noexcept {
 		constexpr std::array<CryptoPP::byte, 11> oid_rsa{
 			0x06, 0x09, 0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x01
@@ -377,7 +359,6 @@ namespace {
 		constexpr std::array<CryptoPP::byte, 5> oid_x25519{
 			0x06, 0x03, 0x2B, 0x65, 0x6E
 		};
-
 		if (ContainsOid(der, oid_rsa)) {
 			out = Type::RSA;
 			return true;
@@ -401,7 +382,6 @@ namespace {
 			out = Type::ECC;
 			return true;
 		}
-
 		// PKCS#1 RSAPrivateKey (no AlgorithmIdentifier OID)
 		{
 			CryptoPP::RSA::PrivateKey rsaPriv;
@@ -410,7 +390,6 @@ namespace {
 				return true;
 			}
 		}
-
 		// SEC1 / traditional EC private, or PKCS#8 EC without matching OID scan edge cases
 		{
 			CryptoPP::ECIES<CryptoPP::ECP>::PrivateKey ecPriv;
@@ -419,7 +398,6 @@ namespace {
 				return true;
 			}
 		}
-
 		try {
 			CryptoPP::ArraySource src(der.data(), der.size(), true);
 			CryptoPP::ECIES<CryptoPP::ECP>::PublicKey pub;
@@ -429,10 +407,8 @@ namespace {
 				return true;
 			}
 		} catch (...) {}
-
 		return false;
 	}
-
 	bool IsRaw32(std::span<const CryptoPP::byte> der) noexcept {
 		// Any 32-byte blob may be an X25519/Ed25519 raw key. Do NOT reject
 		// payloads whose first byte is 0x30 (ASN.1 SEQUENCE): that value is a
@@ -440,7 +416,6 @@ namespace {
 		// failures (~1/256 key pairs).
 		return der.size() == 32;
 	}
-
 	bool ExtractRaw32(std::span<const CryptoPP::byte> der, CryptoPP::SecByteBlock& out) noexcept {
 		const CryptoPP::byte* p = der.data();
 		const size_t n = der.size();
@@ -460,22 +435,18 @@ namespace {
 		}
 		return false;
 	}
-
 	std::string PublicDerToStored(std::span<const CryptoPP::byte> der) {
 		return Base64Encode(der.data(), der.size());
 	}
-
 	Password PrivateDerToPassword(std::span<const CryptoPP::byte> der) {
 		CryptoPP::SecByteBlock block(der.data(), der.size());
 		Password pwd = StormByte::Crypto::Implementation::KeyPair::PasswordFromSecBlock(block);
 		SecureWipe(block);
 		return pwd;
 	}
-
 	std::vector<CryptoPP::byte> PublicStoredToDer(std::string_view stored) {
 		return Base64Decode(stored);
 	}
-
 	std::vector<CryptoPP::byte> PrivatePasswordToDer(const Password& pwd) {
 		const auto* data = PasswordAccess::Data(pwd);
 		const size_t n = PasswordAccess::Size(pwd);
@@ -483,7 +454,6 @@ namespace {
 			return {};
 		return std::vector<CryptoPP::byte>(data, data + n);
 	}
-
 	bool DecryptPkcs8EncryptedDer(
 		std::span<const CryptoPP::byte> encDer,
 		const Password& password,
@@ -495,35 +465,27 @@ namespace {
 			const size_t passLen = PasswordAccess::Size(password);
 			if (!pass || passLen == 0 || encDer.empty())
 				return false;
-
 			CryptoPP::ByteQueue queue;
 			queue.Put(encDer.data(), encDer.size());
-
 			CryptoPP::BERSequenceDecoder outer(queue);
-
 			CryptoPP::BERSequenceDecoder algId(outer);
 			CryptoPP::OID pbesOid;
 			pbesOid.BERDecode(algId);
 			if (pbesOid != kOidPBES2)
 				return false;
-
 			CryptoPP::BERSequenceDecoder pbes2Params(algId);
-
 			CryptoPP::BERSequenceDecoder kdfSeq(pbes2Params);
 			CryptoPP::OID kdfOid;
 			kdfOid.BERDecode(kdfSeq);
 			if (kdfOid != kOidPBKDF2)
 				return false;
-
 			CryptoPP::BERSequenceDecoder pbkdf2Params(kdfSeq);
 			CryptoPP::BERDecodeOctetString(pbkdf2Params, salt);
-
 			CryptoPP::Integer iterInt;
 			iterInt.BERDecode(pbkdf2Params);
 			const unsigned int iterations = static_cast<unsigned int>(iterInt.ConvertToLong());
 			if (iterations == 0)
 				return false;
-
 			bool useSha256 = false;
 			while (!pbkdf2Params.EndReached()) {
 				CryptoPP::byte tag = 0;
@@ -547,11 +509,9 @@ namespace {
 			}
 			pbkdf2Params.MessageEnd();
 			kdfSeq.MessageEnd();
-
 			CryptoPP::BERSequenceDecoder encScheme(pbes2Params);
 			CryptoPP::OID cipherOid;
 			cipherOid.BERDecode(encScheme);
-
 			size_t keyLen = 32;
 			if (cipherOid == kOidAes128Cbc)
 				keyLen = 16;
@@ -561,15 +521,12 @@ namespace {
 				keyLen = 32;
 			else
 				return false;
-
 			CryptoPP::BERDecodeOctetString(encScheme, iv);
 			encScheme.MessageEnd();
 			pbes2Params.MessageEnd();
 			algId.MessageEnd();
-
 			CryptoPP::BERDecodeOctetString(outer, ciphertext);
 			outer.MessageEnd();
-
 			key.CleanNew(keyLen);
 			if (useSha256) {
 				CryptoPP::PKCS5_PBKDF2_HMAC<CryptoPP::SHA256> pbkdf;
@@ -578,7 +535,6 @@ namespace {
 				CryptoPP::PKCS5_PBKDF2_HMAC<CryptoPP::SHA1> pbkdf;
 				pbkdf.DeriveKey(key, key.size(), 0, pass, passLen, salt, salt.size(), iterations);
 			}
-
 			std::string plainStr;
 			CryptoPP::CBC_Mode<CryptoPP::AES>::Decryption dec;
 			dec.SetKeyWithIV(key, key.size(), iv, iv.size());
@@ -590,12 +546,10 @@ namespace {
 					CryptoPP::BlockPaddingSchemeDef::PKCS_PADDING
 				)
 			);
-
 			outPlainPkcs8.assign(
 				reinterpret_cast<const CryptoPP::byte*>(plainStr.data()),
 				reinterpret_cast<const CryptoPP::byte*>(plainStr.data()) + plainStr.size()
 			);
-
 			SecureWipe(salt);
 			SecureWipe(iv);
 			SecureWipe(key);
@@ -617,7 +571,6 @@ namespace {
 			return false;
 		}
 	}
-
 	bool EncryptPkcs8Der(
 		std::span<const CryptoPP::byte> plainPkcs8,
 		const Password& password,
@@ -629,12 +582,10 @@ namespace {
 			const size_t passLen = PasswordAccess::Size(password);
 			if (!pass || passLen == 0 || plainPkcs8.empty())
 				return false;
-
 			salt.CleanNew(16);
 			iv.CleanNew(16);
 			RNG().GenerateBlock(salt, salt.size());
 			RNG().GenerateBlock(iv, iv.size());
-
 			key.CleanNew(32);
 			CryptoPP::PKCS5_PBKDF2_HMAC<CryptoPP::SHA256> pbkdf;
 			pbkdf.DeriveKey(
@@ -644,7 +595,6 @@ namespace {
 				salt, salt.size(),
 				kPkcs8Pbkdf2Iterations
 			);
-
 			std::string cipherStr;
 			CryptoPP::CBC_Mode<CryptoPP::AES>::Encryption enc;
 			enc.SetKeyWithIV(key, key.size(), iv, iv.size());
@@ -656,12 +606,10 @@ namespace {
 					CryptoPP::BlockPaddingSchemeDef::PKCS_PADDING
 				)
 			);
-
 			ciphertext.Assign(
 				reinterpret_cast<const CryptoPP::byte*>(cipherStr.data()),
 				cipherStr.size()
 			);
-
 			CryptoPP::ByteQueue queue;
 			{
 				CryptoPP::DERSequenceEncoder outer(queue);
@@ -701,11 +649,9 @@ namespace {
 				CryptoPP::DEREncodeOctetString(outer, ciphertext, ciphertext.size());
 				outer.MessageEnd();
 			}
-
 			outEncDer.resize(queue.CurrentSize());
 			if (!outEncDer.empty())
 				queue.Get(outEncDer.data(), outEncDer.size());
-
 			SecureWipe(salt);
 			SecureWipe(iv);
 			SecureWipe(key);
@@ -727,7 +673,6 @@ namespace {
 			return false;
 		}
 	}
-
 	bool TryDecryptPrivateDer(
 		std::vector<CryptoPP::byte>& privDer,
 		bool wasEncrypted,
@@ -745,7 +690,6 @@ namespace {
 		privDer = std::move(plain);
 		return true;
 	}
-
 	bool DerivePublicDerFromPrivate(
 		Type type,
 		std::span<const CryptoPP::byte> privDer,
@@ -753,7 +697,6 @@ namespace {
 	) noexcept {
 		try {
 			CryptoPP::ByteQueue pubQueue;
-
 			switch (type) {
 				case Type::RSA: {
 					CryptoPP::RSA::PrivateKey priv;
@@ -813,7 +756,6 @@ namespace {
 				default:
 					return false;
 			}
-
 			outPubDer.resize(pubQueue.CurrentSize());
 			if (!outPubDer.empty())
 				pubQueue.Get(outPubDer.data(), outPubDer.size());
@@ -822,7 +764,6 @@ namespace {
 			return false;
 		}
 	}
-
 	Generic::PointerType MakeKeyPair(Type type, std::string pubStored, std::optional<Password> priv) noexcept {
 		switch (type) {
 			case Type::DSA:
@@ -843,11 +784,9 @@ namespace {
 				return nullptr;
 		}
 	}
-
 	bool IsEcFamily(Type t) noexcept {
 		return t == Type::ECC || t == Type::ECDH || t == Type::ECDSA;
 	}
-
 	bool TypesCompatible(Type a, Type b) noexcept {
 		if (a == b)
 			return true;
@@ -855,7 +794,6 @@ namespace {
 			return true;
 		return false;
 	}
-
 	Generic::PointerType BuildFromMaterial(
 		std::optional<std::vector<CryptoPP::byte>> pubDer,
 		std::optional<std::vector<CryptoPP::byte>> privDer,
@@ -865,10 +803,8 @@ namespace {
 			auto isRaw32Vec = [](const std::vector<CryptoPP::byte>& v) noexcept {
 				return IsRaw32(v);
 			};
-
 			Type type = hint;
 			bool typeKnown = false;
-
 			if (privDer && !privDer->empty() && isRaw32Vec(*privDer)) {
 				if (pubDer && !pubDer->empty() && !isRaw32Vec(*pubDer)) {
 					Type pubType = Type::RSA;
@@ -895,10 +831,8 @@ namespace {
 					typeKnown = true;
 				}
 			}
-
 			if (!typeKnown)
 				type = hint;
-
 			if (pubDer && !pubDer->empty() && privDer && !privDer->empty()) {
 				Type pubType = type;
 				Type privType = type;
@@ -908,32 +842,26 @@ namespace {
 				const bool privOk = isRaw32Vec(*privDer)
 					? (privType = Type::X25519, true)
 					: DetectTypeFromDer(*privDer, privType);
-
 				if (pubOk && privOk && !TypesCompatible(pubType, privType))
 					return nullptr;
 			}
-
 			if (type == Type::X25519) {
 				CryptoPP::SecByteBlock privRaw(32), pubRaw(32);
 				constexpr std::array<CryptoPP::byte, 5> oid_x25519{
 					0x06, 0x03, 0x2B, 0x65, 0x6E
 				};
-
 				if (privDer && !privDer->empty()) {
 					const bool rawPriv = IsRaw32(*privDer);
 					const bool oidPriv = ContainsOid(*privDer, oid_x25519);
-
 					if (rawPriv)
 						privRaw.Assign(privDer->data(), 32);
 					else if (oidPriv && ExtractRaw32(*privDer, privRaw))
 						{ /* OpenSSL PKCS#8 X25519 */ }
 					else
 						return nullptr;
-
 					if (pubDer && !pubDer->empty()) {
 						const bool rawPub = IsRaw32(*pubDer);
 						const bool oidPub = ContainsOid(*pubDer, oid_x25519);
-
 						if (rawPub)
 							pubRaw.Assign(pubDer->data(), 32);
 						else if (oidPub && ExtractRaw32(*pubDer, pubRaw))
@@ -946,7 +874,6 @@ namespace {
 						CryptoPP::x25519 ag;
 						ag.GeneratePublicKey(RNG(), privRaw, pubRaw);
 					}
-
 					std::string pubStored = Base64Encode(pubRaw.data(), pubRaw.size());
 					Password privPwd = PrivateDerToPassword(
 						std::span<const CryptoPP::byte>(privRaw.data(), privRaw.size())
@@ -955,36 +882,30 @@ namespace {
 					SecureWipe(pubRaw);
 					return std::make_shared<X25519>(std::move(pubStored), std::move(privPwd));
 				}
-
 				if (pubDer && !pubDer->empty()) {
 					const bool rawPub = IsRaw32(*pubDer);
 					const bool oidPub = ContainsOid(*pubDer, oid_x25519);
-
 					if (rawPub)
 						pubRaw.Assign(pubDer->data(), 32);
 					else if (oidPub && ExtractRaw32(*pubDer, pubRaw))
 						{ /* ok */ }
 					else
 						return nullptr;
-
 					std::string pubStored = Base64Encode(pubRaw.data(), pubRaw.size());
 					SecureWipe(pubRaw);
 					return std::make_shared<X25519>(std::move(pubStored), std::nullopt);
 				}
 				return nullptr;
 			}
-
 			if (type == Type::ECC || type == Type::ECDSA || type == Type::ECDH) {
 				if (privDer && !privDer->empty()) {
 					try {
 						CryptoPP::ECIES<CryptoPP::ECP>::PrivateKey priv;
 						if (!TryLoadEcPrivate(*privDer, priv))
 							return nullptr;
-
 						auto pkcs8 = EcPrivateToPkcs8Der(priv);
 						if (pkcs8.empty())
 							return nullptr;
-
 						Password privPwd = PrivateDerToPassword(
 							std::span<const CryptoPP::byte>(pkcs8.data(), pkcs8.size())
 						);
@@ -992,7 +913,6 @@ namespace {
 							CryptoPP::SecByteBlock wipe(pkcs8.data(), pkcs8.size());
 							SecureWipe(wipe);
 						}
-
 						std::string pubStored;
 						if (pubDer && !pubDer->empty()) {
 							pubStored = PublicDerToStored(*pubDer);
@@ -1001,7 +921,6 @@ namespace {
 							priv.MakePublicKey(pub);
 							pubStored = StormByte::Crypto::Implementation::KeyPair::SerializeKey(pub);
 						}
-
 						if (type == Type::ECDSA)
 							return std::make_shared<ECDSA>(std::move(pubStored), std::move(privPwd));
 						if (type == Type::ECDH)
@@ -1030,7 +949,6 @@ namespace {
 				}
 				return nullptr;
 			}
-
 			std::optional<Password> privPwd;
 			if (privDer && !privDer->empty()) {
 				try {
@@ -1076,7 +994,6 @@ namespace {
 					return nullptr;
 				}
 			}
-
 			std::string pubStored;
 			if (pubDer && !pubDer->empty()) {
 				pubStored = PublicDerToStored(*pubDer);
@@ -1088,31 +1005,26 @@ namespace {
 			} else {
 				return nullptr;
 			}
-
 			return MakeKeyPair(type, std::move(pubStored), std::move(privPwd));
 		} catch (...) {
 			return nullptr;
 		}
 	}
-
 	Generic::PointerType LoadFromBytes(
 		std::span<const CryptoPP::byte> data,
 		const Password* password
 	) noexcept {
 		if (data.empty())
 			return nullptr;
-
 		if (IsPemText(data)) {
 			const std::string_view text(reinterpret_cast<const char*>(data.data()), data.size());
 			auto blocks = PemDecodeAll(data);
 			if (blocks.empty())
 				return nullptr;
-
 			std::optional<std::vector<CryptoPP::byte>> pubDer;
 			std::optional<std::vector<CryptoPP::byte>> privDer;
 			bool privEncrypted = false;
 			Type hint = Type::RSA;
-
 			for (const auto& b : blocks) {
 				if (LabelIsPublic(b.label)) {
 					pubDer = b.der;
@@ -1124,17 +1036,14 @@ namespace {
 						DetectTypeFromDer(b.der, hint);
 				}
 			}
-
 			if (privDer) {
 				if (!TryDecryptPrivateDer(*privDer, privEncrypted, password))
 					return nullptr;
 				if (privEncrypted)
 					DetectTypeFromDer(*privDer, hint);
 			}
-
 			return BuildFromMaterial(std::move(pubDer), std::move(privDer), hint);
 		}
-
 		std::vector<CryptoPP::byte> copy(data.begin(), data.end());
 		if (password) {
 			std::vector<CryptoPP::byte> plain;
@@ -1142,24 +1051,20 @@ namespace {
 				return nullptr;
 			copy = std::move(plain);
 		}
-
 		Type hint = Type::RSA;
 		DetectTypeFromDer(copy, hint);
 		auto asPriv = BuildFromMaterial(std::nullopt, copy, hint);
 		if (asPriv)
 			return asPriv;
-
 		std::vector<CryptoPP::byte> copyPub(data.begin(), data.end());
 		DetectTypeFromDer(copyPub, hint);
 		return BuildFromMaterial(std::move(copyPub), std::nullopt, hint);
 	}
-
 	std::string ExtensionFor(StorageFormat format, bool isPublic) {
 		if (format == StorageFormat::DER)
 			return isPublic ? ".pub.der" : ".der";
 		return isPublic ? ".pub.pem" : ".pem";
 	}
-
 	bool WritePublicFile(const std::filesystem::path& path, std::string_view pubStored, StorageFormat format) noexcept {
 		auto der = PublicStoredToDer(pubStored);
 		if (der.empty())
@@ -1169,7 +1074,6 @@ namespace {
 		const std::string pem = PemEncode("PUBLIC KEY", der.data(), der.size());
 		return WriteFileBytes(path, reinterpret_cast<const CryptoPP::byte*>(pem.data()), pem.size());
 	}
-
 	bool WritePrivateFile(const std::filesystem::path& path, const Password& priv, StorageFormat format) noexcept {
 		auto der = PrivatePasswordToDer(priv);
 		if (der.empty())
@@ -1188,7 +1092,6 @@ namespace {
 		der.clear();
 		return ok;
 	}
-
 	bool WritePrivateFileEncrypted(
 		const std::filesystem::path& path,
 		const Password& privMaterial,
@@ -1198,10 +1101,8 @@ namespace {
 		auto plainDer = PrivatePasswordToDer(privMaterial);
 		if (plainDer.empty())
 			return false;
-
 		std::vector<CryptoPP::byte> encDer;
 		const bool encrypted = EncryptPkcs8Der(plainDer, encryptPassword, encDer);
-
 		{
 			CryptoPP::SecByteBlock wipe(plainDer.data(), plainDer.size());
 			SecureWipe(wipe);
@@ -1209,7 +1110,6 @@ namespace {
 		}
 		if (!encrypted || encDer.empty())
 			return false;
-
 		bool ok = false;
 		if (format == StorageFormat::DER) {
 			ok = WriteFileBytes(path, encDer.data(), encDer.size());
@@ -1217,7 +1117,6 @@ namespace {
 			const std::string pem = PemEncode("ENCRYPTED PRIVATE KEY", encDer.data(), encDer.size());
 			ok = WriteFileBytes(path, reinterpret_cast<const CryptoPP::byte*>(pem.data()), pem.size());
 		}
-
 		{
 			CryptoPP::SecByteBlock wipe(encDer.data(), encDer.size());
 			SecureWipe(wipe);
@@ -1225,20 +1124,16 @@ namespace {
 		}
 		return ok;
 	}
-
 }
-
 bool Generic::Save(const std::filesystem::path& directory, const std::string& baseName, StorageFormat format) const noexcept {
 	try {
 		if (!std::filesystem::exists(directory) || !std::filesystem::is_directory(directory))
 			return false;
 		if (m_public_key.empty())
 			return false;
-
 		const auto pubPath = directory / (baseName + ExtensionFor(format, true));
 		if (!WritePublicFile(pubPath, m_public_key, format))
 			return false;
-
 		if (m_private_key.has_value()) {
 			const auto privPath = directory / (baseName + ExtensionFor(format, false));
 			if (!WritePrivateFile(privPath, *m_private_key, format))
@@ -1249,7 +1144,6 @@ bool Generic::Save(const std::filesystem::path& directory, const std::string& ba
 		return false;
 	}
 }
-
 bool Generic::Save(
 	const std::filesystem::path& directory,
 	const std::string& baseName,
@@ -1261,18 +1155,15 @@ bool Generic::Save(
 			return false;
 		if (m_public_key.empty() || !m_private_key.has_value())
 			return false;
-
 		const auto pubPath = directory / (baseName + ExtensionFor(format, true));
 		if (!WritePublicFile(pubPath, m_public_key, format))
 			return false;
-
 		const auto privPath = directory / (baseName + ExtensionFor(format, false));
 		return WritePrivateFileEncrypted(privPath, *m_private_key, encryptPassword, format);
 	} catch (...) {
 		return false;
 	}
 }
-
 bool Generic::SavePublic(const std::filesystem::path& filePath, StorageFormat format) const noexcept {
 	try {
 		if (m_public_key.empty())
@@ -1282,7 +1173,6 @@ bool Generic::SavePublic(const std::filesystem::path& filePath, StorageFormat fo
 		return false;
 	}
 }
-
 bool Generic::SavePrivate(const std::filesystem::path& filePath, StorageFormat format) const noexcept {
 	try {
 		if (!m_private_key.has_value())
@@ -1292,7 +1182,6 @@ bool Generic::SavePrivate(const std::filesystem::path& filePath, StorageFormat f
 		return false;
 	}
 }
-
 bool Generic::SavePrivate(
 	const std::filesystem::path& filePath,
 	const Password& encryptPassword,
@@ -1306,7 +1195,6 @@ bool Generic::SavePrivate(
 		return false;
 	}
 }
-
 namespace StormByte::Crypto::KeyPair {
 	Generic::PointerType Create(Type type, unsigned short bits) noexcept {
 		switch (type) {
@@ -1328,13 +1216,11 @@ namespace StormByte::Crypto::KeyPair {
 				return nullptr;
 		}
 	}
-
 	Generic::PointerType Load(const std::filesystem::path& publicKeyPath, const std::filesystem::path& privateKeyPath) noexcept {
 		try {
 			std::optional<std::vector<CryptoPP::byte>> pubDer;
 			std::optional<std::vector<CryptoPP::byte>> privDer;
 			bool privEncrypted = false;
-
 			if (!publicKeyPath.empty() && std::filesystem::exists(publicKeyPath)) {
 				auto bytes = ReadFileBytes(publicKeyPath);
 				if (bytes.empty())
@@ -1353,7 +1239,6 @@ namespace StormByte::Crypto::KeyPair {
 					pubDer = std::move(bytes);
 				}
 			}
-
 			if (!privateKeyPath.empty() && std::filesystem::exists(privateKeyPath)) {
 				auto bytes = ReadFileBytes(privateKeyPath);
 				if (bytes.empty())
@@ -1374,22 +1259,18 @@ namespace StormByte::Crypto::KeyPair {
 					privDer = std::move(bytes);
 				}
 			}
-
 			if (privEncrypted)
 				return nullptr;
-
 			Type hint = Type::RSA;
 			if (pubDer)
 				DetectTypeFromDer(*pubDer, hint);
 			else if (privDer)
 				DetectTypeFromDer(*privDer, hint);
-
 			return BuildFromMaterial(std::move(pubDer), std::move(privDer), hint);
 		} catch (...) {
 			return nullptr;
 		}
 	}
-
 	Generic::PointerType Load(
 		const std::filesystem::path& publicKeyPath,
 		const std::filesystem::path& privateKeyPath,
@@ -1399,7 +1280,6 @@ namespace StormByte::Crypto::KeyPair {
 			std::optional<std::vector<CryptoPP::byte>> pubDer;
 			std::optional<std::vector<CryptoPP::byte>> privDer;
 			bool privEncrypted = false;
-
 			if (!publicKeyPath.empty() && std::filesystem::exists(publicKeyPath)) {
 				auto bytes = ReadFileBytes(publicKeyPath);
 				if (bytes.empty())
@@ -1418,7 +1298,6 @@ namespace StormByte::Crypto::KeyPair {
 					pubDer = std::move(bytes);
 				}
 			}
-
 			if (!privateKeyPath.empty() && std::filesystem::exists(privateKeyPath)) {
 				auto bytes = ReadFileBytes(privateKeyPath);
 				if (bytes.empty())
@@ -1440,27 +1319,22 @@ namespace StormByte::Crypto::KeyPair {
 					privEncrypted = true;
 				}
 			}
-
 			if (!privDer)
 				return nullptr;
-
 			if (!TryDecryptPrivateDer(*privDer, privEncrypted, &password)) {
 				if (privEncrypted)
 					return nullptr;
 			}
-
 			Type hint = Type::RSA;
 			if (pubDer)
 				DetectTypeFromDer(*pubDer, hint);
 			else
 				DetectTypeFromDer(*privDer, hint);
-
 			return BuildFromMaterial(std::move(pubDer), std::move(privDer), hint);
 		} catch (...) {
 			return nullptr;
 		}
 	}
-
 	Generic::PointerType Load(const std::filesystem::path& path) noexcept {
 		try {
 			if (path.empty() || !std::filesystem::exists(path))
@@ -1473,7 +1347,6 @@ namespace StormByte::Crypto::KeyPair {
 			return nullptr;
 		}
 	}
-
 	Generic::PointerType Load(const std::filesystem::path& path, const Password& password) noexcept {
 		try {
 			if (path.empty() || !std::filesystem::exists(path))

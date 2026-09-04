@@ -1,67 +1,69 @@
+/*
+ * Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
+ *
+ * This file is part of StormByte-Crypto.
+ *
+ * StormByte-Crypto is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License version 3
+ * or later, as published by the Free Software Foundation.
+ *
+ * StormByte-Crypto is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with StormByte-Crypto. If not, see
+ * <https://www.gnu.org/licenses/lgpl-3.0.html>.
+ */
+
 #include <StormByte/buffer/fifo.hxx>
 #include <StormByte/buffer/producer.hxx>
 #include <StormByte/crypto/signer/dsa.hxx>
 #include <StormByte/test_handlers.h>
-
 #include <thread>
 #include <iostream>
-
 using StormByte::Buffer::FIFO;
 using namespace StormByte::Crypto;
-
 int TestDSASignAndVerify(KeyPair::Generic::PointerType kp) {
 	const std::string fn_name = "TestDSASignAndVerify";
 	const std::string message = "This is a test message.";
-
 	Signer::DSA dsa(kp);
-
 	// Sign the message
 	FIFO signed_data;
 	auto sign_result = dsa.Sign(std::span<const std::byte>(reinterpret_cast<const std::byte*>(message.data()), message.size()), signed_data);
 	ASSERT_TRUE(fn_name, sign_result);
 	std::string signature = StormByte::String::FromByteVector(signed_data.Data());
-
 	// Verify the signature
 	bool verify_result = dsa.Verify(std::span<const std::byte>(reinterpret_cast<const std::byte*>(message.data()), message.size()), signature);
 	ASSERT_TRUE(fn_name, verify_result);
-
 	RETURN_TEST(fn_name, 0);
 }
-
 int TestDSAVerifyWithCorruptedSignature(KeyPair::Generic::PointerType kp) {
 	const std::string fn_name = "TestDSAVerifyWithCorruptedSignature";
 	const std::string message = "This is a test message.";
-
 	Signer::DSA dsa(kp);
-
 	// Sign the message
 	FIFO signed_data;
 	auto sign_result = dsa.Sign(std::span<const std::byte>(reinterpret_cast<const std::byte*>(message.data()), message.size()), signed_data);
 	ASSERT_TRUE(fn_name, sign_result);
 	std::string signature = StormByte::String::FromByteVector(signed_data.Data());
-
 	// Corrupt the signature
 	if (!signature.empty()) {
 		signature[0] = static_cast<char>(~signature[0]);
 	}
-
 	// Verify the corrupted signature
 	bool verify_result = dsa.Verify(std::span<const std::byte>(reinterpret_cast<const std::byte*>(message.data()), message.size()), signature);
 	ASSERT_FALSE(fn_name, verify_result);
-
 	RETURN_TEST(fn_name, 0);
 }
-
 int TestDSAVerifyWithMismatchedKey(KeyPair::Generic::PointerType kp) {
 	const std::string fn_name = "TestDSAVerifyWithMismatchedKey";
 	const std::string message = "This is a test message.";
-
 	Signer::DSA dsa(kp);
-
 	auto kp2 = KeyPair::DSA::Generate(2048);
 	ASSERT_TRUE(fn_name, kp2);
 	Signer::DSA dsa2(kp2);
-
 	FIFO signed_data;
 	auto sign_result = dsa.Sign(
 		std::span<const std::byte>(reinterpret_cast<const std::byte*>(message.data()), message.size()),
@@ -69,20 +71,16 @@ int TestDSAVerifyWithMismatchedKey(KeyPair::Generic::PointerType kp) {
 	);
 	ASSERT_TRUE(fn_name, sign_result);
 	std::string signature = StormByte::String::FromByteVector(signed_data.Data());
-
 	bool verify_result = dsa2.Verify(
 		std::span<const std::byte>(reinterpret_cast<const std::byte*>(message.data()), message.size()),
 		signature
 	);
 	ASSERT_FALSE(fn_name, verify_result);
-
 	RETURN_TEST(fn_name, 0);
 }
-
 int main() {
 	int result = 0;
 	const int key_strength = 2048;
-
 	// Generate a single DSA keypair for all tests (key generation is expensive)
 	auto keypair_result = KeyPair::DSA::Generate(key_strength);
 	if (!keypair_result) {
@@ -90,11 +88,9 @@ int main() {
 		return 1;
 	}
 	auto kp = keypair_result;
-
 	result += TestDSASignAndVerify(kp);
 	result += TestDSAVerifyWithCorruptedSignature(kp);
 	result += TestDSAVerifyWithMismatchedKey(kp);
-
 	if (result == 0) {
 		std::cout << "All tests passed!" << std::endl;
 	} else {

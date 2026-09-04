@@ -1,23 +1,38 @@
+/*
+ * Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
+ *
+ * This file is part of StormByte-Crypto.
+ *
+ * StormByte-Crypto is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License version 3
+ * or later, as published by the Free Software Foundation.
+ *
+ * StormByte-Crypto is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with StormByte-Crypto. If not, see
+ * <https://www.gnu.org/licenses/lgpl-3.0.html>.
+ */
+
 #include <StormByte/crypto/compressor/zlib.hxx>
 #include <StormByte/crypto/implementation/compressor/details.hxx>
 #include <StormByte/buffer/producer.hxx>
-
 #include <algorithm>
 #include <filters.h>
 #include <memory>
 #include <zlib.h>
-
 using StormByte::Buffer::Consumer;
 using StormByte::Buffer::DataType;
 using StormByte::Buffer::Producer;
 using StormByte::Buffer::WriteOnly;
 using namespace StormByte::Crypto::Compressor;
-
 namespace {
 	struct ZlibCompressOps final : StormByte::Crypto::Implementation::Compressor::StreamOps {
 		DataType buffer;
 		std::unique_ptr<CryptoPP::ZlibCompressor> compressor;
-
 		explicit ZlibCompressOps(unsigned short level)
 		{
 			compressor = std::make_unique<CryptoPP::ZlibCompressor>(
@@ -25,7 +40,6 @@ namespace {
 				level
 			);
 		}
-
 		bool Process(std::span<const std::byte> in, DataType& out) override
 		{
 			try {
@@ -40,7 +54,6 @@ namespace {
 				return false;
 			}
 		}
-
 		bool Finalize(DataType& out) override
 		{
 			try {
@@ -54,18 +67,15 @@ namespace {
 			}
 		}
 	};
-
 	struct ZlibDecompressOps final : StormByte::Crypto::Implementation::Compressor::StreamOps {
 		DataType buffer;
 		std::unique_ptr<CryptoPP::ZlibDecompressor> decompressor;
-
 		ZlibDecompressOps()
 		{
 			decompressor = std::make_unique<CryptoPP::ZlibDecompressor>(
 				new CryptoPP::StringSinkTemplate<DataType>(buffer)
 			);
 		}
-
 		bool Process(std::span<const std::byte> in, DataType& out) override
 		{
 			try {
@@ -80,7 +90,6 @@ namespace {
 				return false;
 			}
 		}
-
 		bool Finalize(DataType& out) override
 		{
 			try {
@@ -95,7 +104,6 @@ namespace {
 		}
 	};
 }
-
 Zlib::Zlib(unsigned short level)
 	: Generic(Type::Zlib,
 			std::clamp<unsigned short>(
@@ -103,25 +111,21 @@ Zlib::Zlib(unsigned short level)
 				1,
 				CryptoPP::ZlibCompressor::MAX_DEFLATE_LEVEL))
 {}
-
 bool Zlib::DoCompress(std::span<const std::byte> input, WriteOnly& output) const noexcept
 {
 	return Implementation::Compressor::ProcessSpan(
 		input, output, std::make_unique<ZlibCompressOps>(m_level));
 }
-
 Consumer Zlib::DoCompress(Consumer consumer, ReadMode mode) const noexcept
 {
 	return Implementation::Compressor::Stream(
 		std::move(consumer), mode, std::make_unique<ZlibCompressOps>(m_level));
 }
-
 bool Zlib::DoDecompress(std::span<const std::byte> input, WriteOnly& output) const noexcept
 {
 	return Implementation::Compressor::ProcessSpan(
 		input, output, std::make_unique<ZlibDecompressOps>());
 }
-
 Consumer Zlib::DoDecompress(Consumer consumer, ReadMode mode) const noexcept
 {
 	return Implementation::Compressor::Stream(

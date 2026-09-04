@@ -1,14 +1,31 @@
+/*
+ * Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
+ *
+ * This file is part of StormByte-Crypto.
+ *
+ * StormByte-Crypto is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License version 3
+ * or later, as published by the Free Software Foundation.
+ *
+ * StormByte-Crypto is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with StormByte-Crypto. If not, see
+ * <https://www.gnu.org/licenses/lgpl-3.0.html>.
+ */
+
 #include <StormByte/crypto/implementation/secret/details.hxx>
 #include <StormByte/crypto/helpers/password_view.hxx>
 #include <StormByte/crypto/helpers/secure_wipe.hxx>
 #include <StormByte/crypto/implementation/keypair/api.hxx>
 #include <StormByte/crypto/random.hxx>
-
 #include <eccrypto.h>
 #include <oids.h>
 #include <queue.h>
 #include <xed25519.h>
-
 namespace StormByte::Crypto::Implementation::Secret {
 	namespace {
 		CryptoPP::OID CurveFromBits(unsigned short bits) noexcept
@@ -20,13 +37,6 @@ namespace StormByte::Crypto::Implementation::Secret {
 				default:  return CryptoPP::OID();
 			}
 		}
-
-		/**
-		 * @brief Normalize X25519 key material to the raw 32-byte form.
-		 *
-		 * Accepts either a bare 32-byte scalar/point or PKCS#8 / SPKI DER that
-		 * embeds a 32-byte OCTET STRING / BIT STRING (OpenSSL / Crypto++ style).
-		 */
 		bool ExtractX25519Raw32(const CryptoPP::SecByteBlock& in,
 								CryptoPP::SecByteBlock& out) noexcept
 		{

@@ -1,20 +1,34 @@
+/*
+ * Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
+ *
+ * This file is part of StormByte-Crypto.
+ *
+ * StormByte-Crypto is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License version 3
+ * or later, as published by the Free Software Foundation.
+ *
+ * StormByte-Crypto is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with StormByte-Crypto. If not, see
+ * <https://www.gnu.org/licenses/lgpl-3.0.html>.
+ */
+
 #include <StormByte/crypto/implementation/signer/details.hxx>
-
 #include <StormByte/buffer/producer.hxx>
-
 #include <thread>
-
 using StormByte::Buffer::Consumer;
 using StormByte::Buffer::Producer;
 using StormByte::Buffer::DataType;
 using StormByte::Buffer::WriteOnly;
 using StormByte::Crypto::ReadMode;
-
 namespace StormByte::Crypto::Implementation::Signer {
     namespace {
         constexpr size_t kChunkSize = 4096;
     }
-
     bool SignSpan(std::span<const std::byte> data,
                   WriteOnly& output,
                   std::unique_ptr<SignBox> box) noexcept
@@ -32,7 +46,6 @@ namespace StormByte::Crypto::Implementation::Signer {
             return false;
         }
     }
-
     Consumer SignStream(Consumer consumer,
                         ReadMode mode,
                         std::unique_ptr<SignBox> box) noexcept
@@ -42,7 +55,6 @@ namespace StormByte::Crypto::Implementation::Signer {
             producer.SetError();
             return producer.Consumer();
         }
-
         std::thread([consumer = std::move(consumer),
                      producer,
                      box = std::move(box),
@@ -55,7 +67,6 @@ namespace StormByte::Crypto::Implementation::Signer {
                         std::this_thread::yield();
                         continue;
                     }
-
                     size_t toRead = std::min(available, kChunkSize);
                     DataType data;
                     bool ok = (mode == ReadMode::Copy)
@@ -65,14 +76,12 @@ namespace StormByte::Crypto::Implementation::Signer {
                         producer.SetError();
                         return;
                     }
-
                     if (!box->Update(
                             std::span<const std::byte>(data.data(), data.size()))) {
                         producer.SetError();
                         return;
                     }
                 }
-
                 DataType signature;
                 if (!box->Finalize(signature)) {
                     producer.SetError();
@@ -87,10 +96,8 @@ namespace StormByte::Crypto::Implementation::Signer {
                 producer.SetError();
             }
         }).detach();
-
         return producer.Consumer();
     }
-
     bool VerifySpan(std::span<const std::byte> data,
                     const std::string& signature,
                     std::unique_ptr<VerifyBox> box) noexcept
@@ -107,7 +114,6 @@ namespace StormByte::Crypto::Implementation::Signer {
             return false;
         }
     }
-
     bool VerifyStream(Consumer consumer,
                       ReadMode mode,
                       const std::string& signature,
@@ -118,14 +124,12 @@ namespace StormByte::Crypto::Implementation::Signer {
         try {
             if (!box->Begin(signature))
                 return false;
-
             while (!consumer.EoF()) {
                 size_t available = consumer.AvailableBytes();
                 if (available == 0) {
                     std::this_thread::yield();
                     continue;
                 }
-
                 size_t toRead = std::min(available, kChunkSize);
                 DataType data;
                 bool ok = (mode == ReadMode::Copy)
@@ -133,12 +137,10 @@ namespace StormByte::Crypto::Implementation::Signer {
                     : consumer.Extract(toRead, data);
                 if (!ok)
                     return false;
-
                 if (!box->Update(
                         std::span<const std::byte>(data.data(), data.size())))
                     return false;
             }
-
             return box->Finalize();
         } catch (...) {
             return false;
