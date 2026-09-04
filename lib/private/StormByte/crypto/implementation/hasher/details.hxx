@@ -1,21 +1,21 @@
 /*
- * Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
- *
- * This file is part of StormByte-Crypto.
- *
- * StormByte-Crypto is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License version 3
- * or later, as published by the Free Software Foundation.
- *
- * StormByte-Crypto is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with StormByte-Crypto. If not, see
- * <https://www.gnu.org/licenses/lgpl-3.0.html>.
- */
+* Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
+*
+* This file is part of StormByte-Crypto.
+*
+* StormByte-Crypto is free software: you can redistribute it and/or modify
+* it under the terms of the GNU Lesser General Public License version 3
+* or later, as published by the Free Software Foundation.
+*
+* StormByte-Crypto is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU Lesser General Public License for more details.
+*
+* You should have received a copy of the GNU Lesser General Public License
+* along with StormByte-Crypto. If not, see
+* <https://www.gnu.org/licenses/lgpl-3.0.html>.
+*/
 
 #pragma once
 
@@ -23,44 +23,42 @@
 #include <StormByte/crypto/typedefs.hxx>
 #include <StormByte/crypto/visibility.h>
 
+#include <functional>
+#include <memory>
 #include <secblock.h>
 #include <span>
-#include <memory>
-#include <functional>
 
+/**
+ * @brief Private hasher implementation.
+ */
 namespace StormByte::Crypto::Implementation::Hasher {
 	/**
-	 * @brief Minimal interface for a chunk-oriented hash operation.
-	 *
-	 * Concrete implementations wrap a Crypto++ hash object.
-	 * The heavy streaming loop lives in the non-templated helpers below.
+	 * @struct Ops
+	 * @brief Chunk-oriented hash engine.
 	 */
 	struct Ops {
 		virtual ~Ops() = default;
 
 		/**
-		 * @brief Feed one input chunk into the hash.
-		 * @param in Input data.
+		 * @brief Feed one chunk.
+		 * @param in Input bytes.
 		 */
 		virtual void Update(std::span<const std::byte> in) = 0;
 
 		/**
-		 * @brief Finalize the hash and write the hex-encoded digest into @p out.
-		 * @param out Destination for the hex-encoded result.
-		 * @return true on success, false on failure.
+		 * @brief Finish and write the hex digest.
+		 * @param out Destination.
+		 * @return true on success.
 		 */
 		virtual bool Finalize(Buffer::DataType& out) = 0;
 	};
 
 	/**
-	 * @brief One-shot (span) hash helper.
-	 *
-	 * Calls Update + Finalize and writes the result to @p output.
-	 *
-	 * @param data     Input data.
-	 * @param output   Destination buffer.
-	 * @param ops      Ownership of the concrete hash operation.
-	 * @return true on success, false on failure.
+	 * @brief One-shot hash.
+	 * @param data Input.
+	 * @param output Destination.
+	 * @param ops Engine.
+	 * @return true on success.
 	 */
 	STORMBYTE_CRYPTO_PRIVATE bool ProcessSpan(
 		std::span<const std::byte> data,
@@ -68,15 +66,11 @@ namespace StormByte::Crypto::Implementation::Hasher {
 		std::unique_ptr<Ops> ops) noexcept;
 
 	/**
-	 * @brief Streaming hash helper.
-	 *
-	 * Runs the classic AvailableBytes / yield / Read|Extract loop in a
-	 * detached thread and returns a Consumer that yields the hex-encoded digest.
-	 *
-	 * @param consumer Source of input data.
-	 * @param mode     Copy or Move semantics.
-	 * @param ops      Ownership of the concrete hash operation.
-	 * @return Consumer that produces the final hex digest (or error).
+	 * @brief Streaming hash. Yields a hex digest.
+	 * @param consumer Input consumer.
+	 * @param mode Copy or move.
+	 * @param ops Engine.
+	 * @return Consumer with the digest.
 	 */
 	STORMBYTE_CRYPTO_PRIVATE Buffer::Consumer Stream(
 		Buffer::Consumer consumer,
