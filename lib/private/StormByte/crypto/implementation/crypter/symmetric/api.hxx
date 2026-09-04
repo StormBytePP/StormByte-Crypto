@@ -1,51 +1,57 @@
 /*
- * Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
- *
- * This file is part of StormByte-Crypto.
- *
- * StormByte-Crypto is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License version 3
- * or later, as published by the Free Software Foundation.
- *
- * StormByte-Crypto is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with StormByte-Crypto. If not, see
- * <https://www.gnu.org/licenses/lgpl-3.0.html>.
- */
+* Copyright (C) 2024-2026 David C. Manuelda (StormBytePP)
+*
+* This file is part of StormByte-Crypto.
+*
+* StormByte-Crypto is free software: you can redistribute it and/or modify
+* it under the terms of the GNU Lesser General Public License version 3
+* or later, as published by the Free Software Foundation.
+*
+* StormByte-Crypto is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU Lesser General Public License for more details.
+*
+* You should have received a copy of the GNU Lesser General Public License
+* along with StormByte-Crypto. If not, see
+* <https://www.gnu.org/licenses/lgpl-3.0.html>.
+*/
 
 #pragma once
 
+#include <StormByte/crypto/helpers/secure_wipe.hxx>
 #include <StormByte/crypto/implementation/crypter/details.hxx>
 #include <StormByte/crypto/implementation/crypter/symmetric/details.hxx>
-#include <StormByte/crypto/helpers/secure_wipe.hxx>
 #include <StormByte/crypto/password.hxx>
 #include <StormByte/crypto/random.hxx>
 #include <StormByte/crypto/typedefs.hxx>
 #include <StormByte/crypto/visibility.h>
 
+#include <cstring>
 #include <filters.h>
 #include <gcm.h>
+#include <memory>
 #include <modes.h>
 #include <secblock.h>
 #include <span>
-#include <memory>
-#include <cstring>
 #include <vector>
 
+/**
+ * @brief Private symmetric crypter implementation.
+ */
 namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
-	// =========================================================================
-	// CBC ENCRYPT
-	// =========================================================================
-
 	/**
-	 * @brief One-shot CBC encryption.
-	 * @tparam AlgoT      Algorithm traits (provides DEFAULT_KEYLENGTH).
-	 * @tparam CryptorT   Encryption object (e.g. CBC_Mode<AES>::Encryption).
+	 * @brief One-shot CBC encrypt.
+	 * @tparam AlgoT Algorithm traits (DEFAULT_KEYLENGTH).
+	 * @tparam CryptorT Crypto++ CBC encryption type.
 	 * @tparam CryptoHMAC Hash for PBKDF2.
+	 * @param dataSpan Input.
+	 * @param password Password.
+	 * @param output Destination.
+	 * @param salt_size Salt length.
+	 * @param iv_size IV length.
+	 * @param key_size Key length.
+	 * @return true on success.
 	 */
 	template<typename AlgoT, typename CryptorT, typename CryptoHMAC>
 	bool EncryptCBC(std::span<const std::byte> dataSpan,
@@ -55,22 +61,41 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 					const std::size_t& iv_size,
 					const std::size_t& key_size = AlgoT::DEFAULT_KEYLENGTH) noexcept
 	{
+		/**
+		 * @struct Ops
+		 * @brief One-shot CBC encrypt engine.
+		 */
 		struct Ops final : Crypter::Ops {
-			Password password;
-			std::size_t salt_size, iv_size, key_size;
-			CryptoPP::SecByteBlock salt, iv, key;
-			std::unique_ptr<CryptorT> encryption;
+			Password password;						///< Password material
+			std::size_t salt_size, iv_size, key_size;	///< Sizes
+			CryptoPP::SecByteBlock salt, iv, key;	///< Salt, IV, derived key
+			std::unique_ptr<CryptorT> encryption;	///< Cipher
 
+			/**
+			 * @brief Construct sized blocks.
+			 * @param p Password.
+			 * @param ss Salt size.
+			 * @param is IV size.
+			 * @param ks Key size.
+			 */
 			Ops(Password p, std::size_t ss, std::size_t is, std::size_t ks)
 				: password(std::move(p)), salt_size(ss), iv_size(is), key_size(ks)
 				, salt(ss), iv(is), key(ks) {}
 
+			/**
+			 * @brief Wipe key material.
+			 */
 			~Ops() override {
 				Helpers::SecureWipe(key);
 				Helpers::SecureWipe(salt);
 				Helpers::SecureWipe(iv);
 			}
 
+			/**
+			 * @brief Emit salt||IV and arm the cipher.
+			 * @param outChunk Header bytes.
+			 * @return true on success.
+			 */
 			bool WriteHeader(Buffer::DataType& outChunk) override
 			{
 				try {
@@ -92,6 +117,12 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 				}
 			}
 
+			/**
+			 * @brief Encrypt one chunk.
+			 * @param in Input.
+			 * @param outChunk Output.
+			 * @return true on success.
+			 */
 			bool Process(std::span<const std::byte> in, Buffer::DataType& outChunk) override
 			{
 				if (!encryption)
@@ -113,6 +144,10 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 				}
 			}
 
+			/**
+			 * @brief Nothing left after the last Process.
+			 * @return true.
+			 */
 			bool Finalize(Buffer::DataType& /*outChunk*/) override
 			{
 				return true;
@@ -125,7 +160,17 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 	}
 
 	/**
-	 * @brief Streaming CBC encryption.
+	 * @brief Streaming CBC encrypt.
+	 * @tparam AlgoT Algorithm traits.
+	 * @tparam CryptorT Crypto++ CBC encryption type.
+	 * @tparam CryptoHMAC Hash for PBKDF2.
+	 * @param consumer Input consumer.
+	 * @param password Password.
+	 * @param mode Copy or move.
+	 * @param salt_size Salt length.
+	 * @param iv_size IV length.
+	 * @param key_size Key length.
+	 * @return Consumer with salt||IV||ciphertext.
 	 */
 	template<typename AlgoT, typename CryptorT, typename CryptoHMAC>
 	Buffer::Consumer EncryptCBC(Buffer::Consumer consumer,
@@ -135,24 +180,43 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 								const std::size_t& iv_size,
 								const std::size_t& key_size = AlgoT::DEFAULT_KEYLENGTH) noexcept
 	{
+		/**
+		 * @struct Ops
+		 * @brief Streaming CBC encrypt engine.
+		 */
 		struct Ops final : Crypter::Ops {
-			Password password;
-			std::size_t salt_size, iv_size, key_size;
-			CryptoPP::SecByteBlock salt, iv, key;
-			std::unique_ptr<CryptorT> encryption;
-			Buffer::DataType buffer;
-			std::unique_ptr<CryptoPP::StreamTransformationFilter> filter;
+			Password password;						///< Password material
+			std::size_t salt_size, iv_size, key_size;	///< Sizes
+			CryptoPP::SecByteBlock salt, iv, key;	///< Salt, IV, derived key
+			std::unique_ptr<CryptorT> encryption;	///< Cipher
+			Buffer::DataType buffer;				///< Filter sink
+			std::unique_ptr<CryptoPP::StreamTransformationFilter> filter;	///< Live filter
 
+			/**
+			 * @brief Construct sized blocks.
+			 * @param p Password.
+			 * @param ss Salt size.
+			 * @param is IV size.
+			 * @param ks Key size.
+			 */
 			Ops(Password p, std::size_t ss, std::size_t is, std::size_t ks)
 				: password(std::move(p)), salt_size(ss), iv_size(is), key_size(ks)
 				, salt(ss), iv(is), key(ks) {}
 
+			/**
+			 * @brief Wipe key material.
+			 */
 			~Ops() override {
 				Helpers::SecureWipe(key);
 				Helpers::SecureWipe(salt);
 				Helpers::SecureWipe(iv);
 			}
 
+			/**
+			 * @brief Emit salt||IV, arm cipher and filter.
+			 * @param outChunk Header bytes.
+			 * @return true on success.
+			 */
 			bool WriteHeader(Buffer::DataType& outChunk) override
 			{
 				try {
@@ -179,6 +243,12 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 				}
 			}
 
+			/**
+			 * @brief Encrypt one chunk through the live filter.
+			 * @param in Input.
+			 * @param outChunk Output.
+			 * @return true on success.
+			 */
 			bool Process(std::span<const std::byte> in, Buffer::DataType& outChunk) override
 			{
 				try {
@@ -191,6 +261,11 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 				}
 			}
 
+			/**
+			 * @brief Finish the filter (padding).
+			 * @param outChunk Remaining output.
+			 * @return true on success.
+			 */
 			bool Finalize(Buffer::DataType& outChunk) override
 			{
 				try {
@@ -210,12 +285,18 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			std::make_unique<Ops>(std::move(password), salt_size, iv_size, key_size));
 	}
 
-	// =========================================================================
-	// CBC DECRYPT
-	// =========================================================================
-
 	/**
-	 * @brief One-shot CBC decryption.
+	 * @brief One-shot CBC decrypt.
+	 * @tparam AlgoT Algorithm traits.
+	 * @tparam DecryptorT Crypto++ CBC decryption type.
+	 * @tparam CryptoHMAC Hash for PBKDF2.
+	 * @param dataSpan Input (salt||IV||ciphertext).
+	 * @param password Password.
+	 * @param output Destination.
+	 * @param salt_size Salt length.
+	 * @param iv_size IV length.
+	 * @param key_size Key length.
+	 * @return true on success.
 	 */
 	template<typename AlgoT, typename DecryptorT, typename CryptoHMAC>
 	bool DecryptCBC(std::span<const std::byte> dataSpan,
@@ -225,22 +306,41 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 					const std::size_t& iv_size,
 					const std::size_t& key_size = AlgoT::DEFAULT_KEYLENGTH) noexcept
 	{
+		/**
+		 * @struct Ops
+		 * @brief One-shot CBC decrypt engine.
+		 */
 		struct Ops final : Crypter::Ops {
-			Password password;
-			std::size_t salt_size, iv_size, key_size;
-			CryptoPP::SecByteBlock salt, iv, key;
-			std::unique_ptr<DecryptorT> decryption;
+			Password password;						///< Password material
+			std::size_t salt_size, iv_size, key_size;	///< Sizes
+			CryptoPP::SecByteBlock salt, iv, key;	///< Salt, IV, derived key
+			std::unique_ptr<DecryptorT> decryption;	///< Cipher
 
+			/**
+			 * @brief Construct sized blocks.
+			 * @param p Password.
+			 * @param ss Salt size.
+			 * @param is IV size.
+			 * @param ks Key size.
+			 */
 			Ops(Password p, std::size_t ss, std::size_t is, std::size_t ks)
 				: password(std::move(p)), salt_size(ss), iv_size(is), key_size(ks)
 				, salt(ss), iv(is), key(ks) {}
 
+			/**
+			 * @brief Wipe key material.
+			 */
 			~Ops() override {
 				Helpers::SecureWipe(key);
 				Helpers::SecureWipe(salt);
 				Helpers::SecureWipe(iv);
 			}
 
+			/**
+			 * @brief Consume salt||IV from the span and arm the cipher.
+			 * @param in Remaining input after the header.
+			 * @return true on success.
+			 */
 			bool ReadHeader(std::span<const std::byte>& in) override
 			{
 				if (in.size_bytes() < salt_size + iv_size)
@@ -258,6 +358,12 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 				}
 			}
 
+			/**
+			 * @brief Decrypt one chunk.
+			 * @param in Input.
+			 * @param outChunk Output.
+			 * @return true on success.
+			 */
 			bool Process(std::span<const std::byte> in, Buffer::DataType& outChunk) override
 			{
 				if (!decryption)
@@ -279,6 +385,10 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 				}
 			}
 
+			/**
+			 * @brief Nothing left after the last Process.
+			 * @return true.
+			 */
 			bool Finalize(Buffer::DataType& /*outChunk*/) override
 			{
 				return true;
@@ -291,7 +401,17 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 	}
 
 	/**
-	 * @brief Streaming CBC decryption.
+	 * @brief Streaming CBC decrypt.
+	 * @tparam AlgoT Algorithm traits.
+	 * @tparam DecryptorT Crypto++ CBC decryption type.
+	 * @tparam CryptoHMAC Hash for PBKDF2.
+	 * @param consumer Input consumer.
+	 * @param password Password.
+	 * @param mode Copy or move.
+	 * @param salt_size Salt length.
+	 * @param iv_size IV length.
+	 * @param key_size Key length.
+	 * @return Consumer with the plaintext.
 	 */
 	template<typename AlgoT, typename DecryptorT, typename CryptoHMAC>
 	Buffer::Consumer DecryptCBC(Buffer::Consumer consumer,
@@ -301,24 +421,43 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 								const std::size_t& iv_size,
 								const std::size_t& key_size = AlgoT::DEFAULT_KEYLENGTH) noexcept
 	{
+		/**
+		 * @struct Ops
+		 * @brief Streaming CBC decrypt engine.
+		 */
 		struct Ops final : Crypter::Ops {
-			Password password;
-			std::size_t salt_size, iv_size, key_size;
-			CryptoPP::SecByteBlock salt, iv, key;
-			std::unique_ptr<DecryptorT> decryption;
-			Buffer::DataType buffer;
-			std::unique_ptr<CryptoPP::StreamTransformationFilter> filter;
+			Password password;						///< Password material
+			std::size_t salt_size, iv_size, key_size;	///< Sizes
+			CryptoPP::SecByteBlock salt, iv, key;	///< Salt, IV, derived key
+			std::unique_ptr<DecryptorT> decryption;	///< Cipher
+			Buffer::DataType buffer;				///< Filter sink
+			std::unique_ptr<CryptoPP::StreamTransformationFilter> filter;	///< Live filter
 
+			/**
+			 * @brief Construct sized blocks.
+			 * @param p Password.
+			 * @param ss Salt size.
+			 * @param is IV size.
+			 * @param ks Key size.
+			 */
 			Ops(Password p, std::size_t ss, std::size_t is, std::size_t ks)
 				: password(std::move(p)), salt_size(ss), iv_size(is), key_size(ks)
 				, salt(ss), iv(is), key(ks) {}
 
+			/**
+			 * @brief Wipe key material.
+			 */
 			~Ops() override {
 				Helpers::SecureWipe(key);
 				Helpers::SecureWipe(salt);
 				Helpers::SecureWipe(iv);
 			}
 
+			/**
+			 * @brief Extract salt||IV from the consumer and arm the filter.
+			 * @param consumer Input consumer.
+			 * @return true on success.
+			 */
 			bool ReadHeader(Buffer::Consumer& consumer) override
 			{
 				try {
@@ -347,6 +486,12 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 				}
 			}
 
+			/**
+			 * @brief Decrypt one chunk through the live filter.
+			 * @param in Input.
+			 * @param outChunk Output.
+			 * @return true on success.
+			 */
 			bool Process(std::span<const std::byte> in, Buffer::DataType& outChunk) override
 			{
 				try {
@@ -359,6 +504,11 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 				}
 			}
 
+			/**
+			 * @brief Finish the filter (padding).
+			 * @param outChunk Remaining output.
+			 * @return true on success.
+			 */
 			bool Finalize(Buffer::DataType& outChunk) override
 			{
 				try {
@@ -378,12 +528,19 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			std::make_unique<Ops>(std::move(password), salt_size, iv_size, key_size));
 	}
 
-	// =========================================================================
-	// GCM ENCRYPT
-	// =========================================================================
-
 	/**
-	 * @brief One-shot GCM encryption.
+	 * @brief One-shot GCM encrypt.
+	 * @tparam AlgoT Algorithm traits.
+	 * @tparam CryptorT Crypto++ GCM encryption type.
+	 * @tparam CryptoHMAC Hash for PBKDF2.
+	 * @param dataSpan Input.
+	 * @param password Password.
+	 * @param output Destination.
+	 * @param salt_size Salt length.
+	 * @param iv_size IV length.
+	 * @param key_size Key length.
+	 * @param aad Additional authenticated data.
+	 * @return true on success.
 	 */
 	template<typename AlgoT, typename CryptorT, typename CryptoHMAC>
 	bool EncryptGCM(std::span<const std::byte> dataSpan,
@@ -394,26 +551,46 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 					const std::size_t& key_size = AlgoT::DEFAULT_KEYLENGTH,
 					std::span<const std::byte> aad = {}) noexcept
 	{
+		/**
+		 * @struct Ops
+		 * @brief One-shot GCM encrypt engine.
+		 */
 		struct Ops final : Crypter::Ops {
-			Password password;
-			std::size_t salt_size, iv_size, key_size;
-			std::vector<std::byte> aad;
-			CryptoPP::SecByteBlock salt, iv, key;
-			CryptorT encryption;
-			bool ready = false;
+			Password password;						///< Password material
+			std::size_t salt_size, iv_size, key_size;	///< Sizes
+			std::vector<std::byte> aad;				///< AAD copy
+			CryptoPP::SecByteBlock salt, iv, key;	///< Salt, IV, derived key
+			CryptorT encryption;					///< Cipher
+			bool ready = false;						///< Header written
 
+			/**
+			 * @brief Construct sized blocks and copy AAD.
+			 * @param p Password.
+			 * @param ss Salt size.
+			 * @param is IV size.
+			 * @param ks Key size.
+			 * @param a AAD.
+			 */
 			Ops(Password p, std::size_t ss, std::size_t is, std::size_t ks,
 				std::span<const std::byte> a)
 				: password(std::move(p)), salt_size(ss), iv_size(is), key_size(ks)
 				, aad(a.begin(), a.end())
 				, salt(ss), iv(is), key(ks) {}
 
+			/**
+			 * @brief Wipe key material.
+			 */
 			~Ops() override {
 				Helpers::SecureWipe(key);
 				Helpers::SecureWipe(salt);
 				Helpers::SecureWipe(iv);
 			}
 
+			/**
+			 * @brief Emit salt||IV and arm the cipher.
+			 * @param outChunk Header bytes.
+			 * @return true on success.
+			 */
 			bool WriteHeader(Buffer::DataType& outChunk) override
 			{
 				try {
@@ -436,6 +613,12 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 				}
 			}
 
+			/**
+			 * @brief Encrypt the whole remaining input (tag in MessageEnd).
+			 * @param in Input.
+			 * @param outChunk Output.
+			 * @return true on success.
+			 */
 			bool Process(std::span<const std::byte> in, Buffer::DataType& outChunk) override
 			{
 				if (!ready)
@@ -458,6 +641,10 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 				}
 			}
 
+			/**
+			 * @brief Tag already emitted in Process.
+			 * @return true.
+			 */
 			bool Finalize(Buffer::DataType& /*outChunk*/) override
 			{
 				return true;
@@ -470,7 +657,18 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 	}
 
 	/**
-	 * @brief Streaming GCM encryption.
+	 * @brief Streaming GCM encrypt.
+	 * @tparam AlgoT Algorithm traits.
+	 * @tparam CryptorT Crypto++ GCM encryption type.
+	 * @tparam CryptoHMAC Hash for PBKDF2.
+	 * @param consumer Input consumer.
+	 * @param password Password.
+	 * @param mode Copy or move.
+	 * @param salt_size Salt length.
+	 * @param iv_size IV length.
+	 * @param key_size Key length.
+	 * @param aad Additional authenticated data.
+	 * @return Consumer with salt||IV||ciphertext||tag.
 	 */
 	template<typename AlgoT, typename CryptorT, typename CryptoHMAC>
 	Buffer::Consumer EncryptGCM(Buffer::Consumer consumer,
@@ -481,27 +679,47 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 								const std::size_t& key_size = AlgoT::DEFAULT_KEYLENGTH,
 								std::span<const std::byte> aad = {}) noexcept
 	{
+		/**
+		 * @struct Ops
+		 * @brief Streaming GCM encrypt engine.
+		 */
 		struct Ops final : Crypter::Ops {
-			Password password;
-			std::size_t salt_size, iv_size, key_size;
-			std::vector<std::byte> aad;
-			CryptoPP::SecByteBlock salt, iv, key;
-			CryptorT encryption;
-			Buffer::DataType buffer;
-			std::unique_ptr<CryptoPP::AuthenticatedEncryptionFilter> filter;
+			Password password;						///< Password material
+			std::size_t salt_size, iv_size, key_size;	///< Sizes
+			std::vector<std::byte> aad;				///< AAD copy
+			CryptoPP::SecByteBlock salt, iv, key;	///< Salt, IV, derived key
+			CryptorT encryption;					///< Cipher
+			Buffer::DataType buffer;				///< Filter sink
+			std::unique_ptr<CryptoPP::AuthenticatedEncryptionFilter> filter;	///< Live filter
 
+			/**
+			 * @brief Construct sized blocks and copy AAD.
+			 * @param p Password.
+			 * @param ss Salt size.
+			 * @param is IV size.
+			 * @param ks Key size.
+			 * @param a AAD.
+			 */
 			Ops(Password p, std::size_t ss, std::size_t is, std::size_t ks,
 				std::span<const std::byte> a)
 				: password(std::move(p)), salt_size(ss), iv_size(is), key_size(ks)
 				, aad(a.begin(), a.end())
 				, salt(ss), iv(is), key(ks) {}
 
+			/**
+			 * @brief Wipe key material.
+			 */
 			~Ops() override {
 				Helpers::SecureWipe(key);
 				Helpers::SecureWipe(salt);
 				Helpers::SecureWipe(iv);
 			}
 
+			/**
+			 * @brief Emit salt||IV, arm filter, push AAD.
+			 * @param outChunk Header bytes.
+			 * @return true on success.
+			 */
 			bool WriteHeader(Buffer::DataType& outChunk) override
 			{
 				try {
@@ -533,6 +751,12 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 				}
 			}
 
+			/**
+			 * @brief Encrypt one chunk.
+			 * @param in Input.
+			 * @param outChunk Output.
+			 * @return true on success.
+			 */
 			bool Process(std::span<const std::byte> in, Buffer::DataType& outChunk) override
 			{
 				try {
@@ -545,6 +769,11 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 				}
 			}
 
+			/**
+			 * @brief Finish and emit the tag.
+			 * @param outChunk Remaining output.
+			 * @return true on success.
+			 */
 			bool Finalize(Buffer::DataType& outChunk) override
 			{
 				try {
@@ -564,12 +793,18 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			std::make_unique<Ops>(std::move(password), salt_size, iv_size, key_size, aad));
 	}
 
-	// =========================================================================
-	// GCM DECRYPT
-	// =========================================================================
-
 	/**
-	 * @brief One-shot GCM decryption.
+	 * @brief One-shot GCM decrypt (no AAD).
+	 * @tparam AlgoT Algorithm traits.
+	 * @tparam DecryptorT Crypto++ GCM decryption type.
+	 * @tparam CryptoHMAC Hash for PBKDF2.
+	 * @param encryptedSpan Input.
+	 * @param password Password.
+	 * @param output Destination.
+	 * @param salt_size Salt length.
+	 * @param iv_size IV length.
+	 * @param key_size Key length.
+	 * @return true on success.
 	 */
 	template<typename AlgoT, typename DecryptorT, typename CryptoHMAC>
 	bool DecryptGCM(std::span<const std::byte> encryptedSpan,
@@ -579,23 +814,42 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 					const std::size_t& iv_size,
 					const std::size_t& key_size = AlgoT::DEFAULT_KEYLENGTH) noexcept
 	{
+		/**
+		 * @struct Ops
+		 * @brief One-shot GCM decrypt engine.
+		 */
 		struct Ops final : Crypter::Ops {
-			Password password;
-			std::size_t salt_size, iv_size, key_size;
-			CryptoPP::SecByteBlock salt, iv, key;
-			DecryptorT decryption;
-			bool ready = false;
+			Password password;						///< Password material
+			std::size_t salt_size, iv_size, key_size;	///< Sizes
+			CryptoPP::SecByteBlock salt, iv, key;	///< Salt, IV, derived key
+			DecryptorT decryption;					///< Cipher
+			bool ready = false;						///< Header consumed
 
+			/**
+			 * @brief Construct sized blocks.
+			 * @param p Password.
+			 * @param ss Salt size.
+			 * @param is IV size.
+			 * @param ks Key size.
+			 */
 			Ops(Password p, std::size_t ss, std::size_t is, std::size_t ks)
 				: password(std::move(p)), salt_size(ss), iv_size(is), key_size(ks)
 				, salt(ss), iv(is), key(ks) {}
 
+			/**
+			 * @brief Wipe key material.
+			 */
 			~Ops() override {
 				Helpers::SecureWipe(key);
 				Helpers::SecureWipe(salt);
 				Helpers::SecureWipe(iv);
 			}
 
+			/**
+			 * @brief Consume salt||IV from the span.
+			 * @param in Remaining input after the header.
+			 * @return true on success.
+			 */
 			bool ReadHeader(std::span<const std::byte>& in) override
 			{
 				if (in.size_bytes() < salt_size + iv_size)
@@ -614,6 +868,12 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 				}
 			}
 
+			/**
+			 * @brief Decrypt and verify the tag.
+			 * @param in Input.
+			 * @param outChunk Output.
+			 * @return true on success.
+			 */
 			bool Process(std::span<const std::byte> in, Buffer::DataType& outChunk) override
 			{
 				if (!ready)
@@ -632,6 +892,10 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 				}
 			}
 
+			/**
+			 * @brief Tag already verified in Process.
+			 * @return true.
+			 */
 			bool Finalize(Buffer::DataType& /*outChunk*/) override
 			{
 				return true;
@@ -644,7 +908,18 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 	}
 
 	/**
-	 * @brief Streaming GCM decryption.
+	 * @brief Streaming GCM decrypt.
+	 * @tparam AlgoT Algorithm traits.
+	 * @tparam DecryptorT Crypto++ GCM decryption type.
+	 * @tparam CryptoHMAC Hash for PBKDF2.
+	 * @param consumer Input consumer.
+	 * @param password Password.
+	 * @param mode Copy or move.
+	 * @param salt_size Salt length.
+	 * @param iv_size IV length.
+	 * @param key_size Key length.
+	 * @param aad Additional authenticated data.
+	 * @return Consumer with the plaintext.
 	 */
 	template<typename AlgoT, typename DecryptorT, typename CryptoHMAC>
 	Buffer::Consumer DecryptGCM(Buffer::Consumer consumer,
@@ -655,27 +930,47 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 								const std::size_t& key_size = AlgoT::DEFAULT_KEYLENGTH,
 								std::span<const std::byte> aad = {}) noexcept
 	{
+		/**
+		 * @struct Ops
+		 * @brief Streaming GCM decrypt engine.
+		 */
 		struct Ops final : Crypter::Ops {
-			Password password;
-			std::size_t salt_size, iv_size, key_size;
-			std::vector<std::byte> aad;
-			CryptoPP::SecByteBlock salt, iv, key;
-			DecryptorT decryption;
-			Buffer::DataType buffer;
-			std::unique_ptr<CryptoPP::AuthenticatedDecryptionFilter> filter;
+			Password password;						///< Password material
+			std::size_t salt_size, iv_size, key_size;	///< Sizes
+			std::vector<std::byte> aad;				///< AAD copy
+			CryptoPP::SecByteBlock salt, iv, key;	///< Salt, IV, derived key
+			DecryptorT decryption;					///< Cipher
+			Buffer::DataType buffer;				///< Filter sink
+			std::unique_ptr<CryptoPP::AuthenticatedDecryptionFilter> filter;	///< Live filter
 
+			/**
+			 * @brief Construct sized blocks and copy AAD.
+			 * @param p Password.
+			 * @param ss Salt size.
+			 * @param is IV size.
+			 * @param ks Key size.
+			 * @param a AAD.
+			 */
 			Ops(Password p, std::size_t ss, std::size_t is, std::size_t ks,
 				std::span<const std::byte> a)
 				: password(std::move(p)), salt_size(ss), iv_size(is), key_size(ks)
 				, aad(a.begin(), a.end())
 				, salt(ss), iv(is), key(ks) {}
 
+			/**
+			 * @brief Wipe key material.
+			 */
 			~Ops() override {
 				Helpers::SecureWipe(key);
 				Helpers::SecureWipe(salt);
 				Helpers::SecureWipe(iv);
 			}
 
+			/**
+			 * @brief Extract salt||IV, arm filter, push AAD.
+			 * @param consumer Input consumer.
+			 * @return true on success.
+			 */
 			bool ReadHeader(Buffer::Consumer& consumer) override
 			{
 				try {
@@ -710,6 +1005,12 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 				}
 			}
 
+			/**
+			 * @brief Decrypt one chunk.
+			 * @param in Input.
+			 * @param outChunk Output.
+			 * @return true on success.
+			 */
 			bool Process(std::span<const std::byte> in, Buffer::DataType& outChunk) override
 			{
 				try {
@@ -722,6 +1023,11 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 				}
 			}
 
+			/**
+			 * @brief Finish and verify the tag.
+			 * @param outChunk Remaining output.
+			 * @return true if the tag matches.
+			 */
 			bool Finalize(Buffer::DataType& outChunk) override
 			{
 				try {
@@ -743,12 +1049,19 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			std::make_unique<Ops>(std::move(password), salt_size, iv_size, key_size, aad));
 	}
 
-	// =========================================================================
-	// AEAD
-	// =========================================================================
-
 	/**
-	 * @brief One-shot AEAD encryption.
+	 * @brief One-shot AEAD encrypt. Delegates to EncryptGCM.
+	 * @tparam AlgoT Algorithm traits.
+	 * @tparam CryptorT Crypto++ AEAD encryption type.
+	 * @tparam CryptoHMAC Hash for PBKDF2.
+	 * @param dataSpan Input.
+	 * @param password Password.
+	 * @param output Destination.
+	 * @param salt_size Salt length.
+	 * @param iv_size IV length.
+	 * @param key_size Key length.
+	 * @param aad Additional authenticated data.
+	 * @return true on success.
 	 */
 	template<typename AlgoT, typename CryptorT, typename CryptoHMAC>
 	bool EncryptAEAD(std::span<const std::byte> dataSpan,
@@ -764,7 +1077,18 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 	}
 
 	/**
-	 * @brief Streaming AEAD encryption.
+	 * @brief Streaming AEAD encrypt. Delegates to EncryptGCM.
+	 * @tparam AlgoT Algorithm traits.
+	 * @tparam CryptorT Crypto++ AEAD encryption type.
+	 * @tparam CryptoHMAC Hash for PBKDF2.
+	 * @param consumer Input consumer.
+	 * @param password Password.
+	 * @param mode Copy or move.
+	 * @param salt_size Salt length.
+	 * @param iv_size IV length.
+	 * @param key_size Key length.
+	 * @param aad Additional authenticated data.
+	 * @return Consumer with the envelope.
 	 */
 	template<typename AlgoT, typename CryptorT, typename CryptoHMAC>
 	Buffer::Consumer EncryptAEAD(Buffer::Consumer consumer,
@@ -781,7 +1105,18 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 	}
 
 	/**
-	 * @brief One-shot AEAD decryption (supports AAD).
+	 * @brief One-shot AEAD decrypt with AAD.
+	 * @tparam AlgoT Algorithm traits.
+	 * @tparam DecryptorT Crypto++ AEAD decryption type.
+	 * @tparam CryptoHMAC Hash for PBKDF2.
+	 * @param encryptedSpan Input.
+	 * @param password Password.
+	 * @param output Destination.
+	 * @param salt_size Salt length.
+	 * @param iv_size IV length.
+	 * @param key_size Key length.
+	 * @param aad Additional authenticated data.
+	 * @return true on success.
 	 */
 	template<typename AlgoT, typename DecryptorT, typename CryptoHMAC>
 	bool DecryptAEAD(std::span<const std::byte> encryptedSpan,
@@ -792,26 +1127,46 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 					const std::size_t& key_size = AlgoT::DEFAULT_KEYLENGTH,
 					std::span<const std::byte> aad = {}) noexcept
 	{
+		/**
+		 * @struct Ops
+		 * @brief One-shot AEAD decrypt engine with AAD.
+		 */
 		struct Ops final : Crypter::Ops {
-			Password password;
-			std::size_t salt_size, iv_size, key_size;
-			std::vector<std::byte> aad;
-			CryptoPP::SecByteBlock salt, iv, key;
-			DecryptorT decryption;
-			bool ready = false;
+			Password password;						///< Password material
+			std::size_t salt_size, iv_size, key_size;	///< Sizes
+			std::vector<std::byte> aad;				///< AAD copy
+			CryptoPP::SecByteBlock salt, iv, key;	///< Salt, IV, derived key
+			DecryptorT decryption;					///< Cipher
+			bool ready = false;						///< Header consumed
 
+			/**
+			 * @brief Construct sized blocks and copy AAD.
+			 * @param p Password.
+			 * @param ss Salt size.
+			 * @param is IV size.
+			 * @param ks Key size.
+			 * @param a AAD.
+			 */
 			Ops(Password p, std::size_t ss, std::size_t is, std::size_t ks,
 				std::span<const std::byte> a)
 				: password(std::move(p)), salt_size(ss), iv_size(is), key_size(ks)
 				, aad(a.begin(), a.end())
 				, salt(ss), iv(is), key(ks) {}
 
+			/**
+			 * @brief Wipe key material.
+			 */
 			~Ops() override {
 				Helpers::SecureWipe(key);
 				Helpers::SecureWipe(salt);
 				Helpers::SecureWipe(iv);
 			}
 
+			/**
+			 * @brief Consume salt||IV from the span.
+			 * @param in Remaining input after the header.
+			 * @return true on success.
+			 */
 			bool ReadHeader(std::span<const std::byte>& in) override
 			{
 				if (in.size_bytes() < salt_size + iv_size)
@@ -830,6 +1185,12 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 				}
 			}
 
+			/**
+			 * @brief Decrypt and verify with AAD.
+			 * @param in Input.
+			 * @param outChunk Output.
+			 * @return true on success.
+			 */
 			bool Process(std::span<const std::byte> in, Buffer::DataType& outChunk) override
 			{
 				if (!ready)
@@ -853,6 +1214,10 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 				}
 			}
 
+			/**
+			 * @brief Tag already verified in Process.
+			 * @return true.
+			 */
 			bool Finalize(Buffer::DataType& /*outChunk*/) override
 			{
 				return true;
@@ -865,7 +1230,18 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 	}
 
 	/**
-	 * @brief Streaming AEAD decryption.
+	 * @brief Streaming AEAD decrypt. Delegates to DecryptGCM.
+	 * @tparam AlgoT Algorithm traits.
+	 * @tparam DecryptorT Crypto++ AEAD decryption type.
+	 * @tparam CryptoHMAC Hash for PBKDF2.
+	 * @param consumer Input consumer.
+	 * @param password Password.
+	 * @param mode Copy or move.
+	 * @param salt_size Salt length.
+	 * @param iv_size IV length.
+	 * @param key_size Key length.
+	 * @param aad Additional authenticated data.
+	 * @return Consumer with the plaintext.
 	 */
 	template<typename AlgoT, typename DecryptorT, typename CryptoHMAC>
 	Buffer::Consumer DecryptAEAD(Buffer::Consumer consumer,
