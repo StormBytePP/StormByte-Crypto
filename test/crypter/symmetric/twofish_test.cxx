@@ -57,7 +57,7 @@ int TestTwofishWrongDecryptionPassword() {
 	// Decrypt with wrong password
 	// Note: PKCS#7 padding validation will typically detect wrong password
 	FIFO decrypted_d;
-	auto decrypt_result = wrongTwofish.Decrypt(std::span<const std::byte>(reinterpret_cast<const std::byte*>(encrypted_d.Data().data()), encrypted_d.Data().size()), decrypted_d);
+	[[maybe_unused]] auto decrypt_result = wrongTwofish.Decrypt(std::span<const std::byte>(reinterpret_cast<const std::byte*>(encrypted_d.Data().data()), encrypted_d.Data().size()), decrypted_d);
 	// Either decryption fails (padding error) or succeeds with garbage data
 	// If decryption succeeds, verify the data does NOT match the original
 	ASSERT_NOT_EQUAL(fn_name, std::string(reinterpret_cast<const char*>(decrypted_d.Data().data()), decrypted_d.Data().size()), original);

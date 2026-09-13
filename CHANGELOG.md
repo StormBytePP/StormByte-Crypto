@@ -32,6 +32,7 @@ If you landed here from a release link and have not read the tree:
 ### Fixed
 
 - CMake: promote the system BZip2 imported target to global scope so `WITH_BZIP2=SYSTEM` resolves from the top-level directory.
+- Tests: silence `-Werror=unused-variable` under GCC in the AES/Camellia/Serpent/Twofish symmetric crypter tests, where the decrypt result is intentionally unchecked (CBC either fails padding or succeeds with garbage).
 
 ## [1.0.0] - 2026-09-04
 

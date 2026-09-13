@@ -62,7 +62,7 @@ int TestAESWrongDecryptionPassword() {
 	// Attempt to decrypt with a wrong password
 	// Note: CBC mode doesn't authenticate, so decryption will "succeed" but produce garbage
 	FIFO decrypted_d;
-	auto decrypt_result = aes_wrong.Decrypt(std::span<const std::byte>(reinterpret_cast<const std::byte*>(encrypted_string.data()), encrypted_string.size()), decrypted_d);
+	[[maybe_unused]] auto decrypt_result = aes_wrong.Decrypt(std::span<const std::byte>(reinterpret_cast<const std::byte*>(encrypted_string.data()), encrypted_string.size()), decrypted_d);
 	// Verify the decrypted data does NOT match the original
 	ASSERT_NOT_EQUAL(fn_name, StormByte::String::FromByteVector(decrypted_d.Data()), original_data);
 	RETURN_TEST(fn_name, 0);
@@ -94,7 +94,7 @@ int TestAESDecryptionWithCorruptedData() {
 	}
 	// Attempt to decrypt the corrupted data
 	FIFO corrupted_data;
-	auto decrypt_result = aes.Decrypt(std::span<const std::byte>(reinterpret_cast<const std::byte*>(corrupted_string.data()), corrupted_string.size()), corrupted_data);
+	[[maybe_unused]] auto decrypt_result = aes.Decrypt(std::span<const std::byte>(reinterpret_cast<const std::byte*>(corrupted_string.data()), corrupted_string.size()), corrupted_data);
 	// CBC mode with corrupted data should either:
 	// 1. Fail with padding error (decrypt_result has no value), OR
 	// 2. Succeed but produce garbage (different from original)
