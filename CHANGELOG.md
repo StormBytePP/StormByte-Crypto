@@ -20,6 +20,15 @@ If you landed here from a release link and have not read the tree:
 
 ## [Unreleased]
 
+### Changed
+
+- Exception hierarchy ported to `StormByte::Component`: `Crypto::Exception` names itself `"Crypto"`, and each per-component exception (`CompressorException`, `CrypterException`, `HasherException`, `KeyPairException`, `SecretException`, `SignerException`, `VaultException`) combines its own name with the parent's through its constructor instead of manual string concatenation. Removed the now-unneeded workaround for MSVC constructor-inheritance ambiguity.
+- Bumped the StormByte Buffer dependency to 1.1.0.
+
+### Added
+
+- `VaultException`: `Vault::Get` on a missing entry now returns a dedicated exception instead of the generic `Exception`.
+
 ### Fixed
 
 - CMake: promote the system BZip2 imported target to global scope so `WITH_BZIP2=SYSTEM` resolves from the top-level directory.
@@ -52,6 +61,7 @@ Initial public release of StormByte Crypto.
 
 - Installed headers do not include Crypto++. Static Crypto++ means consumers do not install it.
 - Authenticated modes and wrapped private keys fail closed on a bad password or a bad tag.
-- Needs a C++26 compiler, StormByte Base ≥ 1.0.0, StormByte Buffer ≥ 1.0.0, and Crypto++ at build time.
+- Needs a C++26 compiler, StormByte Base ≥ 1.0.0, StormByte Buffer ≥ 1.1.0, and Crypto++ at build time.
 
+[Unreleased]: https://github.com/StormBytePP/StormByte-Crypto/compare/1.0.0...HEAD
 [1.0.0]: https://github.com/StormBytePP/StormByte-Crypto/releases/tag/1.0.0

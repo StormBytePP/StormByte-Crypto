@@ -41,7 +41,7 @@ void Vault::Store(std::string name, Password password) noexcept {
 ExpectedPassword Vault::Get(const std::string& name) const noexcept {
 	auto it = m_passwords.find(name);
 	if (it == m_passwords.end()) {
-		return StormByte::Unexpected<Exception>("Vault", "Password '{}' not found", name);
+		return StormByte::Unexpected<VaultException>("Password '{}' not found", name);
 	}
 	return it->second;
 }

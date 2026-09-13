@@ -29,27 +29,54 @@ namespace StormByte::Crypto {
 	/**
 	 * @class Exception
 	 * @brief Base exception for the crypto module.
+	 *
+	 * Knows its own @ref StormByte::Component name (`"Crypto"`). A derived, per-component
+	 * exception (@ref CompressorException, @ref CrypterException, ...) only names itself
+	 * (e.g. `Component("Compressor")`) through the protected constructors below, which combine
+	 * it with `"Crypto"`; it never repeats the parent's name. Anything deriving further down (a
+	 * "leaf") does not name a component at all: `using Parent::Parent;` inherits the
+	 * constructors already bound to the parent's combined name. The component is passed as
+	 * `StormByte::Component`, never a plain string, so it can never be confused with the
+	 * plain-message or format-string constructors during overload resolution.
 	 */
 	class STORMBYTE_CRYPTO_PUBLIC Exception: public StormByte::Exception {
 		public:
 			/**
-			 * @brief Constructor.
+			 * @brief Plain-message constructor, tagged with the `"Crypto"` component.
 			 * @param message Exception message.
 			 */
 			inline Exception(const std::string& message):
-				StormByte::Exception("Crypto", message) {}
+				StormByte::Exception(StormByte::Component("Crypto"), "{}", message) {}
 
 			/**
-			 * @brief Constructor with a component prefix and a format string.
-			 * @param component Component where the exception occurred.
+			 * @brief Format-string constructor, tagged with the `"Crypto"` component.
+			 * @tparam Args Format argument types.
 			 * @param fmt Format string.
 			 * @param args Format arguments.
 			 */
 			template <typename... Args>
-			inline Exception(const std::string& component, std::format_string<Args...> fmt, Args&&... args):
-				StormByte::Exception("Crypto::" + component, fmt, std::forward<Args>(args)...) {}
+			inline Exception(std::format_string<Args...> fmt, Args&&... args):
+				StormByte::Exception(StormByte::Component("Crypto"), fmt, std::forward<Args>(args)...) {}
 
-			// Intentionally do not inherit base constructors to avoid MSVC overload ambiguities
+		protected:
+			/**
+			 * @brief Combines @p component with `"Crypto"` and a plain message, for a derived exception's own constructor.
+			 * @param component This derived exception's own name (e.g. `Component("Compressor")`).
+			 * @param message Exception message.
+			 */
+			inline Exception(StormByte::Component component, const std::string& message):
+				StormByte::Exception(StormByte::Component("Crypto::" + std::string(component.name)), "{}", message) {}
+
+			/**
+			 * @brief Combines @p component with `"Crypto"`, for a derived exception's own constructor.
+			 * @tparam Args Format argument types.
+			 * @param component This derived exception's own name (e.g. `Component("Compressor")`).
+			 * @param fmt Format string.
+			 * @param args Format arguments.
+			 */
+			template <typename... Args>
+			inline Exception(StormByte::Component component, std::format_string<Args...> fmt, Args&&... args):
+				StormByte::Exception(StormByte::Component("Crypto::" + std::string(component.name)), fmt, std::forward<Args>(args)...) {}
 	};
 
 	/**
@@ -59,19 +86,21 @@ namespace StormByte::Crypto {
 	class STORMBYTE_CRYPTO_PUBLIC CompressorException: public Exception {
 		public:
 			/**
-			 * @brief Plain-string constructor (avoids MSVC overload ambiguity with `const char*`).
+			 * @brief Plain-message constructor, tagged with the `"Crypto::Compressor"` component.
 			 * @param message Exception message.
 			 */
-			inline CompressorException(const std::string& message): Exception(std::string("Compressor: ") + message) {}
+			inline CompressorException(const std::string& message):
+				Exception(StormByte::Component("Compressor"), message) {}
 
 			/**
-			 * @brief Format-string constructor.
+			 * @brief Format-string constructor, tagged with the `"Crypto::Compressor"` component.
+			 * @tparam Args Format argument types.
 			 * @param fmt Format string.
 			 * @param args Format arguments.
 			 */
 			template <typename... Args>
 			inline CompressorException(std::format_string<Args...> fmt, Args&&... args):
-				Exception("Compressor: ", fmt, std::forward<Args>(args)...) {}
+				Exception(StormByte::Component("Compressor"), fmt, std::forward<Args>(args)...) {}
 	};
 
 	/**
@@ -81,19 +110,21 @@ namespace StormByte::Crypto {
 	class STORMBYTE_CRYPTO_PUBLIC CrypterException: public Exception {
 		public:
 			/**
-			 * @brief Plain-string constructor.
+			 * @brief Plain-message constructor, tagged with the `"Crypto::Crypter"` component.
 			 * @param message Exception message.
 			 */
-			inline CrypterException(const std::string& message): Exception(std::string("Crypter: ") + message) {}
+			inline CrypterException(const std::string& message):
+				Exception(StormByte::Component("Crypter"), message) {}
 
 			/**
-			 * @brief Format-string constructor.
+			 * @brief Format-string constructor, tagged with the `"Crypto::Crypter"` component.
+			 * @tparam Args Format argument types.
 			 * @param fmt Format string.
 			 * @param args Format arguments.
 			 */
 			template <typename... Args>
 			inline CrypterException(std::format_string<Args...> fmt, Args&&... args):
-				Exception("Crypter: ", fmt, std::forward<Args>(args)...) {}
+				Exception(StormByte::Component("Crypter"), fmt, std::forward<Args>(args)...) {}
 	};
 
 	/**
@@ -103,19 +134,21 @@ namespace StormByte::Crypto {
 	class STORMBYTE_CRYPTO_PUBLIC HasherException: public Exception {
 		public:
 			/**
-			 * @brief Plain-string constructor.
+			 * @brief Plain-message constructor, tagged with the `"Crypto::Hasher"` component.
 			 * @param message Exception message.
 			 */
-			inline HasherException(const std::string& message): Exception(std::string("Hasher: ") + message) {}
+			inline HasherException(const std::string& message):
+				Exception(StormByte::Component("Hasher"), message) {}
 
 			/**
-			 * @brief Format-string constructor.
+			 * @brief Format-string constructor, tagged with the `"Crypto::Hasher"` component.
+			 * @tparam Args Format argument types.
 			 * @param fmt Format string.
 			 * @param args Format arguments.
 			 */
 			template <typename... Args>
 			inline HasherException(std::format_string<Args...> fmt, Args&&... args):
-				Exception("Hasher: ", fmt, std::forward<Args>(args)...) {}
+				Exception(StormByte::Component("Hasher"), fmt, std::forward<Args>(args)...) {}
 	};
 
 	/**
@@ -125,19 +158,21 @@ namespace StormByte::Crypto {
 	class STORMBYTE_CRYPTO_PUBLIC KeyPairException: public Exception {
 		public:
 			/**
-			 * @brief Plain-string constructor.
+			 * @brief Plain-message constructor, tagged with the `"Crypto::KeyPair"` component.
 			 * @param message Exception message.
 			 */
-			inline KeyPairException(const std::string& message): Exception(std::string("KeyPair: ") + message) {}
+			inline KeyPairException(const std::string& message):
+				Exception(StormByte::Component("KeyPair"), message) {}
 
 			/**
-			 * @brief Format-string constructor.
+			 * @brief Format-string constructor, tagged with the `"Crypto::KeyPair"` component.
+			 * @tparam Args Format argument types.
 			 * @param fmt Format string.
 			 * @param args Format arguments.
 			 */
 			template <typename... Args>
 			inline KeyPairException(std::format_string<Args...> fmt, Args&&... args):
-				Exception("KeyPair: ", fmt, std::forward<Args>(args)...) {}
+				Exception(StormByte::Component("KeyPair"), fmt, std::forward<Args>(args)...) {}
 	};
 
 	/**
@@ -147,19 +182,21 @@ namespace StormByte::Crypto {
 	class STORMBYTE_CRYPTO_PUBLIC SecretException: public Exception {
 		public:
 			/**
-			 * @brief Plain-string constructor.
+			 * @brief Plain-message constructor, tagged with the `"Crypto::Secret"` component.
 			 * @param message Exception message.
 			 */
-			inline SecretException(const std::string& message): Exception(std::string("Secret: ") + message) {}
+			inline SecretException(const std::string& message):
+				Exception(StormByte::Component("Secret"), message) {}
 
 			/**
-			 * @brief Format-string constructor.
+			 * @brief Format-string constructor, tagged with the `"Crypto::Secret"` component.
+			 * @tparam Args Format argument types.
 			 * @param fmt Format string.
 			 * @param args Format arguments.
 			 */
 			template <typename... Args>
 			inline SecretException(std::format_string<Args...> fmt, Args&&... args):
-				Exception("Secret: ", fmt, std::forward<Args>(args)...) {}
+				Exception(StormByte::Component("Secret"), fmt, std::forward<Args>(args)...) {}
 	};
 
 	/**
@@ -169,18 +206,44 @@ namespace StormByte::Crypto {
 	class STORMBYTE_CRYPTO_PUBLIC SignerException: public Exception {
 		public:
 			/**
-			 * @brief Plain-string constructor.
+			 * @brief Plain-message constructor, tagged with the `"Crypto::Signer"` component.
 			 * @param message Exception message.
 			 */
-			inline SignerException(const std::string& message): Exception(std::string("Signer: ") + message) {}
+			inline SignerException(const std::string& message):
+				Exception(StormByte::Component("Signer"), message) {}
 
 			/**
-			 * @brief Format-string constructor.
+			 * @brief Format-string constructor, tagged with the `"Crypto::Signer"` component.
+			 * @tparam Args Format argument types.
 			 * @param fmt Format string.
 			 * @param args Format arguments.
 			 */
 			template <typename... Args>
 			inline SignerException(std::format_string<Args...> fmt, Args&&... args):
-				Exception("Signer: ", fmt, std::forward<Args>(args)...) {}
+				Exception(StormByte::Component("Signer"), fmt, std::forward<Args>(args)...) {}
+	};
+
+	/**
+	 * @class VaultException
+	 * @brief Exception from the vault component.
+	 */
+	class STORMBYTE_CRYPTO_PUBLIC VaultException: public Exception {
+		public:
+			/**
+			 * @brief Plain-message constructor, tagged with the `"Crypto::Vault"` component.
+			 * @param message Exception message.
+			 */
+			inline VaultException(const std::string& message):
+				Exception(StormByte::Component("Vault"), message) {}
+
+			/**
+			 * @brief Format-string constructor, tagged with the `"Crypto::Vault"` component.
+			 * @tparam Args Format argument types.
+			 * @param fmt Format string.
+			 * @param args Format arguments.
+			 */
+			template <typename... Args>
+			inline VaultException(std::format_string<Args...> fmt, Args&&... args):
+				Exception(StormByte::Component("Vault"), fmt, std::forward<Args>(args)...) {}
 	};
 }

@@ -54,6 +54,8 @@ int TestVaultGetMissing() {
 	vault.Store("only", Password("present"));
 	auto missing = vault.Get("nope");
 	ASSERT_FALSE(fn_name, static_cast<bool>(missing));
+	const std::string message = missing.error()->what();
+	ASSERT_TRUE(fn_name, message.find("StormByte::Crypto::Vault") != std::string::npos);
 	RETURN_TEST(fn_name, 0);
 }
 int TestVaultOverwrite() {

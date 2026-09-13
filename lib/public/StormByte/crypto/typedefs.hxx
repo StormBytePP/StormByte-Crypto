@@ -40,5 +40,5 @@ namespace StormByte::Crypto {
 		Move	///< Consume the input
 	};
 
-	using ExpectedPassword = StormByte::Expected<Password, Exception>;	///< Password or Crypto exception
+	using ExpectedPassword = StormByte::Expected<Password, VaultException>;	///< Password or Vault exception
 }
