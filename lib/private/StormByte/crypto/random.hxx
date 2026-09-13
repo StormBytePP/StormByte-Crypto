@@ -28,7 +28,11 @@
  */
 namespace StormByte::Crypto {
 	/**
-	 * @brief Process-wide AutoSeededRandomPool.
+	 * @brief Per-thread `AutoSeededRandomPool`.
+	 *
+	 * `CryptoPP::AutoSeededRandomPool` is not safe for concurrent use; the streaming
+	 * encrypt/decrypt paths run their own detached worker thread per operation, so a single
+	 * process-wide instance would race. Returns each calling thread's own instance instead.
 	 * @return RNG reference.
 	 */
 	STORMBYTE_CRYPTO_PRIVATE CryptoPP::AutoSeededRandomPool& RNG();
