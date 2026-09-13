@@ -554,13 +554,7 @@ namespace {
 			SecureWipe(iv);
 			SecureWipe(key);
 			SecureWipe(ciphertext);
-			if (!plainStr.empty()) {
-				CryptoPP::SecByteBlock wipe(
-					reinterpret_cast<CryptoPP::byte*>(&plainStr[0]),
-					plainStr.size()
-				);
-				SecureWipe(wipe);
-			}
+			SecureWipe(plainStr);
 			return !outPlainPkcs8.empty();
 		} catch (...) {
 			SecureWipe(salt);
@@ -656,13 +650,7 @@ namespace {
 			SecureWipe(iv);
 			SecureWipe(key);
 			SecureWipe(ciphertext);
-			if (!cipherStr.empty()) {
-				CryptoPP::SecByteBlock wipe(
-					reinterpret_cast<CryptoPP::byte*>(&cipherStr[0]),
-					cipherStr.size()
-				);
-				SecureWipe(wipe);
-			}
+			SecureWipe(cipherStr);
 			return !outEncDer.empty();
 		} catch (...) {
 			SecureWipe(salt);
@@ -685,8 +673,7 @@ namespace {
 		std::vector<CryptoPP::byte> plain;
 		if (!DecryptPkcs8EncryptedDer(privDer, *password, plain))
 			return false;
-		CryptoPP::SecByteBlock wipe(privDer.data(), privDer.size());
-		SecureWipe(wipe);
+		SecureWipe(privDer);
 		privDer = std::move(plain);
 		return true;
 	}
@@ -909,10 +896,7 @@ namespace {
 						Password privPwd = PrivateDerToPassword(
 							std::span<const CryptoPP::byte>(pkcs8.data(), pkcs8.size())
 						);
-						{
-							CryptoPP::SecByteBlock wipe(pkcs8.data(), pkcs8.size());
-							SecureWipe(wipe);
-						}
+						SecureWipe(pkcs8);
 						std::string pubStored;
 						if (pubDer && !pubDer->empty()) {
 							pubStored = PublicDerToStored(*pubDer);
@@ -986,10 +970,7 @@ namespace {
 					privPwd = PrivateDerToPassword(
 						std::span<const CryptoPP::byte>(normalized.data(), normalized.size())
 					);
-					{
-						CryptoPP::SecByteBlock wipe(normalized.data(), normalized.size());
-						SecureWipe(wipe);
-					}
+					SecureWipe(normalized);
 				} catch (...) {
 					return nullptr;
 				}
@@ -1085,11 +1066,7 @@ namespace {
 			const std::string pem = PemEncode("PRIVATE KEY", der.data(), der.size());
 			ok = WriteFileBytes(path, reinterpret_cast<const CryptoPP::byte*>(pem.data()), pem.size());
 		}
-		if (!der.empty()) {
-			CryptoPP::SecByteBlock tmp(der.data(), der.size());
-			SecureWipe(tmp);
-		}
-		der.clear();
+		SecureWipe(der);
 		return ok;
 	}
 	bool WritePrivateFileEncrypted(
@@ -1103,11 +1080,7 @@ namespace {
 			return false;
 		std::vector<CryptoPP::byte> encDer;
 		const bool encrypted = EncryptPkcs8Der(plainDer, encryptPassword, encDer);
-		{
-			CryptoPP::SecByteBlock wipe(plainDer.data(), plainDer.size());
-			SecureWipe(wipe);
-			plainDer.clear();
-		}
+		SecureWipe(plainDer);
 		if (!encrypted || encDer.empty())
 			return false;
 		bool ok = false;
@@ -1117,11 +1090,7 @@ namespace {
 			const std::string pem = PemEncode("ENCRYPTED PRIVATE KEY", encDer.data(), encDer.size());
 			ok = WriteFileBytes(path, reinterpret_cast<const CryptoPP::byte*>(pem.data()), pem.size());
 		}
-		{
-			CryptoPP::SecByteBlock wipe(encDer.data(), encDer.size());
-			SecureWipe(wipe);
-			encDer.clear();
-		}
+		SecureWipe(encDer);
 		return ok;
 	}
 }

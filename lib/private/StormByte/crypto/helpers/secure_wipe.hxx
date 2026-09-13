@@ -79,4 +79,18 @@ namespace StormByte::Crypto::Helpers {
 		data.clear();
 		data.shrink_to_fit();
 	}
+
+	/**
+	 * @brief Zero a vector of Crypto++ bytes (`unsigned char`).
+	 * @param data Vector to wipe.
+	 */
+	inline void SecureWipe(std::vector<unsigned char>& data) noexcept {
+		if (data.empty()) return;
+		volatile unsigned char* p = data.data();
+		for (size_t i = 0; i < data.size(); ++i) {
+			p[i] = 0;
+		}
+		data.clear();
+		data.shrink_to_fit();
+	}
 }
