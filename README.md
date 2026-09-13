@@ -58,7 +58,7 @@ The suite is split on purpose. Base, Buffer, Config, Database, Logger, Multimedi
 
 ## Installation
 
-Needs a C++26 compiler, CMake 3.28 or newer, [StormByte Base](https://github.com/StormBytePP/StormByte) ≥ 1.0.0 and [StormByte Buffer](https://github.com/StormBytePP/StormByte-Buffer) ≥ 1.1.0. Crypto++ and libbzip2 are build dependencies. Prefer a **static** Crypto++ link when you redistribute.
+Needs a C++26 compiler, CMake 3.28 or newer, [StormByte Base ≥ 1.1.0](https://github.com/StormBytePP/StormByte/releases/tag/1.1.0) and [StormByte Buffer ≥ 1.1.0](https://github.com/StormBytePP/StormByte-Buffer/releases/tag/1.1.0). Crypto++ and libbzip2 are build dependencies. Prefer a **static** Crypto++ link when you redistribute.
 
 ```sh
 git clone --recursive https://github.com/StormBytePP/StormByte-Crypto.git

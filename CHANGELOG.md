@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 StormByte Crypto is the cryptography module of the StormByte C++ suite.
 
-It depends on StormByte Base and StormByte Buffer. This repository is not Base, Buffer, Config, Database, Logger, Multimedia, Network or System.
+It depends on [StormByte Base](https://github.com/StormBytePP/StormByte) and [StormByte Buffer](https://github.com/StormBytePP/StormByte-Buffer). This repository is not Base, Buffer, Config, Database, Logger, Multimedia, Network or System.
 
 Public headers under `StormByte/crypto/` cover Hasher, Compressor, Crypter (symmetric and asymmetric), Signer, Secret, KeyPair, Password and Vault. Crypto++ never leaves the private tree.
 
@@ -44,7 +44,7 @@ If you landed here from a release link and have not read the tree:
 ### Notes
 
 - Decompression of untrusted input is not size-bounded by this module (same as the underlying zlib/libbzip2); callers must bound it themselves. See [README.md](https://github.com/StormBytePP/StormByte-Crypto/blob/master/README.md#security-notes).
-- Needs a C++26 compiler, StormByte Base ≥ 1.0.0, StormByte Buffer ≥ 1.1.0, and Crypto++ at build time.
+- Needs a C++26 compiler, [StormByte Base ≥ 1.1.0](https://github.com/StormBytePP/StormByte/releases/tag/1.1.0), [StormByte Buffer ≥ 1.1.0](https://github.com/StormBytePP/StormByte-Buffer/releases/tag/1.1.0), and Crypto++ at build time.
 
 ## [1.0.0] - 2026-09-04
 
@@ -74,7 +74,7 @@ Initial public release of StormByte Crypto.
 
 - Installed headers do not include Crypto++. Static Crypto++ means consumers do not install it.
 - Authenticated modes and wrapped private keys fail closed on a bad password or a bad tag.
-- Needs a C++26 compiler, StormByte Base ≥ 1.0.0, StormByte Buffer ≥ 1.1.0, and Crypto++ at build time.
+- Needs a C++26 compiler, [StormByte Base ≥ 1.1.0](https://github.com/StormBytePP/StormByte/releases/tag/1.1.0), [StormByte Buffer ≥ 1.1.0](https://github.com/StormBytePP/StormByte-Buffer/releases/tag/1.1.0), and Crypto++ at build time.
 
 [Unreleased]: https://github.com/StormBytePP/StormByte-Crypto/compare/1.1.0...HEAD
 [1.1.0]: https://github.com/StormBytePP/StormByte-Crypto/compare/1.0.0...1.1.0
