@@ -30,6 +30,7 @@ If you landed here from a release link and have not read the tree:
 ### Added
 
 - `VaultException`: `Vault::Get` on a missing entry now returns a dedicated exception instead of the generic `Exception`.
+- Header-only `StormByte::Type::ByteInputRange` overloads for block hashing, compression, encryption, signing and signature verification. They accept byte-convertible input ranges such as `std::string_view`, `std::vector<uint8_t>` and `std::span`, then delegate to the existing byte-span APIs without changing their ABI.
 
 ### Fixed
 

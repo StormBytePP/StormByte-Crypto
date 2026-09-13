@@ -22,7 +22,11 @@
 #include <StormByte/crypto/hasher/sha256.hxx>
 #include <StormByte/test_handlers.h>
 #include "helpers.hxx"
+#include <array>
+#include <cstdint>
+#include <string_view>
 #include <thread>
+#include <vector>
 using StormByte::Buffer::FIFO;
 using namespace StormByte::Crypto;
 int TestSHA256HashCorrectness() {
@@ -40,6 +44,42 @@ int TestSHA256HashCorrectness() {
 	ASSERT_EQUAL(fn_name, expected_hash, actual_hash);
 	RETURN_TEST(fn_name, 0);
 }
+
+int TestSHA256HashByteInputRanges() {
+	const std::string fn_name = "TestSHA256HashByteInputRanges";
+	const std::string expected_hash = "BE767EABA134CB2F01E8D1755A8DD3B18BC8B063049CFF5E6228F5F7143FF777";
+	const std::string_view string_input = "HashThisString";
+	const std::vector<std::uint8_t> vector_input(string_input.begin(), string_input.end());
+	const std::array<std::byte, 14> array_input {
+		std::byte{'H'}, std::byte{'a'}, std::byte{'s'}, std::byte{'h'},
+		std::byte{'T'}, std::byte{'h'}, std::byte{'i'}, std::byte{'s'},
+		std::byte{'S'}, std::byte{'t'}, std::byte{'r'}, std::byte{'i'},
+		std::byte{'n'}, std::byte{'g'}
+	};
+	Hasher::SHA256 sha256;
+
+	FIFO string_hash;
+	const auto string_ok = sha256.Hash(string_input, string_hash);
+	ASSERT_TRUE(fn_name, string_ok);
+	ASSERT_EQUAL(fn_name, expected_hash, StormByte::String::FromByteVector(string_hash.Data()));
+
+	FIFO vector_hash;
+	const auto vector_ok = sha256.Hash(vector_input, vector_hash);
+	ASSERT_TRUE(fn_name, vector_ok);
+	ASSERT_EQUAL(fn_name, expected_hash, StormByte::String::FromByteVector(vector_hash.Data()));
+
+	FIFO span_hash;
+	const auto span_ok = sha256.Hash(std::span<const std::uint8_t>(vector_input), span_hash);
+	ASSERT_TRUE(fn_name, span_ok);
+	ASSERT_EQUAL(fn_name, expected_hash, StormByte::String::FromByteVector(span_hash.Data()));
+
+	FIFO byte_span_hash;
+	const auto byte_span_ok = sha256.Hash(std::span<const std::byte>(array_input), byte_span_hash);
+	ASSERT_TRUE(fn_name, byte_span_ok);
+	ASSERT_EQUAL(fn_name, expected_hash, StormByte::String::FromByteVector(byte_span_hash.Data()));
+	RETURN_TEST(fn_name, 0);
+}
+
 int TestSHA256CollisionResistance() {
 	const std::string fn_name = "TestSHA256CollisionResistance";
 	const std::string input_data_1 = "Original Input Data";
@@ -125,6 +165,7 @@ int test_stream_and_block_equality() {
 int main() {
 	int result = 0;
 	result += TestSHA256HashCorrectness();
+	result += TestSHA256HashByteInputRanges();
 	result += TestSHA256CollisionResistance();
 	result += TestSHA256ProducesDifferentContent();
 	result += TestSHA256HashUsingConsumerProducer();

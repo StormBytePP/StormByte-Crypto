@@ -23,6 +23,9 @@
 #include <StormByte/clonable.hxx>
 #include <StormByte/crypto/typedefs.hxx>
 #include <StormByte/crypto/visibility.h>
+#include <StormByte/type_traits.hxx>
+
+#include <vector>
 
 /**
  * @brief Hash algorithms of the Crypto module.
@@ -95,6 +98,22 @@ namespace StormByte::Crypto::Hasher {
 			 */
 			inline bool Hash(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept {
 				return DoHash(input, output);
+			}
+
+			/**
+			 * @brief Hash an input range of byte-convertible values.
+			 * @tparam Range Input range type.
+			 * @param input Input values.
+			 * @param output Destination buffer.
+			 * @return true on success.
+			 */
+			template<StormByte::Type::ByteInputRange Range>
+			bool Hash(const Range& input, Buffer::WriteOnly& output) const {
+				Buffer::DataType data;
+				for (const auto value: input) {
+					data.emplace_back(static_cast<std::byte>(value));
+				}
+				return Hash(std::span<const std::byte>(data), output);
 			}
 
 			/**

@@ -20,7 +20,9 @@
 #include <StormByte/buffer/fifo.hxx>
 #include <StormByte/crypto/signer/rsa.hxx>
 #include <StormByte/test_handlers.h>
+#include <cstdint>
 #include <iostream>
+#include <string_view>
 using StormByte::Buffer::FIFO;
 using namespace StormByte::Crypto;
 int TestRSASignVerifySuccess() {
@@ -39,6 +41,20 @@ int TestRSASignVerifySuccess() {
     // Verify the signature
     bool verify_result = rsa.Verify(std::span<const std::byte>(reinterpret_cast<const std::byte*>(message.data()), message.size()), signature);
     ASSERT_TRUE(fn_name, verify_result);
+    RETURN_TEST(fn_name, 0);
+}
+int TestRSASignVerifyByteInputRanges() {
+    const std::string fn_name = "TestRSASignVerifyByteInputRanges";
+    const std::string_view message = "This is a range message to sign.";
+    const std::vector<std::uint8_t> bytes(message.begin(), message.end());
+    auto keypair_result = KeyPair::RSA::Generate(2048);
+    ASSERT_TRUE(fn_name, keypair_result);
+    Signer::RSA rsa(keypair_result);
+    FIFO signed_data;
+    ASSERT_TRUE(fn_name, rsa.Sign(message, signed_data));
+    const std::string signature = StormByte::String::FromByteVector(signed_data.Data());
+    ASSERT_TRUE(fn_name, rsa.Verify(bytes, signature));
+    ASSERT_TRUE(fn_name, rsa.Verify(std::span<const std::uint8_t>(bytes), signature));
     RETURN_TEST(fn_name, 0);
 }
 int TestRSASignVerifyWithDifferentKeyPair() {
@@ -88,6 +104,7 @@ int TestRSASignVerifyWithCorruptedMessage() {
 int main() {
     int result = 0;
     result += TestRSASignVerifySuccess();
+    result += TestRSASignVerifyByteInputRanges();
     result += TestRSASignVerifyWithDifferentKeyPair();
     result += TestRSASignVerifyWithCorruptedMessage();
     if (result == 0) {

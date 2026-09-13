@@ -21,6 +21,8 @@
 #include <StormByte/buffer/producer.hxx>
 #include <StormByte/test_handlers.h>
 #include "helpers.hxx"
+#include <cstdint>
+#include <string_view>
 using StormByte::Buffer::DataType;
 using StormByte::Buffer::FIFO;
 using namespace StormByte::Crypto;
@@ -36,6 +38,23 @@ int TestZlibCompressDecompressString() {
 	auto decompressed = compressor.Decompress(compressed_data, decompressed_data);
 	ASSERT_TRUE(fn_name, decompressed);
 	ASSERT_EQUAL(fn_name, StormByte::String::FromByteVector(decompressed_data.Data()), input);
+	RETURN_TEST(fn_name, 0);
+}
+int TestZlibByteInputRanges() {
+	const std::string fn_name = "TestZlibByteInputRanges";
+	const std::string_view input = "Byte input range compression";
+	const std::vector<std::uint8_t> bytes(input.begin(), input.end());
+	Compressor::Zlib compressor;
+	FIFO compressed;
+	ASSERT_TRUE(fn_name, compressor.Compress(input, compressed));
+	FIFO decompressed;
+	ASSERT_TRUE(fn_name, compressor.Decompress(compressed.Data(), decompressed));
+	ASSERT_EQUAL(fn_name, StormByte::String::FromByteVector(decompressed.Data()), input);
+	FIFO span_compressed;
+	ASSERT_TRUE(fn_name, compressor.Compress(std::span<const std::uint8_t>(bytes), span_compressed));
+	FIFO span_decompressed;
+	ASSERT_TRUE(fn_name, compressor.Decompress(std::span<const std::byte>(span_compressed.Data()), span_decompressed));
+	ASSERT_EQUAL(fn_name, StormByte::String::FromByteVector(span_decompressed.Data()), input);
 	RETURN_TEST(fn_name, 0);
 }
 int TestZlibCompressDecompressBuffer() {
@@ -171,6 +190,7 @@ int TestZlibCompressLevelBounds() {
 int main(){
 	int result = 0;
 	result += TestZlibCompressDecompressString();
+	result += TestZlibByteInputRanges();
 	result += TestZlibCompressDecompressBuffer();
 	result += TestZlibStreaming();
 	result += TestZlibStreamingDecompress();

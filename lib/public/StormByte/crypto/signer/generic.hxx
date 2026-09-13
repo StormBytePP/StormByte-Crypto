@@ -22,6 +22,9 @@
 #include <StormByte/buffer/consumer.hxx>
 #include <StormByte/clonable.hxx>
 #include <StormByte/crypto/keypair/generic.hxx>
+#include <StormByte/type_traits.hxx>
+
+#include <vector>
 
 /**
  * @brief Signers of the Crypto module.
@@ -103,6 +106,22 @@ namespace StormByte::Crypto::Signer {
 			}
 
 			/**
+			 * @brief Sign an input range of byte-convertible values.
+			 * @tparam Range Input range type.
+			 * @param input Input values.
+			 * @param output Destination buffer.
+			 * @return true on success.
+			 */
+			template<StormByte::Type::ByteInputRange Range>
+			bool Sign(const Range& input, Buffer::WriteOnly& output) const {
+				Buffer::DataType data;
+				for (const auto value: input) {
+					data.emplace_back(static_cast<std::byte>(value));
+				}
+				return Sign(std::span<const std::byte>(data), output);
+			}
+
+			/**
 			 * @brief Sign a ReadOnly buffer (copy).
 			 * @param input Input buffer.
 			 * @param output Destination buffer.
@@ -145,6 +164,22 @@ namespace StormByte::Crypto::Signer {
 			 */
 			inline bool Verify(std::span<const std::byte> input, const std::string& signature) const noexcept {
 				return DoVerify(input, signature);
+			}
+
+			/**
+			 * @brief Verify an input range of byte-convertible values against a signature.
+			 * @tparam Range Input range type.
+			 * @param input Input values.
+			 * @param signature Signature.
+			 * @return true if valid.
+			 */
+			template<StormByte::Type::ByteInputRange Range>
+			bool Verify(const Range& input, const std::string& signature) const {
+				Buffer::DataType data;
+				for (const auto value: input) {
+					data.emplace_back(static_cast<std::byte>(value));
+				}
+				return Verify(std::span<const std::byte>(data), signature);
 			}
 
 			/**

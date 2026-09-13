@@ -23,6 +23,9 @@
 #include <StormByte/clonable.hxx>
 #include <StormByte/crypto/typedefs.hxx>
 #include <StormByte/crypto/visibility.h>
+#include <StormByte/type_traits.hxx>
+
+#include <vector>
 
 /**
  * @brief Ciphers of the Crypto module.
@@ -100,6 +103,22 @@ namespace StormByte::Crypto::Crypter {
 			}
 
 			/**
+			 * @brief Encrypt an input range of byte-convertible values.
+			 * @tparam Range Input range type.
+			 * @param input Input values.
+			 * @param output Destination buffer.
+			 * @return true on success.
+			 */
+			template<StormByte::Type::ByteInputRange Range>
+			bool Encrypt(const Range& input, Buffer::WriteOnly& output) const {
+				Buffer::DataType data;
+				for (const auto value: input) {
+					data.emplace_back(static_cast<std::byte>(value));
+				}
+				return Encrypt(std::span<const std::byte>(data), output);
+			}
+
+			/**
 			 * @brief Encrypt a read-only buffer (copy).
 			 * @param input Input buffer.
 			 * @param output Destination buffer.
@@ -142,6 +161,22 @@ namespace StormByte::Crypto::Crypter {
 			 */
 			inline bool Decrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept {
 				return DoDecrypt(input, output);
+			}
+
+			/**
+			 * @brief Decrypt an input range of byte-convertible values.
+			 * @tparam Range Input range type.
+			 * @param input Input values.
+			 * @param output Destination buffer.
+			 * @return true on success.
+			 */
+			template<StormByte::Type::ByteInputRange Range>
+			bool Decrypt(const Range& input, Buffer::WriteOnly& output) const {
+				Buffer::DataType data;
+				for (const auto value: input) {
+					data.emplace_back(static_cast<std::byte>(value));
+				}
+				return Decrypt(std::span<const std::byte>(data), output);
 			}
 
 			/**

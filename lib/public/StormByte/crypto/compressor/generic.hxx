@@ -23,6 +23,9 @@
 #include <StormByte/clonable.hxx>
 #include <StormByte/crypto/typedefs.hxx>
 #include <StormByte/crypto/visibility.h>
+#include <StormByte/type_traits.hxx>
+
+#include <vector>
 
 /**
  * @brief Compressors of the Crypto module.
@@ -94,6 +97,22 @@ namespace StormByte::Crypto::Compressor {
 			}
 
 			/**
+			 * @brief Compress an input range of byte-convertible values.
+			 * @tparam Range Input range type.
+			 * @param input Input values.
+			 * @param output Destination buffer.
+			 * @return true on success.
+			 */
+			template<StormByte::Type::ByteInputRange Range>
+			bool Compress(const Range& input, Buffer::WriteOnly& output) const {
+				Buffer::DataType data;
+				for (const auto value: input) {
+					data.emplace_back(static_cast<std::byte>(value));
+				}
+				return Compress(std::span<const std::byte>(data), output);
+			}
+
+			/**
 			 * @brief Compress a read-only buffer (copy).
 			 * @param input Input buffer.
 			 * @param output Destination buffer.
@@ -136,6 +155,22 @@ namespace StormByte::Crypto::Compressor {
 			 */
 			inline bool Decompress(const std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept {
 				return DoDecompress(input, output);
+			}
+
+			/**
+			 * @brief Decompress an input range of byte-convertible values.
+			 * @tparam Range Input range type.
+			 * @param input Input values.
+			 * @param output Destination buffer.
+			 * @return true on success.
+			 */
+			template<StormByte::Type::ByteInputRange Range>
+			bool Decompress(const Range& input, Buffer::WriteOnly& output) const {
+				Buffer::DataType data;
+				for (const auto value: input) {
+					data.emplace_back(static_cast<std::byte>(value));
+				}
+				return Decompress(std::span<const std::byte>(data), output);
 			}
 
 			/**

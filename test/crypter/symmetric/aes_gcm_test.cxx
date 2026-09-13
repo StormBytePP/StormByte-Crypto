@@ -21,7 +21,9 @@
 #include <StormByte/crypto/password.hxx>
 #include <StormByte/test_handlers.h>
 #include "helpers.hxx"
+#include <cstdint>
 #include <iostream>
+#include <string_view>
 using StormByte::Buffer::FIFO;
 using namespace StormByte::Crypto;
 int TestAESGCMEncryptDecryptConsistency() {
@@ -40,6 +42,24 @@ int TestAESGCMEncryptDecryptConsistency() {
 	ASSERT_TRUE(fn_name, decrypted);
 	ASSERT_FALSE(fn_name, decrypted_data.Empty());
 	ASSERT_EQUAL(fn_name, std::string(reinterpret_cast<const char*>(decrypted_data.Data().data()), decrypted_data.Data().size()), original);
+	RETURN_TEST(fn_name, 0);
+}
+int TestAESGCMByteInputRanges() {
+	const std::string fn_name = "TestAESGCMByteInputRanges";
+	const std::string_view input = "AES-GCM byte input range";
+	const std::vector<std::uint8_t> bytes(input.begin(), input.end());
+	Password password("SecurePassword123!");
+	Crypter::AES_GCM aes_gcm(password);
+	FIFO encrypted;
+	ASSERT_TRUE(fn_name, aes_gcm.Encrypt(input, encrypted));
+	FIFO decrypted;
+	ASSERT_TRUE(fn_name, aes_gcm.Decrypt(encrypted.Data(), decrypted));
+	ASSERT_EQUAL(fn_name, StormByte::String::FromByteVector(decrypted.Data()), input);
+	FIFO span_encrypted;
+	ASSERT_TRUE(fn_name, aes_gcm.Encrypt(std::span<const std::uint8_t>(bytes), span_encrypted));
+	FIFO span_decrypted;
+	ASSERT_TRUE(fn_name, aes_gcm.Decrypt(std::span<const std::byte>(span_encrypted.Data()), span_decrypted));
+	ASSERT_EQUAL(fn_name, StormByte::String::FromByteVector(span_decrypted.Data()), input);
 	RETURN_TEST(fn_name, 0);
 }
 int TestAESGCMWrongPassword() {
@@ -99,6 +119,7 @@ int TestAESGCMEncryptionProducesDifferentContent() {
 int main() {
 	int result = 0;
 	result += TestAESGCMEncryptDecryptConsistency();
+	result += TestAESGCMByteInputRanges();
 	result += TestAESGCMWrongPassword();
 	result += TestAESGCMAuthenticationIntegrity();
 	result += TestAESGCMEncryptionProducesDifferentContent();
