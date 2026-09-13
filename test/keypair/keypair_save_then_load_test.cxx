@@ -118,6 +118,25 @@ namespace {
 	}
 }
 // ---------------------------------------------------------------------------
+// File permissions
+// ---------------------------------------------------------------------------
+int TestPrivateKeyFilesAreOwnerOnly() {
+	const std::string fn_name = "TestPrivateKeyFilesAreOwnerOnly";
+#ifndef _WIN32
+	const fs::path out = SaveDir();
+	const auto privPerms = fs::status(out / "rsa.pem").permissions();
+	const auto forbidden = fs::perms::group_read | fs::perms::group_write | fs::perms::group_exec |
+		fs::perms::others_read | fs::perms::others_write | fs::perms::others_exec;
+	ASSERT_TRUE(fn_name, (privPerms & forbidden) == fs::perms::none);
+	ASSERT_TRUE(fn_name, (privPerms & fs::perms::owner_read) != fs::perms::none);
+	ASSERT_TRUE(fn_name, (privPerms & fs::perms::owner_write) != fs::perms::none);
+	// Public keys are not restricted.
+	const auto pubPerms = fs::status(out / "rsa.pub.pem").permissions();
+	ASSERT_TRUE(fn_name, (pubPerms & fs::perms::owner_read) != fs::perms::none);
+#endif
+	RETURN_TEST(fn_name, 0);
+}
+// ---------------------------------------------------------------------------
 // RSA
 // ---------------------------------------------------------------------------
 int TestSaveLoadRsaEncryptDecrypt() {
@@ -1059,6 +1078,7 @@ int main() {
 		if (SaveAllKeypairs(setup) != 0)
 			return 1;
 	}
+	result += TestPrivateKeyFilesAreOwnerOnly();
 	result += TestSaveLoadRsaEncryptDecrypt();
 	result += TestSaveLoadRsaHybridEncryptDecrypt();
 	result += TestSaveLoadRsaSignVerify();

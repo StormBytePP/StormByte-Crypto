@@ -104,6 +104,22 @@ namespace {
 			return false;
 		}
 	}
+	/**
+	 * @brief Restrict a just-written private key file to the owner only.
+	 *
+	 * Best-effort: some filesystems (e.g. FAT32) or Windows ACLs don't support the full
+	 * POSIX bit set, so failures here are not treated as a write failure.
+	 * @param path File to restrict.
+	 */
+	void RestrictToOwner(const std::filesystem::path& path) noexcept {
+		std::error_code ec;
+		std::filesystem::permissions(
+			path,
+			std::filesystem::perms::owner_read | std::filesystem::perms::owner_write,
+			std::filesystem::perm_options::replace,
+			ec
+		);
+	}
 	bool IsPemText(std::span<const CryptoPP::byte> data) noexcept {
 		if (data.size() < 11)
 			return false;
@@ -1067,6 +1083,8 @@ namespace {
 			ok = WriteFileBytes(path, reinterpret_cast<const CryptoPP::byte*>(pem.data()), pem.size());
 		}
 		SecureWipe(der);
+		if (ok)
+			RestrictToOwner(path);
 		return ok;
 	}
 	bool WritePrivateFileEncrypted(
@@ -1091,6 +1109,8 @@ namespace {
 			ok = WriteFileBytes(path, reinterpret_cast<const CryptoPP::byte*>(pem.data()), pem.size());
 		}
 		SecureWipe(encDer);
+		if (ok)
+			RestrictToOwner(path);
 		return ok;
 	}
 }
