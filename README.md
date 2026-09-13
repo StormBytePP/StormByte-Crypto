@@ -263,6 +263,11 @@ auto shared = secret->Share(bob->PublicKey());   // Expected<Password>
 
 ECDH is the same with `KeyPair::ECDH::Generate(256|384|521)` and `Secret::Type::ECDH`.
 
+## Security notes
+
+- **Decompression of untrusted input is not size-bounded.** Like the underlying zlib/libbzip2, `Compressor` decompresses as much as the stream decodes to; a small malicious input can expand to a very large output ("decompression bomb"). If you decompress data from an untrusted source, bound it yourself: check the expected/maximum size before decompressing, or stop draining the streaming `Consumer` once your own limit is hit.
+- Private key files written by `KeyPair::Save`/`SavePrivate` are created owner-only (`0600` on POSIX) and refuse to write through a pre-existing symlink at the destination path. Public key files are unaffected by either restriction.
+
 ## Contributing
 
 Issues only on this repository. Fork and open a pull request against `master`.

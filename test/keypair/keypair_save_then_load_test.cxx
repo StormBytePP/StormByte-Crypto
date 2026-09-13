@@ -36,6 +36,7 @@
 #include <StormByte/crypto/signer/rsa.hxx>
 #include <StormByte/test_handlers.h>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <string>
 using namespace StormByte::Crypto;
@@ -133,6 +134,28 @@ int TestPrivateKeyFilesAreOwnerOnly() {
 	// Public keys are not restricted.
 	const auto pubPerms = fs::status(out / "rsa.pub.pem").permissions();
 	ASSERT_TRUE(fn_name, (pubPerms & fs::perms::owner_read) != fs::perms::none);
+#endif
+	RETURN_TEST(fn_name, 0);
+}
+int TestSaveRefusesToFollowSymlink() {
+	const std::string fn_name = "TestSaveRefusesToFollowSymlink";
+#ifndef _WIN32
+	const fs::path out = SaveDir() / "symlink_target";
+	std::error_code ec;
+	fs::remove_all(out, ec);
+	fs::create_directories(out, ec);
+	const fs::path decoyTarget = out / "decoy.txt";
+	{
+		std::ofstream(decoyTarget) << "do not overwrite me";
+	}
+	const fs::path privPath = out / "rsa.pem";
+	fs::create_symlink(decoyTarget, privPath, ec);
+	ASSERT_TRUE(fn_name, !ec);
+	ASSERT_FALSE(fn_name, g_rsa->Save(out, "rsa", KeyPair::StorageFormat::PEM));
+	ASSERT_TRUE(fn_name, fs::is_symlink(privPath));
+	std::ifstream decoy(decoyTarget);
+	std::string content((std::istreambuf_iterator<char>(decoy)), std::istreambuf_iterator<char>());
+	ASSERT_EQUAL(fn_name, content, std::string("do not overwrite me"));
 #endif
 	RETURN_TEST(fn_name, 0);
 }
@@ -1079,6 +1102,7 @@ int main() {
 			return 1;
 	}
 	result += TestPrivateKeyFilesAreOwnerOnly();
+	result += TestSaveRefusesToFollowSymlink();
 	result += TestSaveLoadRsaEncryptDecrypt();
 	result += TestSaveLoadRsaHybridEncryptDecrypt();
 	result += TestSaveLoadRsaSignVerify();

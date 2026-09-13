@@ -94,6 +94,11 @@ namespace {
 	}
 	bool WriteFileBytes(const std::filesystem::path& path, const CryptoPP::byte* data, size_t len) noexcept {
 		try {
+			// Refuse to write through a pre-existing symlink: an attacker able to plant one at
+			// the target path could otherwise redirect the write to an arbitrary file.
+			std::error_code ec;
+			if (std::filesystem::is_symlink(std::filesystem::symlink_status(path, ec)))
+				return false;
 			std::ofstream ofs(path, std::ios::out | std::ios::binary | std::ios::trunc);
 			if (!ofs)
 				return false;
