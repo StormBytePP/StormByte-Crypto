@@ -18,6 +18,12 @@ If you landed here from a release link and have not read the tree:
 - What this module is, how to build it, and short examples: [README.md](https://github.com/StormBytePP/StormByte-Crypto/blob/master/README.md)
 - License: GNU Lesser General Public License version 3 or later, [LICENSE](https://github.com/StormBytePP/StormByte-Crypto/blob/master/LICENSE)
 
+## [Unreleased]
+
+### Fixed
+
+- CMake: promote the system BZip2 imported target to global scope so `WITH_BZIP2=SYSTEM` resolves from the top-level directory.
+
 ## [1.0.0] - 2026-09-04
 
 Initial public release of StormByte Crypto.

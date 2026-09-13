@@ -6,6 +6,9 @@ endif()
 
 if(WITH_BZIP2 STREQUAL "SYSTEM")
 	find_package(BZip2 REQUIRED)
+	# Stock FindBZip2.cmake imports BZip2::BZip2 with directory scope only; promote it to
+	# global so buildmaster_link() can resolve it from the top-level directory scope.
+	set_target_properties(BZip2::BZip2 PROPERTIES IMPORTED_GLOBAL TRUE)
 else()
 	buildmaster_component(
 		bz2
