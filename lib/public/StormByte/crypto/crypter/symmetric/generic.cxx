@@ -36,6 +36,7 @@ StormByte::Crypto::Password Symmetric::RandomPassword(std::size_t length) noexce
 	Helpers::SecureWipe(raw);
 	return result;
 }
+
 Generic::PointerType Create(enum Type type, StormByte::Crypto::Password password) noexcept {
 	switch (type) {
 		case Type::AES:

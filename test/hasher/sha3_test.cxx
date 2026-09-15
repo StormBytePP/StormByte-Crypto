@@ -35,6 +35,7 @@ int TestSHA3_256Hash() {
 	ASSERT_EQUAL(fn_name, expected, StormByte::String::FromByteVector(result.Data()));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestSHA3_512Hash() {
 	const std::string fn_name = "TestSHA3_512Hash";
 	const std::string input = "The quick brown fox jumps over the lazy dog";
@@ -46,6 +47,7 @@ int TestSHA3_512Hash() {
 	ASSERT_EQUAL(fn_name, expected, StormByte::String::FromByteVector(result.Data()));
 	RETURN_TEST(fn_name, 0);
 }
+
 int main(int, char**) {
 	int result = 0;
 	result += TestSHA3_256Hash();
@@ -55,5 +57,6 @@ int main(int, char**) {
 	} else {
 		std::cout << "SHA-3 tests failed" << std::endl;
 	}
+
 	return result;
 }

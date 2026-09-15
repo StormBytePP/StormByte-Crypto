@@ -29,6 +29,7 @@ namespace StormByte::Crypto::Implementation::Compressor {
 	namespace {
 		constexpr size_t kChunkSize = 4096;
 	}
+
 	bool ProcessSpan(std::span<const std::byte> data,
 					WriteOnly& output,
 					std::unique_ptr<StreamOps> ops) noexcept
@@ -54,6 +55,7 @@ namespace StormByte::Crypto::Implementation::Compressor {
 			return false;
 		}
 	}
+
 	Consumer Stream(Consumer consumer,
 					ReadMode mode,
 					std::unique_ptr<StreamOps> ops) noexcept
@@ -63,6 +65,7 @@ namespace StormByte::Crypto::Implementation::Compressor {
 			producer.SetError();
 			return producer.Consumer();
 		}
+
 		std::thread([consumer = std::move(consumer),
 					producer,
 					ops = std::move(ops),
@@ -75,6 +78,7 @@ namespace StormByte::Crypto::Implementation::Compressor {
 						std::this_thread::yield();
 						continue;
 					}
+
 					size_t toRead = std::min(available, kChunkSize);
 					DataType data;
 					bool ok = (mode == ReadMode::Copy)
@@ -84,6 +88,7 @@ namespace StormByte::Crypto::Implementation::Compressor {
 						producer.SetError();
 						return;
 					}
+
 					DataType out;
 					if (!ops->Process(
 							std::span<const std::byte>(data.data(), data.size()),
@@ -91,20 +96,24 @@ namespace StormByte::Crypto::Implementation::Compressor {
 						producer.SetError();
 						return;
 					}
+
 					if (!out.empty() && !producer.Write(std::move(out))) {
 						producer.SetError();
 						return;
 					}
 				}
+
 				DataType out;
 				if (!ops->Finalize(out)) {
 					producer.SetError();
 					return;
 				}
+
 				if (!out.empty() && !producer.Write(std::move(out))) {
 					producer.SetError();
 					return;
 				}
+
 				producer.Close();
 			} catch (...) {
 				producer.SetError();

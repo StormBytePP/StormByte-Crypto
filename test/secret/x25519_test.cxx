@@ -29,6 +29,7 @@ int TestX25519GenerateKeyPair() {
 	ASSERT_TRUE(fn_name, !keypair_result->PublicKey().empty());
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestX25519DeriveSharedSecretValidKeys() {
 	const std::string fn_name = "TestX25519DeriveSharedSecretValidKeys";
 	auto keypair_result1 = KeyPair::X25519::Generate();
@@ -44,6 +45,7 @@ int TestX25519DeriveSharedSecretValidKeys() {
 	ASSERT_TRUE(fn_name, *sharedSecret1 == *sharedSecret2);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestX25519DeriveSharedSecretInvalidKey() {
 	const std::string fn_name = "TestX25519DeriveSharedSecretInvalidKey";
 	auto keypair_result = KeyPair::X25519::Generate();
@@ -53,6 +55,7 @@ int TestX25519DeriveSharedSecretInvalidKey() {
 	ASSERT_FALSE(fn_name, sharedSecret.has_value());
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestX25519SharedSecretCorruptedKeys() {
 	const std::string fn_name = "TestX25519SharedSecretCorruptedKeys";
 	auto keypair_result = KeyPair::X25519::Generate();
@@ -70,6 +73,7 @@ int TestX25519SharedSecretCorruptedKeys() {
 	ASSERT_FALSE(fn_name, sharedSecret.has_value());
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestX25519ServerClientSharedSecret() {
 	const std::string fn_name = "TestX25519ServerClientSharedSecret";
 	auto keypair_server = KeyPair::X25519::Generate();
@@ -85,6 +89,7 @@ int TestX25519ServerClientSharedSecret() {
 	ASSERT_TRUE(fn_name, *serverSharedSecret == *clientSharedSecret);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestX25519MaliciousThirdPartyKey() {
 	const std::string fn_name = "TestX25519MaliciousThirdPartyKey";
 	auto keypair_alice = KeyPair::X25519::Generate();
@@ -106,6 +111,7 @@ int TestX25519MaliciousThirdPartyKey() {
 	ASSERT_FALSE(fn_name, *sharedSecret_mallory_alice == *sharedSecret_alice_bob);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestX25519DeriveSharedSecretStatic() {
 	const std::string fn_name = "TestX25519DeriveSharedSecretStatic";
 	auto a = KeyPair::X25519::Generate();
@@ -119,6 +125,7 @@ int TestX25519DeriveSharedSecretStatic() {
 	ASSERT_TRUE(fn_name, *s1 == *s2);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestX25519ShareWithoutPrivateKey() {
 	const std::string fn_name = "TestX25519ShareWithoutPrivateKey";
 	auto full = KeyPair::X25519::Generate();
@@ -130,6 +137,7 @@ int TestX25519ShareWithoutPrivateKey() {
 	ASSERT_FALSE(fn_name, x.Share(peer->PublicKey()).has_value());
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestX25519ShareIdempotent() {
 	const std::string fn_name = "TestX25519ShareIdempotent";
 	auto a = KeyPair::X25519::Generate();
@@ -144,6 +152,7 @@ int TestX25519ShareIdempotent() {
 	ASSERT_TRUE(fn_name, *s1 == *s2);
 	RETURN_TEST(fn_name, 0);
 }
+
 int main() {
 	int result = 0;
 	result += TestX25519GenerateKeyPair();
@@ -159,5 +168,6 @@ int main() {
 	} else {
 		std::cout << result << " tests failed." << std::endl;
 	}
+
 	return result;
 }

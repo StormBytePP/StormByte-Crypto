@@ -40,6 +40,7 @@ namespace {
 				level
 			);
 		}
+
 		bool Process(std::span<const std::byte> in, DataType& out) override
 		{
 			try {
@@ -54,6 +55,7 @@ namespace {
 				return false;
 			}
 		}
+
 		bool Finalize(DataType& out) override
 		{
 			try {
@@ -76,6 +78,7 @@ namespace {
 				new CryptoPP::StringSinkTemplate<DataType>(buffer)
 			);
 		}
+
 		bool Process(std::span<const std::byte> in, DataType& out) override
 		{
 			try {
@@ -90,6 +93,7 @@ namespace {
 				return false;
 			}
 		}
+
 		bool Finalize(DataType& out) override
 		{
 			try {
@@ -104,6 +108,7 @@ namespace {
 		}
 	};
 }
+
 Zlib::Zlib(unsigned short level)
 	: Generic(Type::Zlib,
 			std::clamp<unsigned short>(
@@ -116,16 +121,19 @@ bool Zlib::DoCompress(std::span<const std::byte> input, WriteOnly& output) const
 	return Implementation::Compressor::ProcessSpan(
 		input, output, std::make_unique<ZlibCompressOps>(m_level));
 }
+
 Consumer Zlib::DoCompress(Consumer consumer, ReadMode mode) const noexcept
 {
 	return Implementation::Compressor::Stream(
 		std::move(consumer), mode, std::make_unique<ZlibCompressOps>(m_level));
 }
+
 bool Zlib::DoDecompress(std::span<const std::byte> input, WriteOnly& output) const noexcept
 {
 	return Implementation::Compressor::ProcessSpan(
 		input, output, std::make_unique<ZlibDecompressOps>());
 }
+
 Consumer Zlib::DoDecompress(Consumer consumer, ReadMode mode) const noexcept
 {
 	return Implementation::Compressor::Stream(

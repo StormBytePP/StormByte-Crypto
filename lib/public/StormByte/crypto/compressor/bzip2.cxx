@@ -42,11 +42,13 @@ namespace {
 			int rc = BZ2_bzCompressInit(&strm, static_cast<int>(level), 0, 30);
 			ok = (rc == BZ_OK);
 		}
+
 		~Bzip2CompressOps() override
 		{
 			if (ok)
 				BZ2_bzCompressEnd(&strm);
 		}
+
 		bool Process(std::span<const std::byte> in, DataType& out) override
 		{
 			if (!ok)
@@ -71,11 +73,13 @@ namespace {
 									produced);
 					}
 				}
+
 				return true;
 			} catch (...) {
 				return false;
 			}
 		}
+
 		bool Finalize(DataType& out) override
 		{
 			if (!ok)
@@ -96,9 +100,11 @@ namespace {
 									reinterpret_cast<const std::byte*>(outChunk.data()),
 									produced);
 					}
+
 					if (r == BZ_STREAM_END)
 						break;
 				}
+
 				BZ2_bzCompressEnd(&strm);
 				ok = false; // already ended
 				return true;
@@ -118,11 +124,13 @@ namespace {
 			int rc = BZ2_bzDecompressInit(&strm, 0, 0);
 			ok = (rc == BZ_OK);
 		}
+
 		~Bzip2DecompressOps() override
 		{
 			if (ok)
 				BZ2_bzDecompressEnd(&strm);
 		}
+
 		bool Process(std::span<const std::byte> in, DataType& out) override
 		{
 			if (!ok || ended)
@@ -146,16 +154,19 @@ namespace {
 									reinterpret_cast<const std::byte*>(outChunk.data()),
 									produced);
 					}
+
 					if (r == BZ_STREAM_END) {
 						ended = true;
 						break;
 					}
 				}
+
 				return true;
 			} catch (...) {
 				return false;
 			}
 		}
+
 		bool Finalize(DataType& /*out*/) override
 		{
 			if (!ok)
@@ -166,6 +177,7 @@ namespace {
 		}
 	};
 }
+
 Bzip2::Bzip2(unsigned short level)
 	: Generic(Type::Bzip2,
 			std::clamp<unsigned short>(static_cast<unsigned short>(level), 1, 9))
@@ -200,11 +212,13 @@ bool Bzip2::DoCompress(std::span<const std::byte> input, WriteOnly& output) cons
 		return false;
 	}
 }
+
 Consumer Bzip2::DoCompress(Consumer consumer, ReadMode mode) const noexcept
 {
 	return Implementation::Compressor::Stream(
 		std::move(consumer), mode, std::make_unique<Bzip2CompressOps>(m_level));
 }
+
 bool Bzip2::DoDecompress(std::span<const std::byte> input, WriteOnly& output) const noexcept
 {
 	if (input.size_bytes() == 0)
@@ -233,6 +247,7 @@ bool Bzip2::DoDecompress(std::span<const std::byte> input, WriteOnly& output) co
 		return false;
 	}
 }
+
 Consumer Bzip2::DoDecompress(Consumer consumer, ReadMode mode) const noexcept
 {
 	return Implementation::Compressor::Stream(

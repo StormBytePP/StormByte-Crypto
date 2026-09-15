@@ -31,6 +31,7 @@ int TestVaultEmptyOnConstruct() {
 	ASSERT_FALSE(fn_name, vault.Contains("anything"));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestVaultStoreAndGet() {
 	const std::string fn_name = "TestVaultStoreAndGet";
 	Vault vault;
@@ -48,6 +49,7 @@ int TestVaultStoreAndGet() {
 	ASSERT_TRUE(fn_name, *api == Password("token-xyz"));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestVaultGetMissing() {
 	const std::string fn_name = "TestVaultGetMissing";
 	Vault vault;
@@ -58,6 +60,7 @@ int TestVaultGetMissing() {
 	ASSERT_TRUE(fn_name, message.find("StormByte::Crypto::Vault") != std::string::npos);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestVaultOverwrite() {
 	const std::string fn_name = "TestVaultOverwrite";
 	Vault vault;
@@ -69,6 +72,7 @@ int TestVaultOverwrite() {
 	ASSERT_TRUE(fn_name, *pwd == Password("second"));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestVaultRemove() {
 	const std::string fn_name = "TestVaultRemove";
 	Vault vault;
@@ -82,6 +86,7 @@ int TestVaultRemove() {
 	ASSERT_EQUAL(fn_name, vault.Size(), static_cast<std::size_t>(1));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestVaultClear() {
 	const std::string fn_name = "TestVaultClear";
 	Vault vault;
@@ -95,6 +100,7 @@ int TestVaultClear() {
 	ASSERT_FALSE(fn_name, static_cast<bool>(vault.Get("y")));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestVaultMoveConstruct() {
 	const std::string fn_name = "TestVaultMoveConstruct";
 	Vault original;
@@ -109,6 +115,7 @@ int TestVaultMoveConstruct() {
 	ASSERT_TRUE(fn_name, *pwd == Password("payload"));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestVaultMoveAssign() {
 	const std::string fn_name = "TestVaultMoveAssign";
 	Vault src;
@@ -127,6 +134,7 @@ int TestVaultMoveAssign() {
 	ASSERT_TRUE(fn_name, *alpha == Password("111"));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestVaultPasswordSharedOwnership() {
 	const std::string fn_name = "TestVaultPasswordSharedOwnership";
 	Password shared("shared-secret");
@@ -143,6 +151,7 @@ int TestVaultPasswordSharedOwnership() {
 	ASSERT_TRUE(fn_name, shared == Password("shared-secret"));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestVaultStoreFromConstChar() {
 	const std::string fn_name = "TestVaultStoreFromConstChar";
 	Vault vault;
@@ -154,6 +163,7 @@ int TestVaultStoreFromConstChar() {
 	ASSERT_EQUAL(fn_name, pwd->Size(), static_cast<std::size_t>(12));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestVaultPasswordBoolConversion() {
 	const std::string fn_name = "TestVaultPasswordBoolConversion";
 	Password p("non-empty");
@@ -161,6 +171,7 @@ int TestVaultPasswordBoolConversion() {
 	ASSERT_FALSE(fn_name, p.Empty());
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestVaultReStoreAfterClear() {
 	const std::string fn_name = "TestVaultReStoreAfterClear";
 	Vault vault;
@@ -173,6 +184,7 @@ int TestVaultReStoreAfterClear() {
 	ASSERT_EQUAL(fn_name, vault.Size(), static_cast<std::size_t>(1));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestVaultPasswordOperatorEqual() {
 	const std::string fn_name = "TestVaultPasswordOperatorEqual";
 	Password a("same");
@@ -184,6 +196,7 @@ int TestVaultPasswordOperatorEqual() {
 	ASSERT_TRUE(fn_name, a != c);
 	RETURN_TEST(fn_name, 0);
 }
+
 int main() {
 	int result = 0;
 	result += TestVaultEmptyOnConstruct();
@@ -204,5 +217,6 @@ int main() {
 	} else {
 		std::cout << result << " Vault tests failed." << std::endl;
 	}
+
 	return result;
 }

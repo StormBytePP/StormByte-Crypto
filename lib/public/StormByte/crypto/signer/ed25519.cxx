@@ -55,6 +55,7 @@ namespace {
             );
             ready = true;
         }
+
         bool Update(std::span<const std::byte> in) override
         {
             if (!ready || !filter)
@@ -68,6 +69,7 @@ namespace {
                 return false;
             }
         }
+
         bool Finalize(DataType& out) override
         {
             if (!ready || !filter)
@@ -97,6 +99,7 @@ namespace {
             verifier.AccessPublicKey().Load(queue);
             ready = true;
         }
+
         bool Begin(const std::string& signature) override
         {
             if (!ready)
@@ -118,6 +121,7 @@ namespace {
                 return false;
             }
         }
+
         bool Update(std::span<const std::byte> in) override
         {
             if (!filter)
@@ -131,6 +135,7 @@ namespace {
                 return false;
             }
         }
+
         bool Finalize() override
         {
             if (!filter)
@@ -154,6 +159,7 @@ namespace StormByte::Crypto::Signer {
             data, output,
             std::make_unique<Ed25519SignBox>(*m_keypair->PrivateKey()));
     }
+
     Consumer ED25519::DoSign(Consumer consumer, ReadMode mode) const noexcept
     {
         if (!m_keypair || !m_keypair->HasPrivateKey()) {
@@ -161,10 +167,12 @@ namespace StormByte::Crypto::Signer {
             producer.SetError();
             return producer.Consumer();
         }
+
         return Implementation::Signer::SignStream(
             std::move(consumer), mode,
             std::make_unique<Ed25519SignBox>(*m_keypair->PrivateKey()));
     }
+
     bool ED25519::DoVerify(std::span<const std::byte> data,
                            const std::string& signature) const noexcept
     {
@@ -174,6 +182,7 @@ namespace StormByte::Crypto::Signer {
             data, signature,
             std::make_unique<Ed25519VerifyBox>(m_keypair->PublicKey()));
     }
+
     bool ED25519::DoVerify(Consumer consumer,
                            const std::string& signature,
                            ReadMode mode) const noexcept

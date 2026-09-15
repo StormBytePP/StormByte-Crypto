@@ -28,6 +28,7 @@ X25519::Share(const std::string& peerPublicKey) const noexcept
 	return Implementation::Secret::X25519Share(
 		*m_keypair->PrivateKey(), peerPublicKey);
 }
+
 std::optional<StormByte::Crypto::Password>
 X25519::DeriveSharedSecret(KeyPair::Generic::PointerType keypair,
 						const std::string& peerPublicKey) noexcept

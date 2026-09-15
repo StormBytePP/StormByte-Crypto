@@ -42,6 +42,7 @@ int TestSHA512HashCorrectness() {
 	ASSERT_EQUAL(fn_name, expected_hash, actual_hash);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestSHA512CollisionResistance() {
 	const std::string fn_name = "TestSHA512CollisionResistance";
 	const std::string input_data_1 = "Original Input Data";
@@ -61,6 +62,7 @@ int TestSHA512CollisionResistance() {
 	ASSERT_NOT_EQUAL(fn_name, hash_1, hash_2);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestSHA512ProducesDifferentContent() {
 	const std::string fn_name = "TestSHA512ProducesDifferentContent";
 	const std::string original_data = "Data to hash";
@@ -74,6 +76,7 @@ int TestSHA512ProducesDifferentContent() {
 	ASSERT_NOT_EQUAL(fn_name, original_data, hashed_data);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestSHA512HashUsingConsumerProducer() {
 	const std::string fn_name = "TestSHA512HashUsingConsumerProducer";
 	const std::string input_data = "HashThisString";
@@ -98,6 +101,7 @@ int TestSHA512HashUsingConsumerProducer() {
 	ASSERT_EQUAL(fn_name, expected_hash, actual_hash); // Ensure hash result matches expected value
 	RETURN_TEST(fn_name, 0);
 }
+
 int main() {
 	int result = 0;
 	result += TestSHA512HashCorrectness();
@@ -109,5 +113,6 @@ int main() {
 	} else {
 		std::cout << result << " tests failed." << std::endl;
 	}
+
 	return result;
 }

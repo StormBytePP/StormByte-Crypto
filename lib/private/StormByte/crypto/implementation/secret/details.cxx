@@ -37,6 +37,7 @@ namespace StormByte::Crypto::Implementation::Secret {
 				default:  return CryptoPP::OID();
 			}
 		}
+
 		bool ExtractX25519Raw32(const CryptoPP::SecByteBlock& in,
 								CryptoPP::SecByteBlock& out) noexcept
 		{
@@ -53,17 +54,20 @@ namespace StormByte::Crypto::Implementation::Secret {
 					out.Assign(p + i + 2, 32);
 					return true;
 				}
+
 				// BIT STRING, length 33 (0 unused bits + 32 payload)
 				if (p[i] == 0x03 && p[i + 1] == 0x21 && p[i + 2] == 0x00) {
 					out.Assign(p + i + 3, 32);
 					return true;
 				}
+
 				// OCTET STRING, length 34 with inner 0x04 0x20 (nested wrappers)
 				if (p[i] == 0x04 && p[i + 1] == 0x22 && p[i + 2] == 0x04 && p[i + 3] == 0x20) {
 					out.Assign(p + i + 4, 32);
 					return true;
 				}
 			}
+
 			return false;
 		}
 	}
@@ -101,6 +105,7 @@ namespace StormByte::Crypto::Implementation::Secret {
 					Helpers::SecureWipe(secret);
 					return std::nullopt;
 				}
+
 				Password out(secret.data(), secret.size());
 				Helpers::SecureWipe(secret);
 				return out;
@@ -125,6 +130,7 @@ namespace StormByte::Crypto::Implementation::Secret {
 					Helpers::SecureWipe(priv);
 					return std::nullopt;
 				}
+
 				CryptoPP::ArraySource src(pubDer.data(), pubDer.size(), true);
 				pubKey.Load(src);
 				if (!pubKey.Validate(RNG(), 2)) {
@@ -133,6 +139,7 @@ namespace StormByte::Crypto::Implementation::Secret {
 					Helpers::SecureWipe(pubDer);
 					return std::nullopt;
 				}
+
 				Helpers::SecureWipe(pubDer);
 			}
 
@@ -195,6 +202,7 @@ namespace StormByte::Crypto::Implementation::Secret {
 				Helpers::SecureWipe(pubIn);
 				return std::nullopt;
 			}
+
 			Helpers::SecureWipe(privIn);
 			Helpers::SecureWipe(pubIn);
 

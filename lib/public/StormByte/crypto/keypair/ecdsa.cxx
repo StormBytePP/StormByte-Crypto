@@ -40,6 +40,7 @@ ECDSA::PointerType ECDSA::Generate(unsigned short bits) noexcept {
 			default:
 				return nullptr;
 		}
+
 		CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>::PrivateKey privateKey;
 		privateKey.Initialize(RNG(), curve);
 		CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>::PublicKey publicKey;

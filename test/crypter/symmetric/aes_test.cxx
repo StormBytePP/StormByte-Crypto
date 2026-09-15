@@ -46,6 +46,7 @@ int TestAESEncryptDecryptConsistency() {
 	ASSERT_EQUAL(fn_name, original_data, decrypted_data);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestAESWrongDecryptionPassword() {
 	const std::string fn_name = "TestAESWrongDecryptionPassword";
 	Password password("SecurePassword123!");
@@ -67,6 +68,7 @@ int TestAESWrongDecryptionPassword() {
 	ASSERT_NOT_EQUAL(fn_name, StormByte::String::FromByteVector(decrypted_d.Data()), original_data);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestAESDecryptionWithCorruptedData() {
 	const std::string fn_name = "TestAESDecryptionWithCorruptedData";
 	Password password("StrongPassword123!");
@@ -92,6 +94,7 @@ int TestAESDecryptionWithCorruptedData() {
 		// Fallback: corrupt any byte if data is too short
 		corrupted_string[0] = ~corrupted_string[0];
 	}
+
 	// Attempt to decrypt the corrupted data
 	FIFO corrupted_data;
 	[[maybe_unused]] auto decrypt_result = aes.Decrypt(std::span<const std::byte>(reinterpret_cast<const std::byte*>(corrupted_string.data()), corrupted_string.size()), corrupted_data);
@@ -103,6 +106,7 @@ int TestAESDecryptionWithCorruptedData() {
 	// Either way (error or garbage), the corruption was detected
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestAESEncryptionProducesDifferentContent() {
 	const std::string fn_name = "TestAESEncryptionProducesDifferentContent";
 	Password password("SecurePassword123!");
@@ -118,6 +122,7 @@ int TestAESEncryptionProducesDifferentContent() {
 	ASSERT_NOT_EQUAL(fn_name, encrypted_string, original_data);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestAESEncryptDecryptUsingConsumerProducer() {
 	const std::string fn_name = "TestAESEncryptDecryptUsingConsumerProducer";
 	const std::string input_data = "This is some data to encrypt using the Consumer/Producer model.";
@@ -140,6 +145,7 @@ int TestAESEncryptDecryptUsingConsumerProducer() {
 	ASSERT_EQUAL(fn_name, input_data, decrypt_result); // Ensure decrypted data matches original input data
 	RETURN_TEST(fn_name, 0);
 }
+
 int main() {
 	int result = 0;
 	result += TestAESEncryptDecryptConsistency();
@@ -152,5 +158,6 @@ int main() {
 	} else {
 		std::cout << result << " tests failed." << std::endl;
 	}
+
 	return result;
 }

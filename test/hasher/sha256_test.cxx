@@ -99,6 +99,7 @@ int TestSHA256CollisionResistance() {
 	ASSERT_NOT_EQUAL(fn_name, hash_1, hash_2);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestSHA256ProducesDifferentContent() {
 	const std::string fn_name = "TestSHA256ProducesDifferentContent";
 	const std::string original_data = "Data to hash";
@@ -117,6 +118,7 @@ int TestSHA256ProducesDifferentContent() {
 	ASSERT_NOT_EQUAL(fn_name, original_data, hashed_data);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestSHA256HashUsingConsumerProducer() {
 	const std::string fn_name = "TestSHA256HashUsingConsumerProducer";
 	const std::string input_data = "HashThisString";
@@ -139,6 +141,7 @@ int TestSHA256HashUsingConsumerProducer() {
 	ASSERT_EQUAL(fn_name, expected_hash, actual_hash); // Ensure hash matches expected value
 	RETURN_TEST(fn_name, 0);
 }
+
 int test_stream_and_block_equality() {
 	const std::string fn_name = "test_stream_and_block_equality";
 	const std::string input_data = "Data to hash for stream and block equality test";
@@ -162,6 +165,7 @@ int test_stream_and_block_equality() {
 	ASSERT_EQUAL(fn_name, block_hash, stream_hash);
 	RETURN_TEST(fn_name, 0);
 }
+
 int main() {
 	int result = 0;
 	result += TestSHA256HashCorrectness();
@@ -175,5 +179,6 @@ int main() {
 	} else {
 		std::cout << result << " tests failed." << std::endl;
 	}
+
 	return result;
 }

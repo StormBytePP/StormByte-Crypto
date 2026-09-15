@@ -27,6 +27,7 @@ using namespace StormByte::Crypto::Hasher;
 bool Blake2s::DoHash(std::span<const std::byte> dataSpan, WriteOnly& output) const noexcept {
 	return Implementation::Hasher::Hash<CryptoPP::BLAKE2s>(dataSpan, output);
 }
+
 Consumer Blake2s::DoHash(Consumer consumer, ReadMode mode) const noexcept {
 	return Implementation::Hasher::Hash<CryptoPP::BLAKE2s>(consumer, mode);
 }

@@ -29,6 +29,7 @@ namespace StormByte::Crypto::Implementation::Signer {
     namespace {
         constexpr size_t kChunkSize = 4096;
     }
+
     bool SignSpan(std::span<const std::byte> data,
                   WriteOnly& output,
                   std::unique_ptr<SignBox> box) noexcept
@@ -46,6 +47,7 @@ namespace StormByte::Crypto::Implementation::Signer {
             return false;
         }
     }
+
     Consumer SignStream(Consumer consumer,
                         ReadMode mode,
                         std::unique_ptr<SignBox> box) noexcept
@@ -55,6 +57,7 @@ namespace StormByte::Crypto::Implementation::Signer {
             producer.SetError();
             return producer.Consumer();
         }
+
         std::thread([consumer = std::move(consumer),
                      producer,
                      box = std::move(box),
@@ -67,6 +70,7 @@ namespace StormByte::Crypto::Implementation::Signer {
                         std::this_thread::yield();
                         continue;
                     }
+
                     size_t toRead = std::min(available, kChunkSize);
                     DataType data;
                     bool ok = (mode == ReadMode::Copy)
@@ -76,21 +80,25 @@ namespace StormByte::Crypto::Implementation::Signer {
                         producer.SetError();
                         return;
                     }
+
                     if (!box->Update(
                             std::span<const std::byte>(data.data(), data.size()))) {
                         producer.SetError();
                         return;
                     }
                 }
+
                 DataType signature;
                 if (!box->Finalize(signature)) {
                     producer.SetError();
                     return;
                 }
+
                 if (!producer.Write(std::move(signature))) {
                     producer.SetError();
                     return;
                 }
+
                 producer.Close();
             } catch (...) {
                 producer.SetError();
@@ -98,6 +106,7 @@ namespace StormByte::Crypto::Implementation::Signer {
         }).detach();
         return producer.Consumer();
     }
+
     bool VerifySpan(std::span<const std::byte> data,
                     const std::string& signature,
                     std::unique_ptr<VerifyBox> box) noexcept
@@ -114,6 +123,7 @@ namespace StormByte::Crypto::Implementation::Signer {
             return false;
         }
     }
+
     bool VerifyStream(Consumer consumer,
                       ReadMode mode,
                       const std::string& signature,
@@ -130,6 +140,7 @@ namespace StormByte::Crypto::Implementation::Signer {
                     std::this_thread::yield();
                     continue;
                 }
+
                 size_t toRead = std::min(available, kChunkSize);
                 DataType data;
                 bool ok = (mode == ReadMode::Copy)
@@ -141,6 +152,7 @@ namespace StormByte::Crypto::Implementation::Signer {
                         std::span<const std::byte>(data.data(), data.size())))
                     return false;
             }
+
             return box->Finalize();
         } catch (...) {
             return false;

@@ -30,6 +30,7 @@ int TestPasswordConstructFromCString() {
 	ASSERT_TRUE(fn_name, static_cast<bool>(p));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestPasswordConstructFromString() {
 	const std::string fn_name = "TestPasswordConstructFromString";
 	std::string raw = "from-std-string";
@@ -38,6 +39,7 @@ int TestPasswordConstructFromString() {
 	ASSERT_EQUAL(fn_name, p.Size(), std::string("from-std-string").size());
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestPasswordConstructFromBytes() {
 	const std::string fn_name = "TestPasswordConstructFromBytes";
 	const unsigned char bytes[] = { 0x01, 0x02, 0x03, 0x04, 0xff };
@@ -46,6 +48,7 @@ int TestPasswordConstructFromBytes() {
 	ASSERT_EQUAL(fn_name, p.Size(), sizeof(bytes));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestPasswordEmpty() {
 	const std::string fn_name = "TestPasswordEmpty";
 	Password empty(static_cast<const void*>(nullptr), 0);
@@ -57,6 +60,7 @@ int TestPasswordEmpty() {
 	ASSERT_TRUE(fn_name, static_cast<bool>(nonempty));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestPasswordEqualitySameContent() {
 	const std::string fn_name = "TestPasswordEqualitySameContent";
 	Password a("same-secret");
@@ -65,6 +69,7 @@ int TestPasswordEqualitySameContent() {
 	ASSERT_FALSE(fn_name, a != b);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestPasswordEqualityDifferentContent() {
 	const std::string fn_name = "TestPasswordEqualityDifferentContent";
 	Password a("alpha");
@@ -73,6 +78,7 @@ int TestPasswordEqualityDifferentContent() {
 	ASSERT_TRUE(fn_name, a != b);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestPasswordSelfEquality() {
 	const std::string fn_name = "TestPasswordSelfEquality";
 	Password p("self");
@@ -80,6 +86,7 @@ int TestPasswordSelfEquality() {
 	ASSERT_FALSE(fn_name, p != p);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestPasswordCopySharesContent() {
 	const std::string fn_name = "TestPasswordCopySharesContent";
 	Password original("shared-bytes");
@@ -90,6 +97,7 @@ int TestPasswordCopySharesContent() {
 	ASSERT_FALSE(fn_name, copy.Empty());
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestPasswordMoveLeavesUsableSource() {
 	const std::string fn_name = "TestPasswordMoveLeavesUsableSource";
 	Password source("move-me");
@@ -101,6 +109,7 @@ int TestPasswordMoveLeavesUsableSource() {
 	(void)source.Size();
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestPasswordBinaryNotEqualToTextOfSameLength() {
 	const std::string fn_name = "TestPasswordBinaryNotEqualToTextOfSameLength";
 	const unsigned char bin[] = { 'a', 'b', 'c', 0x00 };
@@ -110,6 +119,7 @@ int TestPasswordBinaryNotEqualToTextOfSameLength() {
 	ASSERT_FALSE(fn_name, fromBytes == fromText);
 	RETURN_TEST(fn_name, 0);
 }
+
 int main() {
 	int result = 0;
 	result += TestPasswordConstructFromCString();
@@ -127,5 +137,6 @@ int main() {
 	} else {
 		std::cout << result << " tests failed." << std::endl;
 	}
+
 	return result;
 }

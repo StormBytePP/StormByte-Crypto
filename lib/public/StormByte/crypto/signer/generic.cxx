@@ -33,6 +33,7 @@ bool Generic::DoSign(Buffer::ReadOnly& input, Buffer::WriteOnly& output, ReadMod
 		return false;
 	return DoSign(std::span<const std::byte>(data.data(), data.size()), output);
 }
+
 bool Generic::DoVerify(Buffer::ReadOnly& input, const std::string& signature, ReadMode mode) const noexcept {
 	Buffer::DataType data;
 	bool read_ok;
@@ -44,6 +45,7 @@ bool Generic::DoVerify(Buffer::ReadOnly& input, const std::string& signature, Re
 		return false;
 	return DoVerify(std::span<const std::byte>(data.data(), data.size()), signature);
 }
+
 namespace StormByte::Crypto::Signer {
 	Generic::PointerType Create(Type type, KeyPair::Generic::PointerType keypair) noexcept {
 		if (!keypair)
@@ -69,9 +71,11 @@ namespace StormByte::Crypto::Signer {
 				return nullptr;
 		}
 	}
+
 	Generic::PointerType Create(Type type, const KeyPair::Generic& keypair) noexcept {
 		return Create(type, keypair.Clone());
 	}
+
 	Generic::PointerType Create(Type type, KeyPair::Generic&& keypair) noexcept {
 		return Create(type, keypair.Move());
 	}

@@ -27,6 +27,7 @@ using namespace StormByte::Crypto::Hasher;
 bool SHA512::DoHash(std::span<const std::byte> dataSpan, WriteOnly& output) const noexcept {
 	return Implementation::Hasher::Hash<CryptoPP::SHA512>(dataSpan, output);
 }
+
 Consumer SHA512::DoHash(Consumer consumer, ReadMode mode) const noexcept {
 	return Implementation::Hasher::Hash<CryptoPP::SHA512>(consumer, mode);
 }

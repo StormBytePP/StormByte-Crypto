@@ -42,6 +42,7 @@ int TestChaCha20EncryptDecryptConsistency() {
 	ASSERT_EQUAL(fn_name, decrypted_data, original_data);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestChaCha20WrongDecryptionPassword() {
 	const std::string fn_name = "TestChaCha20WrongDecryptionPassword";
 	Password password("SecurePassword123!");
@@ -61,6 +62,7 @@ int TestChaCha20WrongDecryptionPassword() {
 	ASSERT_FALSE(fn_name, decrypt_result);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestChaCha20CorruptedCiphertext() {
 	const std::string fn_name = "TestChaCha20CorruptedCiphertext";
 	Password password("SecurePassword123!");
@@ -77,12 +79,14 @@ int TestChaCha20CorruptedCiphertext() {
 		size_t pos = corrupted.size() / 2;
 		corrupted[pos] = static_cast<char>(corrupted[pos] ^ 0x01);
 	}
+
 	FIFO decrypted_d;
 	auto decrypt_result = chacha.Decrypt(std::span<const std::byte>(reinterpret_cast<const std::byte*>(corrupted.data()), corrupted.size()), decrypted_d);
 	// AEAD should detect corruption and decryption should fail
 	ASSERT_FALSE(fn_name, decrypt_result);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestChaCha20EncryptionProducesDifferentContent() {
 	const std::string fn_name = "TestChaCha20EncryptionProducesDifferentContent";
 	Password password("SecurePassword123!");
@@ -99,6 +103,7 @@ int TestChaCha20EncryptionProducesDifferentContent() {
 	ASSERT_NOT_EQUAL(fn_name, encrypted_string, original_data);
 	RETURN_TEST(fn_name, 0);
 }
+
 int main(int, char**) {
 	int result = 0;
 	result += TestChaCha20EncryptDecryptConsistency();
@@ -110,5 +115,6 @@ int main(int, char**) {
 	} else {
 		std::cout << "ChaCha20 tests failed" << std::endl;
 	}
+
 	return result;
 }

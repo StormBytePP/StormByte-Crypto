@@ -32,6 +32,7 @@ int TestEd25519GenerateKeyPair() {
 	ASSERT_TRUE(fn_name, !keypair_result->PublicKey().empty());
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestEd25519SignAndVerify() {
 	const std::string fn_name = "TestEd25519SignAndVerify";
 	const std::string message = "Test message for Ed25519 signing";
@@ -48,6 +49,7 @@ int TestEd25519SignAndVerify() {
 	ASSERT_TRUE(fn_name, verified);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestEd25519VerifyWithWrongKey() {
 	const std::string fn_name = "TestEd25519VerifyWithWrongKey";
 	const std::string message = "Test message for Ed25519";
@@ -67,6 +69,7 @@ int TestEd25519VerifyWithWrongKey() {
 	ASSERT_FALSE(fn_name, verified);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestEd25519VerifyWithWrongMessage() {
 	const std::string fn_name = "TestEd25519VerifyWithWrongMessage";
 	const std::string message = "Original message";
@@ -84,6 +87,7 @@ int TestEd25519VerifyWithWrongMessage() {
 	ASSERT_FALSE(fn_name, verified);
 	RETURN_TEST(fn_name, 0);
 }
+
 int main() {
 int result = 0;
 result += TestEd25519GenerateKeyPair();
@@ -95,5 +99,6 @@ std::cout << "All tests passed!" << std::endl;
 } else {
 std::cout << result << " tests failed." << std::endl;
 }
+
 return result;
 }

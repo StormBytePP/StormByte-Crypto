@@ -27,6 +27,7 @@ using namespace StormByte::Crypto::Hasher;
 bool SHA3_256::DoHash(std::span<const std::byte> dataSpan, WriteOnly& output) const noexcept {
 	return Implementation::Hasher::Hash<CryptoPP::SHA3_256>(dataSpan, output);
 }
+
 Consumer SHA3_256::DoHash(Consumer consumer, ReadMode mode) const noexcept {
 	return Implementation::Hasher::Hash<CryptoPP::SHA3_256>(consumer, mode);
 }

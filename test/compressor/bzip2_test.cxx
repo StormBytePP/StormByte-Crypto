@@ -44,6 +44,7 @@ int TestBZip2CompressionDecompressionIntegrity() {
 	ASSERT_EQUAL(fn_name, decompressed_str, input_data);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestBzip2CompressionProducesDifferentContent() {
 	const std::string fn_name = "TestBzip2CompressionProducesDifferentContent";
 	const std::string original_data = "Compress this data";
@@ -59,6 +60,7 @@ int TestBzip2CompressionProducesDifferentContent() {
 	ASSERT_NOT_EQUAL(fn_name, compressed_string, original_data);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestBZip2DecompressCorruptedData() {
 	const std::string fn_name = "TestBZip2DecompressCorruptedData";
 	// Original valid data
@@ -82,6 +84,7 @@ int TestBZip2DecompressCorruptedData() {
 	} else if (!corrupted_string.empty()) {
 		corrupted_string[0] ^= 0xFF;
 	}
+
 	// Attempt to decompress the corrupted data
 	FIFO bad_decompress;
 	auto decompress_result = bzip2.Decompress(std::span<const std::byte>(reinterpret_cast<const std::byte*>(corrupted_string.data()), corrupted_string.size()), bad_decompress);
@@ -90,9 +93,11 @@ int TestBZip2DecompressCorruptedData() {
 		// If it decompressed, verify the output is corrupted (different from original)
 		ASSERT_NOT_EQUAL(fn_name, StormByte::String::FromByteVector(bad_decompress.Data()), original_data);
 	}
+
 	// Either way, the test passes if we get here
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestBZip2CompressDecompressUsingConsumerProducer() {
 	const std::string fn_name = "TestBZip2CompressDecompressUsingConsumerProducer";
 	const std::string input_data = "This is some data to compress using the Consumer/Producer model.";
@@ -116,6 +121,7 @@ int TestBZip2CompressDecompressUsingConsumerProducer() {
 	ASSERT_EQUAL(fn_name, input_data, deserialized_string);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestBzip2StreamingDecompress() {
 	const std::string fn_name = "TestBzip2StreamingDecompress";
 	std::string big(128 * 1024, '\0');
@@ -138,12 +144,14 @@ int TestBzip2StreamingDecompress() {
 									raw.begin() + static_cast<std::ptrdiff_t>(off + n));
 		(void)producer.Write(bytes);
 	}
+
 	producer.Close();
 	auto decompressedConsumer = bzip2.Decompress(consumerIn);
 	auto decompressedFifo = ReadAllFromConsumer(decompressedConsumer);
 	ASSERT_EQUAL(fn_name, StormByte::String::FromByteVector(decompressedFifo.Data()), big);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestBzip2StreamingRoundTrip() {
 	const std::string fn_name = "TestBzip2StreamingRoundTrip";
 	std::string big(64 * 1024, '\0');
@@ -161,6 +169,7 @@ int TestBzip2StreamingRoundTrip() {
 					[](char c) { return static_cast<std::byte>(c); });
 		(void)producer.Write(bytes);
 	}
+
 	producer.Close();
 	Compressor::Bzip2 bzip2;
 	auto compressedConsumer = bzip2.Compress(consumerIn);
@@ -169,6 +178,7 @@ int TestBzip2StreamingRoundTrip() {
 	ASSERT_EQUAL(fn_name, StormByte::String::FromByteVector(outFifo.Data()), big);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestBzip2EmptyInput() {
 	const std::string fn_name = "TestBzip2EmptyInput";
 	Compressor::Bzip2 bzip2;
@@ -183,6 +193,7 @@ int TestBzip2EmptyInput() {
 	ASSERT_TRUE(fn_name, decompressed.Empty());
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestBzip2CompressLevelBounds() {
 	const std::string fn_name = "TestBzip2CompressLevelBounds";
 	const std::string input = "level-bounds-test-payload";
@@ -197,8 +208,10 @@ int TestBzip2CompressLevelBounds() {
 		ASSERT_TRUE(fn_name, bzip2.Decompress(compressed, decompressed));
 		ASSERT_EQUAL(fn_name, StormByte::String::FromByteVector(decompressed.Data()), input);
 	}
+
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestBzip2BufferPath() {
 	const std::string fn_name = "TestBzip2BufferPath";
 	std::string src(1024, 'B');
@@ -215,6 +228,7 @@ int TestBzip2BufferPath() {
 	ASSERT_EQUAL(fn_name, StormByte::String::FromByteVector(decompressed.Data()), src);
 	RETURN_TEST(fn_name, 0);
 }
+
 int main() {
 	int result = 0;
 	result += TestBZip2CompressionDecompressionIntegrity();
@@ -231,5 +245,6 @@ int main() {
 	} else {
 		std::cout << result << " tests failed." << std::endl;
 	}
+
 	return result;
 }

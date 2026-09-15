@@ -52,16 +52,20 @@ namespace {
 	fs::path KeysDir() {
 		return fs::path(STORMBYTE_TEST_KEYS_DIR);
 	}
+
 	fs::path KeyFile(const std::string& name) {
 		return KeysDir() / name;
 	}
+
 	bool FileExists(const fs::path& p) {
 		return fs::exists(p) && fs::is_regular_file(p);
 	}
+
 	const std::string kPlainText = "StormByte OpenSSL key interop test payload";
 	Password TestKeysPassword() {
 		return Password(STORMBYTE_TEST_KEYS_PASSWORD);
 	}
+
 	static bool WriteBytes(const fs::path& path, const std::vector<unsigned char>& data) {
 		std::ofstream ofs(path, std::ios::binary | std::ios::trunc);
 		if (!ofs)
@@ -70,6 +74,7 @@ namespace {
 			ofs.write(reinterpret_cast<const char*>(data.data()), static_cast<std::streamsize>(data.size()));
 		return static_cast<bool>(ofs);
 	}
+
 	static bool WriteText(const fs::path& path, const std::string& text) {
 		std::ofstream ofs(path, std::ios::binary | std::ios::trunc);
 		if (!ofs)
@@ -77,6 +82,7 @@ namespace {
 		ofs.write(text.data(), static_cast<std::streamsize>(text.size()));
 		return static_cast<bool>(ofs);
 	}
+
 	static std::vector<unsigned char> ReadAllBytes(const fs::path& path) {
 		std::ifstream ifs(path, std::ios::binary);
 		if (!ifs)
@@ -86,6 +92,7 @@ namespace {
 			std::istreambuf_iterator<char>()
 		);
 	}
+
 	static std::string ReadAllText(const fs::path& path) {
 		std::ifstream ifs(path, std::ios::binary);
 		if (!ifs)
@@ -96,6 +103,7 @@ namespace {
 		);
 	}
 }
+
 // ---------------------------------------------------------------------------
 // Helpers: load OpenSSL fixtures
 // ---------------------------------------------------------------------------
@@ -112,8 +120,10 @@ int AssertLoadPair(const std::string& fn_name, const std::string& pubName, const
 	if (checkTypeStrict) {
 		ASSERT_TRUE(fn_name, out->Type() == expectedType);
 	}
+
 	return 0;
 }
+
 // ---------------------------------------------------------------------------
 // RSA: Load → Encrypt/Decrypt → Sign/Verify
 // ---------------------------------------------------------------------------
@@ -141,6 +151,7 @@ int TestOpenSslRsaEncryptDecrypt() {
 	ASSERT_EQUAL(fn_name, recovered, kPlainText);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslRsaHybridEncryptDecrypt() {
 	const std::string fn_name = "TestOpenSslRsaHybridEncryptDecrypt";
 	KeyPair::Generic::PointerType kp;
@@ -164,6 +175,7 @@ int TestOpenSslRsaHybridEncryptDecrypt() {
 	ASSERT_EQUAL(fn_name, recovered, longText);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslRsaSignVerify() {
 	const std::string fn_name = "TestOpenSslRsaSignVerify";
 	KeyPair::Generic::PointerType kp;
@@ -188,6 +200,7 @@ int TestOpenSslRsaSignVerify() {
 	));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslRsaDerRoundTripUse() {
 	const std::string fn_name = "TestOpenSslRsaDerRoundTripUse";
 	KeyPair::Generic::PointerType kp;
@@ -208,6 +221,7 @@ int TestOpenSslRsaDerRoundTripUse() {
 	ASSERT_EQUAL(fn_name, recovered, kPlainText);
 	RETURN_TEST(fn_name, 0);
 }
+
 // ---------------------------------------------------------------------------
 // DSA: Load → Sign/Verify
 // ---------------------------------------------------------------------------
@@ -234,6 +248,7 @@ int TestOpenSslDsaSignVerify() {
 	));
 	RETURN_TEST(fn_name, 0);
 }
+
 // ---------------------------------------------------------------------------
 // ECDSA: Load → Sign/Verify
 // ---------------------------------------------------------------------------
@@ -256,6 +271,7 @@ int TestOpenSslEcdsaSignVerify() {
 	));
 	RETURN_TEST(fn_name, 0);
 }
+
 // ---------------------------------------------------------------------------
 // ECC: Load → Encrypt/Decrypt
 // ---------------------------------------------------------------------------
@@ -281,6 +297,7 @@ int TestOpenSslEccEncryptDecrypt() {
 	ASSERT_EQUAL(fn_name, recovered, kPlainText);
 	RETURN_TEST(fn_name, 0);
 }
+
 // ---------------------------------------------------------------------------
 // Ed25519: Load → Sign/Verify
 // ---------------------------------------------------------------------------
@@ -307,6 +324,7 @@ int TestOpenSslEd25519SignVerify() {
 	));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslEd25519DerSignVerify() {
 	const std::string fn_name = "TestOpenSslEd25519DerSignVerify";
 	KeyPair::Generic::PointerType kp;
@@ -325,6 +343,7 @@ int TestOpenSslEd25519DerSignVerify() {
 	));
 	RETURN_TEST(fn_name, 0);
 }
+
 // ---------------------------------------------------------------------------
 // ECDH: Load local + peer → Share (same secret both ways)
 // ---------------------------------------------------------------------------
@@ -343,6 +362,7 @@ int TestOpenSslEcdhShare() {
 		ASSERT_TRUE(fn_name, s2.has_value());
 		ASSERT_TRUE(fn_name, s1 == s2);
 	}
+
 	auto localLoaded = KeyPair::Load(KeyFile("ecdh_test.pub.pem"), KeyFile("ecdh_test.priv.pem"));
 	auto peerLoaded  = KeyPair::Load(KeyFile("ecdh_peer_test.pub.pem"), KeyFile("ecdh_peer_test.priv.pem"));
 	ASSERT_TRUE(fn_name, localLoaded);
@@ -365,6 +385,7 @@ int TestOpenSslEcdhShare() {
 	ASSERT_TRUE(fn_name, !s1->Empty());
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslX25519Share() {
 	const std::string fn_name = "TestOpenSslX25519Share";
 	auto localLoaded = KeyPair::Load(KeyFile("x25519_test.pub.pem"), KeyFile("x25519_test.priv.pem"));
@@ -383,6 +404,7 @@ int TestOpenSslX25519Share() {
 	ASSERT_TRUE(fn_name, !s1->Empty());
 	RETURN_TEST(fn_name, 0);
 }
+
 // ---------------------------------------------------------------------------
 // Single-file load still usable
 // ---------------------------------------------------------------------------
@@ -409,6 +431,7 @@ int TestOpenSslRsaPrivateOnlyThenEncrypt() {
 	ASSERT_EQUAL(fn_name, recovered, kPlainText);
 	RETURN_TEST(fn_name, 0);
 }
+
 // ---------------------------------------------------------------------------
 // Library Save → Load → still works
 // ---------------------------------------------------------------------------
@@ -436,6 +459,7 @@ int TestLibraryRsaSaveLoadStillEncrypts() {
 	ASSERT_EQUAL(fn_name, recovered, kPlainText);
 	RETURN_TEST(fn_name, 0);
 }
+
 // ---------------------------------------------------------------------------
 // Encrypted PEM without password must fail
 // ---------------------------------------------------------------------------
@@ -447,6 +471,7 @@ int TestOpenSslEncryptedPrivateWithoutPasswordFails() {
 	ASSERT_FALSE(fn_name, KeyPair::Load(KeyFile("rsa_test.pub.pem"), enc));
 	RETURN_TEST(fn_name, 0);
 }
+
 // ---------------------------------------------------------------------------
 // Private-only Load: derived public must work as a standalone public key
 // ---------------------------------------------------------------------------
@@ -477,6 +502,7 @@ int TestOpenSslRsaPrivateOnlyDerivesPublic() {
 	ASSERT_EQUAL(fn_name, recovered, kPlainText);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslDsaPrivateOnlyDerivesPublic() {
 	const std::string fn_name = "TestOpenSslDsaPrivateOnlyDerivesPublic";
 	const auto privPath = KeyFile("dsa_test.priv.pem");
@@ -501,6 +527,7 @@ int TestOpenSslDsaPrivateOnlyDerivesPublic() {
 	));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslEcdsaPrivateOnlyDerivesPublic() {
 	const std::string fn_name = "TestOpenSslEcdsaPrivateOnlyDerivesPublic";
 	const auto privPath = KeyFile("ecdsa_test.priv.pem");
@@ -525,6 +552,7 @@ int TestOpenSslEcdsaPrivateOnlyDerivesPublic() {
 	));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslEccPrivateOnlyDerivesPublic() {
 	const std::string fn_name = "TestOpenSslEccPrivateOnlyDerivesPublic";
 	const auto privPath = KeyFile("ecc_p256_test.priv.pem");
@@ -551,6 +579,7 @@ int TestOpenSslEccPrivateOnlyDerivesPublic() {
 	ASSERT_EQUAL(fn_name, recovered, kPlainText);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslEd25519PrivateOnlyDerivesPublic() {
 	const std::string fn_name = "TestOpenSslEd25519PrivateOnlyDerivesPublic";
 	const auto privPath = KeyFile("ed25519_test.priv.pem");
@@ -575,6 +604,7 @@ int TestOpenSslEd25519PrivateOnlyDerivesPublic() {
 	));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslEcdhPrivateOnlyDerivesPublic() {
 	const std::string fn_name = "TestOpenSslEcdhPrivateOnlyDerivesPublic";
 	const auto privPath = KeyFile("ecdh_test.priv.pem");
@@ -602,6 +632,7 @@ int TestOpenSslEcdhPrivateOnlyDerivesPublic() {
 	ASSERT_TRUE(fn_name, s1 == s2);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslX25519PrivateOnlyDerivesPublic() {
 	const std::string fn_name = "TestOpenSslX25519PrivateOnlyDerivesPublic";
 	const auto privPath = KeyFile("x25519_test.priv.pem");
@@ -625,6 +656,7 @@ int TestOpenSslX25519PrivateOnlyDerivesPublic() {
 	ASSERT_TRUE(fn_name, s1 == s2);
 	RETURN_TEST(fn_name, 0);
 }
+
 // ---------------------------------------------------------------------------
 // Encrypted private key Load (password) → usable for crypto ops
 // ---------------------------------------------------------------------------
@@ -656,6 +688,7 @@ int TestOpenSslRsaEncryptedLoadEncryptDecrypt() {
 	ASSERT_EQUAL(fn_name, recovered, kPlainText);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslRsaEncryptedLoadPrivateOnly() {
 	const std::string fn_name = "TestOpenSslRsaEncryptedLoadPrivateOnly";
 	const auto enc = KeyFile("rsa_test.priv.enc.pem");
@@ -682,6 +715,7 @@ int TestOpenSslRsaEncryptedLoadPrivateOnly() {
 	ASSERT_EQUAL(fn_name, recovered, kPlainText);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslRsaEncryptedWrongPasswordFails() {
 	const std::string fn_name = "TestOpenSslRsaEncryptedWrongPasswordFails";
 	const auto enc = KeyFile("rsa_test.priv.enc.pem");
@@ -691,6 +725,7 @@ int TestOpenSslRsaEncryptedWrongPasswordFails() {
 	ASSERT_FALSE(fn_name, KeyPair::Load(KeyFile("rsa_test.pub.pem"), enc, wrong));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslRsaEncryptedSignVerify() {
 	const std::string fn_name = "TestOpenSslRsaEncryptedSignVerify";
 	Password pass = TestKeysPassword();
@@ -711,6 +746,7 @@ int TestOpenSslRsaEncryptedSignVerify() {
 	));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslDsaEncryptedSignVerify() {
 	const std::string fn_name = "TestOpenSslDsaEncryptedSignVerify";
 	Password pass = TestKeysPassword();
@@ -731,6 +767,7 @@ int TestOpenSslDsaEncryptedSignVerify() {
 	));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslEcdsaEncryptedSignVerify() {
 	const std::string fn_name = "TestOpenSslEcdsaEncryptedSignVerify";
 	Password pass = TestKeysPassword();
@@ -751,6 +788,7 @@ int TestOpenSslEcdsaEncryptedSignVerify() {
 	));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslEccEncryptedEncryptDecrypt() {
 	const std::string fn_name = "TestOpenSslEccEncryptedEncryptDecrypt";
 	Password pass = TestKeysPassword();
@@ -773,6 +811,7 @@ int TestOpenSslEccEncryptedEncryptDecrypt() {
 	ASSERT_EQUAL(fn_name, recovered, kPlainText);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslEd25519EncryptedSignVerify() {
 	const std::string fn_name = "TestOpenSslEd25519EncryptedSignVerify";
 	Password pass = TestKeysPassword();
@@ -793,6 +832,7 @@ int TestOpenSslEd25519EncryptedSignVerify() {
 	));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslEcdhEncryptedShare() {
 	const std::string fn_name = "TestOpenSslEcdhEncryptedShare";
 	Password pass = TestKeysPassword();
@@ -812,6 +852,7 @@ int TestOpenSslEcdhEncryptedShare() {
 	ASSERT_TRUE(fn_name, s1 == s2);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslX25519EncryptedShare() {
 	const std::string fn_name = "TestOpenSslX25519EncryptedShare";
 	Password pass = TestKeysPassword();
@@ -829,6 +870,7 @@ int TestOpenSslX25519EncryptedShare() {
 	ASSERT_TRUE(fn_name, s1 == s2);
 	RETURN_TEST(fn_name, 0);
 }
+
 // ---------------------------------------------------------------------------
 // Truncated / invalid OpenSSL private keys must not load
 // ---------------------------------------------------------------------------
@@ -839,6 +881,7 @@ int TestOpenSslRsaTruncatedPrivateFails() {
 	ASSERT_FALSE(fn_name, kp);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslDsaTruncatedPrivateFails() {
 	const std::string fn_name = "TestOpenSslDsaTruncatedPrivateFails";
 	ASSERT_TRUE(fn_name, FileExists(KeyFile("dsa_test.priv.truncated.pem")));
@@ -846,6 +889,7 @@ int TestOpenSslDsaTruncatedPrivateFails() {
 	ASSERT_FALSE(fn_name, kp);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslEccTruncatedPrivateFails() {
 	const std::string fn_name = "TestOpenSslEccTruncatedPrivateFails";
 	ASSERT_TRUE(fn_name, FileExists(KeyFile("ecc_p256_test.priv.truncated.pem")));
@@ -853,6 +897,7 @@ int TestOpenSslEccTruncatedPrivateFails() {
 	ASSERT_FALSE(fn_name, kp);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslEcdsaTruncatedPrivateFails() {
 	const std::string fn_name = "TestOpenSslEcdsaTruncatedPrivateFails";
 	ASSERT_TRUE(fn_name, FileExists(KeyFile("ecdsa_test.priv.truncated.pem")));
@@ -860,6 +905,7 @@ int TestOpenSslEcdsaTruncatedPrivateFails() {
 	ASSERT_FALSE(fn_name, kp);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslEcdhTruncatedPrivateFails() {
 	const std::string fn_name = "TestOpenSslEcdhTruncatedPrivateFails";
 	ASSERT_TRUE(fn_name, FileExists(KeyFile("ecdh_test.priv.truncated.pem")));
@@ -867,6 +913,7 @@ int TestOpenSslEcdhTruncatedPrivateFails() {
 	ASSERT_FALSE(fn_name, kp);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslEd25519TruncatedPrivateFails() {
 	const std::string fn_name = "TestOpenSslEd25519TruncatedPrivateFails";
 	ASSERT_TRUE(fn_name, FileExists(KeyFile("ed25519_test.priv.truncated.pem")));
@@ -874,6 +921,7 @@ int TestOpenSslEd25519TruncatedPrivateFails() {
 	ASSERT_FALSE(fn_name, kp);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslX25519TruncatedPrivateFails() {
 	const std::string fn_name = "TestOpenSslX25519TruncatedPrivateFails";
 	ASSERT_TRUE(fn_name, FileExists(KeyFile("x25519_test.priv.truncated.pem")));
@@ -881,6 +929,7 @@ int TestOpenSslX25519TruncatedPrivateFails() {
 	ASSERT_FALSE(fn_name, kp);
 	RETURN_TEST(fn_name, 0);
 }
+
 // ---------------------------------------------------------------------------
 // OpenSSL edge cases
 // ---------------------------------------------------------------------------
@@ -890,6 +939,7 @@ int TestOpenSslEdgeMismatchedPubPrivFail() {
 	ASSERT_FALSE(fn_name, kp);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslEdgePublicOnlyUsable() {
 	const std::string fn_name = "TestOpenSslEdgePublicOnlyUsable";
 	auto pubOnly = KeyPair::Load(KeyFile("rsa_test.pub.pem"));
@@ -913,6 +963,7 @@ int TestOpenSslEdgePublicOnlyUsable() {
 	ASSERT_EQUAL(fn_name, recovered, kPlainText);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslEdgeConcatenatedPemRoundTrip() {
 	const std::string fn_name = "TestOpenSslEdgeConcatenatedPemRoundTrip";
 	const std::string priv = ReadAllText(KeyFile("rsa_test.priv.pem"));
@@ -938,6 +989,7 @@ int TestOpenSslEdgeConcatenatedPemRoundTrip() {
 	ASSERT_EQUAL(fn_name, recovered, kPlainText);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslEdgeTruncatedEncryptedPrivateFails() {
 	const std::string fn_name = "TestOpenSslEdgeTruncatedEncryptedPrivateFails";
 	auto bytes = ReadAllBytes(KeyFile("rsa_test.priv.enc.pem"));
@@ -948,11 +1000,13 @@ int TestOpenSslEdgeTruncatedEncryptedPrivateFails() {
 	ASSERT_FALSE(fn_name, KeyPair::Load(truncated, TestKeysPassword()));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslEdgeEmptyPasswordOnEncryptedFails() {
 	const std::string fn_name = "TestOpenSslEdgeEmptyPasswordOnEncryptedFails";
 	ASSERT_FALSE(fn_name, KeyPair::Load(KeyFile("rsa_test.priv.enc.pem"), Password("")));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslEdgePasswordOnPlainPrivateStillLoads() {
 	const std::string fn_name = "TestOpenSslEdgePasswordOnPlainPrivateStillLoads";
 	auto kp = KeyPair::Load(KeyFile("rsa_test.priv.pem"), TestKeysPassword());
@@ -973,12 +1027,14 @@ int TestOpenSslEdgePasswordOnPlainPrivateStillLoads() {
 	ASSERT_EQUAL(fn_name, recovered, kPlainText);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslEdgeSwappedPathsFail() {
 	const std::string fn_name = "TestOpenSslEdgeSwappedPathsFail";
 	auto kp = KeyPair::Load(KeyFile("rsa_test.priv.pem"), KeyFile("rsa_test.pub.pem"));
 	ASSERT_FALSE(fn_name, kp);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslEdgeLoadThenLibrarySaveReload() {
 	const std::string fn_name = "TestOpenSslEdgeLoadThenLibrarySaveReload";
 	auto original = KeyPair::Load(KeyFile("rsa_test.pub.pem"), KeyFile("rsa_test.priv.pem"));
@@ -1003,6 +1059,7 @@ int TestOpenSslEdgeLoadThenLibrarySaveReload() {
 	ASSERT_EQUAL(fn_name, recovered, kPlainText);
 	RETURN_TEST(fn_name, 0);
 }
+
 // ---------------------------------------------------------------------------
 // PKCS#1 / traditional private key Load (explicit OpenSSL fixtures)
 //
@@ -1030,6 +1087,7 @@ int TestOpenSslRsaPkcs1DerEncryptDecrypt() {
 	ASSERT_EQUAL(fn_name, recovered, kPlainText);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslRsaPkcs1PemEncryptDecrypt() {
 	const std::string fn_name = "TestOpenSslRsaPkcs1PemEncryptDecrypt";
 	KeyPair::Generic::PointerType kp;
@@ -1050,6 +1108,7 @@ int TestOpenSslRsaPkcs1PemEncryptDecrypt() {
 	ASSERT_EQUAL(fn_name, recovered, kPlainText);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslRsaPkcs1DerSignVerify() {
 	const std::string fn_name = "TestOpenSslRsaPkcs1DerSignVerify";
 	KeyPair::Generic::PointerType kp;
@@ -1067,6 +1126,7 @@ int TestOpenSslRsaPkcs1DerSignVerify() {
 	));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslEccSec1DerEncryptDecrypt() {
 	const std::string fn_name = "TestOpenSslEccSec1DerEncryptDecrypt";
 	KeyPair::Generic::PointerType kp;
@@ -1089,6 +1149,7 @@ int TestOpenSslEccSec1DerEncryptDecrypt() {
 	ASSERT_EQUAL(fn_name, recovered, kPlainText);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslEcdsaSec1DerSignVerify() {
 	const std::string fn_name = "TestOpenSslEcdsaSec1DerSignVerify";
 	KeyPair::Generic::PointerType kp;
@@ -1106,6 +1167,7 @@ int TestOpenSslEcdsaSec1DerSignVerify() {
 	));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestOpenSslEcdhSec1DerShare() {
 	const std::string fn_name = "TestOpenSslEcdhSec1DerShare";
 	KeyPair::Generic::PointerType local;
@@ -1126,6 +1188,7 @@ int TestOpenSslEcdhSec1DerShare() {
 	ASSERT_TRUE(fn_name, s1 == s2);
 	RETURN_TEST(fn_name, 0);
 }
+
 int main() {
 	int result = 0;
 	result += TestOpenSslRsaEncryptDecrypt();
@@ -1185,5 +1248,6 @@ int main() {
 	} else {
 		std::cout << result << " tests failed." << std::endl;
 	}
+
 	return result;
 }
