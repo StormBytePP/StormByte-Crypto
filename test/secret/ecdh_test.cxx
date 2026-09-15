@@ -29,12 +29,14 @@ int TestECDHGenerateKeyPairValidCurve() {
 	Secret::ECDH ecdh(keypair_result);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestECDHGenerateKeyPairInvalidCurve() {
 	const std::string fn_name = "TestECDHGenerateKeyPairInvalidCurve";
 	auto keypair_result = KeyPair::ECDH::Generate(9999);
 	ASSERT_FALSE(fn_name, keypair_result);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestECDHDeriveSharedSecretValidKeys() {
 	const std::string fn_name = "TestECDHDeriveSharedSecretValidKeys";
 	constexpr const unsigned short curve_bits = 256;
@@ -51,6 +53,7 @@ int TestECDHDeriveSharedSecretValidKeys() {
 	ASSERT_TRUE(fn_name, *sharedSecret1 == *sharedSecret2);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestECDHDeriveSharedSecretInvalidKey() {
 	const std::string fn_name = "TestECDHDeriveSharedSecretInvalidPrivateKey";
 	constexpr const unsigned short curve_bits = 256;
@@ -61,6 +64,7 @@ int TestECDHDeriveSharedSecretInvalidKey() {
 	ASSERT_FALSE(fn_name, sharedSecret.has_value());
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestECDHGenerateKeyPairDifferentCurves() {
 	const std::string fn_name = "TestECDHGenerateKeyPairDifferentCurves";
 	auto keypair_result1 = KeyPair::ECDH::Generate(256);
@@ -80,6 +84,7 @@ int TestECDHGenerateKeyPairDifferentCurves() {
 	ASSERT_FALSE(fn_name, keypair_result3->PublicKey().empty());
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestECDHSharedSecretDifferentCurves() {
 	const std::string fn_name = "TestECDHSharedSecretDifferentCurves";
 	auto keypair_result1 = KeyPair::ECDH::Generate(256);
@@ -91,6 +96,7 @@ int TestECDHSharedSecretDifferentCurves() {
 	ASSERT_FALSE(fn_name, sharedSecret.has_value());
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestECDHSharedSecretCorruptedKeys() {
 	const std::string fn_name = "TestECDHSharedSecretCorruptedKeys";
 	constexpr const unsigned short curve_bits = 256;
@@ -109,6 +115,7 @@ int TestECDHSharedSecretCorruptedKeys() {
 	ASSERT_FALSE(fn_name, sharedSecret.has_value());
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestECDHServerClientSharedSecret() {
 	const std::string fn_name = "TestECDHServerClientSharedSecret";
 	constexpr const unsigned short curve_bits = 256;
@@ -125,6 +132,7 @@ int TestECDHServerClientSharedSecret() {
 	ASSERT_TRUE(fn_name, *serverSharedSecret == *clientSharedSecret);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestECDHMaliciousThirdPartyKey() {
 	const std::string fn_name = "TestECDHMaliciousThirdPartyKey";
 	constexpr const unsigned short curve_bits = 256;
@@ -147,6 +155,7 @@ int TestECDHMaliciousThirdPartyKey() {
 	ASSERT_FALSE(fn_name, *sharedSecret_mallory_alice == *sharedSecret_alice_bob);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestECDHShareAllCurves() {
 	const std::string fn_name = "TestECDHShareAllCurves";
 	for (unsigned short bits : {256, 384, 521}) {
@@ -162,8 +171,10 @@ int TestECDHShareAllCurves() {
 		ASSERT_TRUE(fn_name, s2.has_value());
 		ASSERT_TRUE(fn_name, *s1 == *s2);
 	}
+
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestECDHShareWithoutPrivateKey() {
 	const std::string fn_name = "TestECDHShareWithoutPrivateKey";
 	auto full = KeyPair::ECDH::Generate(256);
@@ -176,6 +187,7 @@ int TestECDHShareWithoutPrivateKey() {
 	ASSERT_FALSE(fn_name, ecdh.Share(peer->PublicKey()).has_value());
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestECDHShareIdempotent() {
 	const std::string fn_name = "TestECDHShareIdempotent";
 	auto a = KeyPair::ECDH::Generate(256);
@@ -190,6 +202,7 @@ int TestECDHShareIdempotent() {
 	ASSERT_TRUE(fn_name, *s1 == *s2);
 	RETURN_TEST(fn_name, 0);
 }
+
 int main() {
 	int result = 0;
 	result += TestECDHGenerateKeyPairValidCurve();
@@ -207,5 +220,6 @@ int main() {
 	} else {
 		std::cout << result << " tests failed." << std::endl;
 	}
+
 	return result;
 }

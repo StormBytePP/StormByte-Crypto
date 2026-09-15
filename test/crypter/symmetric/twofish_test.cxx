@@ -42,6 +42,7 @@ int TestTwofishEncryptDecryptConsistency() {
 	ASSERT_EQUAL(fn_name, std::string(reinterpret_cast<const char*>(decrypted_d.Data().data()), decrypted_d.Data().size()), original);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestTwofishWrongDecryptionPassword() {
 	const std::string fn_name = "TestTwofishWrongDecryptionPassword";
 	const std::string original = "Twofish by Bruce Schneier is an AES finalist";
@@ -63,6 +64,7 @@ int TestTwofishWrongDecryptionPassword() {
 	ASSERT_NOT_EQUAL(fn_name, std::string(reinterpret_cast<const char*>(decrypted_d.Data().data()), decrypted_d.Data().size()), original);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestTwofishEncryptionProducesDifferentContent() {
 	const std::string fn_name = "TestTwofishEncryptionProducesDifferentContent";
 	Password password("SecurePassword123!");
@@ -79,6 +81,7 @@ int TestTwofishEncryptionProducesDifferentContent() {
 	ASSERT_NOT_EQUAL(fn_name, encrypted_string, original_data);
 	RETURN_TEST(fn_name, 0);
 }
+
 int main() {
 	int result = 0;
 	result += TestTwofishEncryptDecryptConsistency();
@@ -89,5 +92,6 @@ int main() {
 	} else {
 		std::cout << "Twofish tests failed" << std::endl;
 	}
+
 	return result;
 }

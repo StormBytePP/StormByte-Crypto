@@ -31,6 +31,7 @@ bool Generic::DoCompress(Buffer::ReadOnly& input, Buffer::WriteOnly& output, Rea
 		return false;
 	return DoCompress(std::span<const std::byte>(data.data(), data.size()), output);
 }
+
 bool Generic::DoDecompress(Buffer::ReadOnly& input, Buffer::WriteOnly& output, ReadMode mode) const noexcept {
 	Buffer::DataType data;
 	bool read_ok;
@@ -42,6 +43,7 @@ bool Generic::DoDecompress(Buffer::ReadOnly& input, Buffer::WriteOnly& output, R
 		return false;
 	return DoDecompress(std::span<const std::byte>(data.data(), data.size()), output);	
 }
+
 namespace StormByte::Crypto::Compressor {
 	Generic::PointerType Create(Type type, unsigned short level) noexcept {
 		switch (type) {

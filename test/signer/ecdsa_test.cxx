@@ -43,6 +43,7 @@ int TestECDSASignAndVerify() {
 	ASSERT_TRUE(fn_name, verify_result);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestECDSAVerifyWithCorruptedSignature() {
 	const std::string fn_name = "TestECDSAVerifyWithCorruptedSignature";
 	const std::string message = "This is a test message.";
@@ -60,11 +61,13 @@ int TestECDSAVerifyWithCorruptedSignature() {
 	if (!signature.empty()) {
 		signature[0] = static_cast<char>(~signature[0]);
 	}
+
 	// Verify the corrupted signature
 	bool verify_result = ecdsa.Verify(std::span<const std::byte>(reinterpret_cast<const std::byte*>(message.data()), message.size()), signature);
 	ASSERT_FALSE(fn_name, verify_result);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestECDSAVerifyWithMismatchedKey() {
 	const std::string fn_name = "TestECDSAVerifyWithMismatchedKey";
 	const std::string message = "This is a test message.";
@@ -86,6 +89,7 @@ int TestECDSAVerifyWithMismatchedKey() {
 	ASSERT_FALSE(fn_name, verify_result);
 	RETURN_TEST(fn_name, 0);
 }
+
 int main() {
 	int result = 0;
 	result += TestECDSASignAndVerify();
@@ -96,5 +100,6 @@ int main() {
 	} else {
 		std::cout << result << " tests failed." << std::endl;
 	}
+
 	return result;
 }

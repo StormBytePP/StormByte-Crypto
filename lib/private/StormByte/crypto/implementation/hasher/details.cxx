@@ -29,6 +29,7 @@ namespace StormByte::Crypto::Implementation::Hasher {
 	namespace {
 		constexpr size_t kChunkSize = 4096;
 	}
+
 	bool ProcessSpan(std::span<const std::byte> data,
 					WriteOnly& output,
 					std::unique_ptr<Ops> ops) noexcept
@@ -45,6 +46,7 @@ namespace StormByte::Crypto::Implementation::Hasher {
 			return false;
 		}
 	}
+
 	Consumer Stream(Consumer consumer,
 					ReadMode mode,
 					std::unique_ptr<Ops> ops) noexcept
@@ -54,6 +56,7 @@ namespace StormByte::Crypto::Implementation::Hasher {
 			producer.SetError();
 			return producer.Consumer();
 		}
+
 		std::thread([consumer = std::move(consumer),
 					producer,
 					ops = std::move(ops),
@@ -66,6 +69,7 @@ namespace StormByte::Crypto::Implementation::Hasher {
 						std::this_thread::yield();
 						continue;
 					}
+
 					size_t toRead = std::min(available, kChunkSize);
 					DataType data;
 					bool ok = (mode == ReadMode::Copy)
@@ -75,17 +79,21 @@ namespace StormByte::Crypto::Implementation::Hasher {
 						producer.SetError();
 						return;
 					}
+
 					ops->Update(std::span<const std::byte>(data.data(), data.size()));
 				}
+
 				DataType result;
 				if (!ops->Finalize(result)) {
 					producer.SetError();
 					return;
 				}
+
 				if (!producer.Write(std::move(result))) {
 					producer.SetError();
 					return;
 				}
+
 				producer.Close();
 			} catch (...) {
 				producer.SetError();

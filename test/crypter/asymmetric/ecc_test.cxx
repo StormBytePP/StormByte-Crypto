@@ -42,6 +42,7 @@ int TestECCEncryptDecrypt() {
 	ASSERT_EQUAL(fn_name, decrypted_message, message);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestECCDecryptionWithCorruptedData() {
 	const std::string fn_name = "TestECCDecryptionWithCorruptedData";
 	const std::string message = "Important message!";
@@ -57,11 +58,13 @@ int TestECCDecryptionWithCorruptedData() {
 	if (!corrupted_string.empty()) {
 		corrupted_string[0] = ~corrupted_string[0];
 	}
+
 	FIFO decrypted_data;
 	auto decrypt_result = ecc.Decrypt(std::span<const std::byte>(reinterpret_cast<const std::byte*>(corrupted_string.data()), corrupted_string.size()), decrypted_data);
 	ASSERT_FALSE(fn_name, decrypt_result);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestECCDecryptWithMismatchedKey() {
 	const std::string fn_name = "TestECCDecryptWithMismatchedKey";
 	const std::string message = "Sensitive message.";
@@ -80,6 +83,7 @@ int TestECCDecryptWithMismatchedKey() {
 	ASSERT_FALSE(fn_name, decrypt_result);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestECCWithCorruptedKeys() {
 	const std::string fn_name = "TestECCWithCorruptedKeys";
 	const std::string message = "This is a test message.";
@@ -101,6 +105,7 @@ int TestECCWithCorruptedKeys() {
 	ASSERT_FALSE(fn_name, encrypt_result);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestECCEncryptionProducesDifferentContent() {
 	const std::string fn_name = "TestECCEncryptionProducesDifferentContent";
 	const std::string original_data = "ECC test message";
@@ -114,6 +119,7 @@ int TestECCEncryptionProducesDifferentContent() {
 	ASSERT_NOT_EQUAL(fn_name, original_data, encrypted_string);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestECCEncryptDecryptUsingConsumerProducer() {
 	const std::string fn_name = "TestECCEncryptDecryptUsingConsumerProducer";
 	const std::string input_data = "This is some data to encrypt using the Consumer/Producer model.";
@@ -134,6 +140,7 @@ int TestECCEncryptDecryptUsingConsumerProducer() {
 	ASSERT_EQUAL(fn_name, input_data, decrypt_result);
 	RETURN_TEST(fn_name, 0);
 }
+
 // =========================================================================
 // Hybrid (Envelope) tests
 // =========================================================================
@@ -161,6 +168,7 @@ int TestECCEncryptDecryptHybrid() {
 	ASSERT_EQUAL(fn_name, decrypted_message, message);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestECCEncryptDecryptHybridStreaming() {
 	const std::string fn_name = "TestECCEncryptDecryptHybridStreaming";
 	const std::string input_data = "This is some data to encrypt using Hybrid envelope with Consumer/Producer model.";
@@ -181,6 +189,7 @@ int TestECCEncryptDecryptHybridStreaming() {
 	ASSERT_EQUAL(fn_name, input_data, decrypt_result);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestECCHybridVsNativeDifferentOutput() {
 	const std::string fn_name = "TestECCHybridVsNativeDifferentOutput";
 	const std::string message = "Same message for both modes";
@@ -207,6 +216,7 @@ int TestECCHybridVsNativeDifferentOutput() {
 	);
 	RETURN_TEST(fn_name, 0);
 }
+
 // =========================================================================
 // Explicit Native + auto-detect
 // =========================================================================
@@ -235,6 +245,7 @@ int TestECCEncryptDecryptNativeExplicit() {
 	ASSERT_EQUAL(fn_name, decrypted_message, message);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestECCEncryptDecryptNativeExplicitStreaming() {
 	const std::string fn_name = "TestECCEncryptDecryptNativeExplicitStreaming";
 	const std::string input_data = "Native explicit streaming with auto-detect decrypt.";
@@ -255,6 +266,7 @@ int TestECCEncryptDecryptNativeExplicitStreaming() {
 	ASSERT_EQUAL(fn_name, input_data, decrypt_result);
 	RETURN_TEST(fn_name, 0);
 }
+
 // =========================================================================
 // Corruption / mismatch edge cases for auto-detect
 // =========================================================================
@@ -281,6 +293,7 @@ int TestECCCorruptedHybridEnvelopeFails() {
 	} else {
 		corrupted[0] = static_cast<char>(~corrupted[0]);
 	}
+
 	FIFO decrypted_data;
 	auto decrypt_result = ecc.Decrypt(
 		std::span<const std::byte>(reinterpret_cast<const std::byte*>(corrupted.data()), corrupted.size()),
@@ -290,6 +303,7 @@ int TestECCCorruptedHybridEnvelopeFails() {
 	ASSERT_FALSE(fn_name, decrypt_result);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestECCCorruptedNativeFailsAutoDetect() {
 	const std::string fn_name = "TestECCCorruptedNativeFailsAutoDetect";
 	const std::string message = "Native ciphertext that will be corrupted.";
@@ -311,6 +325,7 @@ int TestECCCorruptedNativeFailsAutoDetect() {
 			corrupted[corrupted.size() / 2] = static_cast<char>(corrupted[corrupted.size() / 2] ^ 0xFF);
 		}
 	}
+
 	FIFO decrypted_data;
 	auto decrypt_result = ecc.Decrypt(
 		std::span<const std::byte>(reinterpret_cast<const std::byte*>(corrupted.data()), corrupted.size()),
@@ -319,6 +334,7 @@ int TestECCCorruptedNativeFailsAutoDetect() {
 	ASSERT_FALSE(fn_name, decrypt_result);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestECCHybridDecryptWithMismatchedKey() {
 	const std::string fn_name = "TestECCHybridDecryptWithMismatchedKey";
 	const std::string message = "Hybrid ciphertext, wrong private key.";
@@ -343,6 +359,7 @@ int TestECCHybridDecryptWithMismatchedKey() {
 	ASSERT_FALSE(fn_name, decrypt_result);
 	RETURN_TEST(fn_name, 0);
 }
+
 int main() {
 	int result = 0;
 	result += TestECCEncryptDecrypt();
@@ -364,5 +381,6 @@ int main() {
 	} else {
 		std::cout << result << " tests failed." << std::endl;
 	}
+
 	return result;
 }

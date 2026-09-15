@@ -39,6 +39,7 @@ int TestDSASignAndVerify(KeyPair::Generic::PointerType kp) {
 	ASSERT_TRUE(fn_name, verify_result);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestDSAVerifyWithCorruptedSignature(KeyPair::Generic::PointerType kp) {
 	const std::string fn_name = "TestDSAVerifyWithCorruptedSignature";
 	const std::string message = "This is a test message.";
@@ -52,11 +53,13 @@ int TestDSAVerifyWithCorruptedSignature(KeyPair::Generic::PointerType kp) {
 	if (!signature.empty()) {
 		signature[0] = static_cast<char>(~signature[0]);
 	}
+
 	// Verify the corrupted signature
 	bool verify_result = dsa.Verify(std::span<const std::byte>(reinterpret_cast<const std::byte*>(message.data()), message.size()), signature);
 	ASSERT_FALSE(fn_name, verify_result);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestDSAVerifyWithMismatchedKey(KeyPair::Generic::PointerType kp) {
 	const std::string fn_name = "TestDSAVerifyWithMismatchedKey";
 	const std::string message = "This is a test message.";
@@ -78,6 +81,7 @@ int TestDSAVerifyWithMismatchedKey(KeyPair::Generic::PointerType kp) {
 	ASSERT_FALSE(fn_name, verify_result);
 	RETURN_TEST(fn_name, 0);
 }
+
 int main() {
 	int result = 0;
 	const int key_strength = 2048;
@@ -87,6 +91,7 @@ int main() {
 		std::cerr << "Failed to generate DSA keypair" << std::endl;
 		return 1;
 	}
+
 	auto kp = keypair_result;
 	result += TestDSASignAndVerify(kp);
 	result += TestDSAVerifyWithCorruptedSignature(kp);
@@ -96,5 +101,6 @@ int main() {
 	} else {
 		std::cout << result << " tests failed." << std::endl;
 	}
+
 	return result;
 }

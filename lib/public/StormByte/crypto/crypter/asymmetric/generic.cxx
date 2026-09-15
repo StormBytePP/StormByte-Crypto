@@ -48,14 +48,17 @@ namespace StormByte::Crypto::Crypter {
 				return nullptr;
 		}
 	}
+
 	Generic::PointerType Create(enum Type type, const KeyPair::Generic& keypair) noexcept
 	{
 		return Create(type, keypair.Clone());
 	}
+
 	Generic::PointerType Create(enum Type type, KeyPair::Generic&& keypair) noexcept
 	{
 		return Create(type, keypair.Move());
 	}
+
 	// -------------------------------------------------------------------------
 	// Encrypt overloads with Strategy
 	// -------------------------------------------------------------------------
@@ -71,13 +74,16 @@ namespace StormByte::Crypto::Crypter {
 				CryptoPP::RSAES_OAEP_SHA_Encryptor,
 				CryptoPP::RSA::PublicKey>(input, m_keypair, output);
 		}
+
 		if (Type() == Type::ECC) {
 			return Impl::EncryptAsymmetricBlockEnvelope<
 				ECIES::Encryptor,
 				ECIES::PublicKey>(input, m_keypair, output);
 		}
+
 		return false;
 	}
+
 	bool Asymmetric::Encrypt(const ReadOnly& input,
 							WriteOnly& output,
 							Strategy strategy) const noexcept
@@ -87,6 +93,7 @@ namespace StormByte::Crypto::Crypter {
 			return false;
 		return Encrypt(std::span<const std::byte>(data.data(), data.size()), output, strategy);
 	}
+
 	bool Asymmetric::Encrypt(ReadOnly& input,
 							WriteOnly& output,
 							Strategy strategy) const noexcept
@@ -96,6 +103,7 @@ namespace StormByte::Crypto::Crypter {
 			return false;
 		return Encrypt(std::span<const std::byte>(data.data(), data.size()), output, strategy);
 	}
+
 	Consumer Asymmetric::Encrypt(Consumer consumer,
 								Strategy strategy,
 								ReadMode mode) const noexcept
@@ -108,15 +116,18 @@ namespace StormByte::Crypto::Crypter {
 				CryptoPP::RSAES_OAEP_SHA_Encryptor,
 				CryptoPP::RSA::PublicKey>(std::move(consumer), m_keypair, mode);
 		}
+
 		if (Type() == Type::ECC) {
 			return Impl::EncryptAsymmetricBlockEnvelope<
 				ECIES::Encryptor,
 				ECIES::PublicKey>(std::move(consumer), m_keypair, mode);
 		}
+
 		Producer producer;
 		producer.SetError();
 		return producer.Consumer();
 	}
+
 	// -------------------------------------------------------------------------
 	// Decrypt overloads (auto-detect Native vs Hybrid)
 	// -------------------------------------------------------------------------
@@ -134,10 +145,12 @@ namespace StormByte::Crypto::Crypter {
 				ECIES::Decryptor,
 				ECIES::PrivateKey>(input, m_keypair, output);
 		}
+
 		if (hybridOk)
 			return true;
 		return DoDecrypt(input, output);
 	}
+
 	bool Asymmetric::Decrypt(const ReadOnly& input,
 							WriteOnly& output) const noexcept
 	{
@@ -146,6 +159,7 @@ namespace StormByte::Crypto::Crypter {
 			return false;
 		return Decrypt(std::span<const std::byte>(data.data(), data.size()), output);
 	}
+
 	bool Asymmetric::Decrypt(ReadOnly& input,
 							WriteOnly& output) const noexcept
 	{
@@ -154,6 +168,7 @@ namespace StormByte::Crypto::Crypter {
 			return false;
 		return Decrypt(std::span<const std::byte>(data.data(), data.size()), output);
 	}
+
 	Consumer Asymmetric::Decrypt(Consumer consumer, ReadMode mode) const noexcept
 	{
 		namespace Impl = Implementation::Crypter::Asymmetric;
@@ -172,12 +187,14 @@ namespace StormByte::Crypto::Crypter {
 					CryptoPP::RSAES_OAEP_SHA_Decryptor,
 					CryptoPP::RSA::PrivateKey>(std::move(consumer), m_keypair, mode);
 			}
+
 			if (Type() == Type::ECC) {
 				return Impl::DecryptAsymmetricBlockEnvelope<
 					ECIES::Decryptor,
 					ECIES::PrivateKey>(std::move(consumer), m_keypair, mode);
 			}
 		}
+
 		return DoDecrypt(std::move(consumer), mode);
 	}
 }

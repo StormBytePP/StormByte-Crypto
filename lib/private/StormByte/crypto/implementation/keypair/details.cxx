@@ -29,6 +29,7 @@ namespace StormByte::Crypto::Implementation::KeyPair {
 		enc.MessageEnd();
 		return out;
 	}
+
 	CryptoPP::SecByteBlock DecodeSecBlockBase64(const std::string& s) noexcept
 	{
 		CryptoPP::Base64Decoder dec;

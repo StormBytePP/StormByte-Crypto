@@ -42,6 +42,7 @@ int TestSerpentEncryptDecryptConsistency() {
 	ASSERT_EQUAL(fn_name, std::string(reinterpret_cast<const char*>(decrypted_d.Data().data()), decrypted_d.Data().size()), original);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestSerpentWrongDecryptionPassword() {
 	const std::string fn_name = "TestSerpentWrongDecryptionPassword";
 	const std::string original = "Serpent is an AES finalist block cipher";
@@ -62,6 +63,7 @@ int TestSerpentWrongDecryptionPassword() {
 	ASSERT_NOT_EQUAL(fn_name, std::string(reinterpret_cast<const char*>(decrypted_d.Data().data()), decrypted_d.Data().size()), original);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestSerpentEncryptionProducesDifferentContent() {
 	const std::string fn_name = "TestSerpentEncryptionProducesDifferentContent";
 	Password password("SecurePassword123!");
@@ -78,6 +80,7 @@ int TestSerpentEncryptionProducesDifferentContent() {
 	ASSERT_NOT_EQUAL(fn_name, encrypted_string, original_data);
 	RETURN_TEST(fn_name, 0);
 }
+
 int main() {
 	int result = 0;
 	result += TestSerpentEncryptDecryptConsistency();
@@ -88,5 +91,6 @@ int main() {
 	} else {
 		std::cout << "Serpent tests failed" << std::endl;
 	}
+
 	return result;
 }

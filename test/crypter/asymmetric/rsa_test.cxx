@@ -39,6 +39,7 @@ int TestRSAEncryptDecrypt(KeyPair::Generic::PointerType kp) {
 	ASSERT_EQUAL(fn_name, decrypted_message, message);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestRSADecryptionWithCorruptedData(KeyPair::Generic::PointerType kp) {
 	const std::string fn_name = "TestRSADecryptionWithCorruptedData";
 	const std::string message = "Important message!";
@@ -52,11 +53,13 @@ int TestRSADecryptionWithCorruptedData(KeyPair::Generic::PointerType kp) {
 	if (!corrupted_string.empty()) {
 		corrupted_string[0] = ~corrupted_string[0];
 	}
+
 	FIFO decrypted_data;
 	auto decrypt_result = rsa.Decrypt(std::span<const std::byte>(reinterpret_cast<const std::byte*>(corrupted_string.data()), corrupted_string.size()), decrypted_data);
 	ASSERT_FALSE(fn_name, decrypt_result);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestRSADecryptWithMismatchedKey(KeyPair::Generic::PointerType kp) {
 	const std::string fn_name = "TestRSADecryptWithMismatchedKey";
 	const std::string message = "Sensitive message.";
@@ -78,6 +81,7 @@ int TestRSADecryptWithMismatchedKey(KeyPair::Generic::PointerType kp) {
 	ASSERT_FALSE(fn_name, decrypt_result);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestRSAWithCorruptedKeys(KeyPair::Generic::PointerType kp) {
 	const std::string fn_name = "TestRSAWithCorruptedKeys";
 	const std::string message = "This is a test message.";
@@ -110,6 +114,7 @@ int TestRSAWithCorruptedKeys(KeyPair::Generic::PointerType kp) {
 	ASSERT_FALSE(fn_name, decrypt_result);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestRSAEncryptionProducesDifferentContent(KeyPair::Generic::PointerType kp) {
 	const std::string fn_name = "TestRSAEncryptionProducesDifferentContent";
 	const std::string original_data = "Sensitive message";
@@ -121,6 +126,7 @@ int TestRSAEncryptionProducesDifferentContent(KeyPair::Generic::PointerType kp) 
 	ASSERT_NOT_EQUAL(fn_name, encrypted_string, original_data);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestRSAEncryptDecryptUsingConsumerProducer(KeyPair::Generic::PointerType kp) {
 	const std::string fn_name = "TestRSAEncryptDecryptUsingConsumerProducer";
 	const std::string input_data = "This is some data to encrypt using the Consumer/Producer model.";
@@ -139,6 +145,7 @@ int TestRSAEncryptDecryptUsingConsumerProducer(KeyPair::Generic::PointerType kp)
 	ASSERT_EQUAL(fn_name, input_data, decrypt_result);
 	RETURN_TEST(fn_name, 0);
 }
+
 // =========================================================================
 // Hybrid (Envelope) tests
 // =========================================================================
@@ -164,6 +171,7 @@ int TestRSAEncryptDecryptHybrid(KeyPair::Generic::PointerType kp) {
 	ASSERT_EQUAL(fn_name, decrypted_message, message);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestRSAEncryptDecryptHybridStreaming(KeyPair::Generic::PointerType kp) {
 	const std::string fn_name = "TestRSAEncryptDecryptHybridStreaming";
 	const std::string input_data = "This is some data to encrypt using Hybrid envelope with Consumer/Producer model (RSA).";
@@ -182,6 +190,7 @@ int TestRSAEncryptDecryptHybridStreaming(KeyPair::Generic::PointerType kp) {
 	ASSERT_EQUAL(fn_name, input_data, decrypt_result);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestRSAHybridVsNativeDifferentOutput(KeyPair::Generic::PointerType kp) {
 	const std::string fn_name = "TestRSAHybridVsNativeDifferentOutput";
 	const std::string message = "Same message for both modes";
@@ -206,6 +215,7 @@ int TestRSAHybridVsNativeDifferentOutput(KeyPair::Generic::PointerType kp) {
 	);
 	RETURN_TEST(fn_name, 0);
 }
+
 // =========================================================================
 // Explicit Native + auto-detect
 // =========================================================================
@@ -231,6 +241,7 @@ int TestRSAEncryptDecryptNativeExplicit(KeyPair::Generic::PointerType kp) {
 	ASSERT_EQUAL(fn_name, decrypted_message, message);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestRSAEncryptDecryptNativeExplicitStreaming(KeyPair::Generic::PointerType kp) {
 	const std::string fn_name = "TestRSAEncryptDecryptNativeExplicitStreaming";
 	const std::string input_data = "Native explicit streaming with auto-detect decrypt (RSA).";
@@ -249,6 +260,7 @@ int TestRSAEncryptDecryptNativeExplicitStreaming(KeyPair::Generic::PointerType k
 	ASSERT_EQUAL(fn_name, input_data, decrypt_result);
 	RETURN_TEST(fn_name, 0);
 }
+
 // =========================================================================
 // Corruption / mismatch edge cases for auto-detect
 // =========================================================================
@@ -272,6 +284,7 @@ int TestRSACorruptedHybridEnvelopeFails(KeyPair::Generic::PointerType kp) {
 	} else {
 		corrupted[0] = static_cast<char>(~corrupted[0]);
 	}
+
 	FIFO decrypted_data;
 	auto decrypt_result = rsa.Decrypt(
 		std::span<const std::byte>(reinterpret_cast<const std::byte*>(corrupted.data()), corrupted.size()),
@@ -280,6 +293,7 @@ int TestRSACorruptedHybridEnvelopeFails(KeyPair::Generic::PointerType kp) {
 	ASSERT_FALSE(fn_name, decrypt_result);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestRSACorruptedNativeFailsAutoDetect(KeyPair::Generic::PointerType kp) {
 	const std::string fn_name = "TestRSACorruptedNativeFailsAutoDetect";
 	const std::string message = "Native ciphertext that will be corrupted.";
@@ -299,6 +313,7 @@ int TestRSACorruptedNativeFailsAutoDetect(KeyPair::Generic::PointerType kp) {
 			corrupted[corrupted.size() / 2] = static_cast<char>(corrupted[corrupted.size() / 2] ^ 0xFF);
 		}
 	}
+
 	FIFO decrypted_data;
 	auto decrypt_result = rsa.Decrypt(
 		std::span<const std::byte>(reinterpret_cast<const std::byte*>(corrupted.data()), corrupted.size()),
@@ -307,6 +322,7 @@ int TestRSACorruptedNativeFailsAutoDetect(KeyPair::Generic::PointerType kp) {
 	ASSERT_FALSE(fn_name, decrypt_result);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestRSAHybridDecryptWithMismatchedKey(KeyPair::Generic::PointerType kp) {
 	const std::string fn_name = "TestRSAHybridDecryptWithMismatchedKey";
 	const std::string message = "Hybrid ciphertext, wrong private key.";
@@ -329,6 +345,7 @@ int TestRSAHybridDecryptWithMismatchedKey(KeyPair::Generic::PointerType kp) {
 	ASSERT_FALSE(fn_name, decrypt_result);
 	RETURN_TEST(fn_name, 0);
 }
+
 int main() {
 	int result = 0;
 	const int key_strength = 2048;
@@ -337,6 +354,7 @@ int main() {
 		std::cerr << "Failed to generate RSA asymmetric keypair" << std::endl;
 		return 1;
 	}
+
 	auto kp_asym = kp_asym_result;
 	result += TestRSAEncryptDecrypt(kp_asym);
 	result += TestRSADecryptionWithCorruptedData(kp_asym);
@@ -357,5 +375,6 @@ int main() {
 	} else {
 		std::cout << result << " tests failed." << std::endl;
 	}
+
 	return result;
 }

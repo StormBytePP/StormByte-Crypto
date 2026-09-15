@@ -35,6 +35,7 @@ bool Generic::DoHash(Buffer::ReadOnly& input, Buffer::WriteOnly& output, ReadMod
 		return false;
 	return DoHash(std::span<const std::byte>(data.data(), data.size()), output);
 }
+
 namespace StormByte::Crypto::Hasher {
 	Generic::PointerType Create(Type type) noexcept {
 		switch (type) {

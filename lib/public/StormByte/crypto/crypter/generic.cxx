@@ -30,6 +30,7 @@ bool Generic::DoEncrypt(Buffer::ReadOnly& input, Buffer::WriteOnly& output, Read
 		return false;
 	return DoEncrypt(std::span<const std::byte>(data.data(), data.size()), output);
 }
+
 bool Generic::DoDecrypt(Buffer::ReadOnly& input, Buffer::WriteOnly& output, ReadMode mode) const noexcept {
 	Buffer::DataType data;
 	bool read_ok;

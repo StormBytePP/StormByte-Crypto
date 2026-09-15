@@ -41,6 +41,7 @@ ECDH::PointerType ECDH::Generate(unsigned short bits) noexcept {
 			default:
 				return nullptr;
 		}
+
 		CryptoPP::ECDH<CryptoPP::ECP>::Domain domain(curve);
 		CryptoPP::SecByteBlock privRaw(domain.PrivateKeyLength());
 		CryptoPP::SecByteBlock pubRaw(domain.PublicKeyLength());
@@ -53,6 +54,7 @@ ECDH::PointerType ECDH::Generate(unsigned short bits) noexcept {
 			Helpers::SecureWipe(pubRaw);
 			return nullptr;
 		}
+
 		CryptoPP::ECIES<CryptoPP::ECP>::PublicKey publicKey;
 		privateKey.MakePublicKey(publicKey);
 		Helpers::SecureWipe(privRaw);

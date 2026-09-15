@@ -43,6 +43,7 @@ int TestRSASignVerifySuccess() {
     ASSERT_TRUE(fn_name, verify_result);
     RETURN_TEST(fn_name, 0);
 }
+
 int TestRSASignVerifyByteInputRanges() {
     const std::string fn_name = "TestRSASignVerifyByteInputRanges";
     const std::string_view message = "This is a range message to sign.";
@@ -57,6 +58,7 @@ int TestRSASignVerifyByteInputRanges() {
     ASSERT_TRUE(fn_name, rsa.Verify(std::span<const std::uint8_t>(bytes), signature));
     RETURN_TEST(fn_name, 0);
 }
+
 int TestRSASignVerifyWithDifferentKeyPair() {
     const std::string fn_name = "TestRSASignVerifyWithDifferentKeyPair";
     const std::string message = "This is a message to sign.";
@@ -78,6 +80,7 @@ int TestRSASignVerifyWithDifferentKeyPair() {
     ASSERT_FALSE(fn_name, verify_result);
     RETURN_TEST(fn_name, 0);
 }
+
 int TestRSASignVerifyWithCorruptedMessage() {
     const std::string fn_name = "TestRSASignVerifyWithCorruptedMessage";
     const std::string message = "This is a message to sign.";
@@ -96,11 +99,13 @@ int TestRSASignVerifyWithCorruptedMessage() {
     if (!corrupted_message.empty()) {
         corrupted_message[0] = static_cast<char>(~corrupted_message[0]);
     }
+
     // Attempt to verify the signature with the corrupted message
     bool verify_result = rsa.Verify(std::span<const std::byte>(reinterpret_cast<const std::byte*>(corrupted_message.data()), corrupted_message.size()), signature);
     ASSERT_FALSE(fn_name, verify_result);
     RETURN_TEST(fn_name, 0);
 }
+
 int main() {
     int result = 0;
     result += TestRSASignVerifySuccess();
@@ -112,5 +117,6 @@ int main() {
     } else {
         std::cout << result << " tests failed." << std::endl;
     }
+
     return result;
 }

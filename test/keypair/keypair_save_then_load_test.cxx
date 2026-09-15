@@ -52,12 +52,15 @@ namespace {
 	fs::path KeysDir() {
 		return fs::path(STORMBYTE_TEST_KEYS_DIR);
 	}
+
 	fs::path SaveDir() {
 		return KeysDir() / "save_roundtrip";
 	}
+
 	bool FileExists(const fs::path& p) {
 		return fs::exists(p) && fs::is_regular_file(p);
 	}
+
 	const std::string kPlainText = "StormByte Save/Load round-trip payload";
 	// Generated once per process (expensive)
 	KeyPair::Generic::PointerType g_rsa;
@@ -90,6 +93,7 @@ namespace {
 		ASSERT_TRUE(fn_name, g_x25519_b);
 		return 0;
 	}
+
 	int SaveAllKeypairs(const std::string& fn_name) {
 		const fs::path out = SaveDir();
 		std::error_code ec;
@@ -114,10 +118,12 @@ namespace {
 		ASSERT_TRUE(fn_name, FileExists(out / "rsa_der.der"));
 		return 0;
 	}
+
 	Password TestKeysPassword() {
 		return Password(STORMBYTE_TEST_KEYS_PASSWORD);
 	}
 }
+
 // ---------------------------------------------------------------------------
 // File permissions
 // ---------------------------------------------------------------------------
@@ -137,6 +143,7 @@ int TestPrivateKeyFilesAreOwnerOnly() {
 #endif
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestSaveRefusesToFollowSymlink() {
 	const std::string fn_name = "TestSaveRefusesToFollowSymlink";
 #ifndef _WIN32
@@ -148,6 +155,7 @@ int TestSaveRefusesToFollowSymlink() {
 	{
 		std::ofstream(decoyTarget) << "do not overwrite me";
 	}
+
 	const fs::path privPath = out / "rsa.pem";
 	fs::create_symlink(decoyTarget, privPath, ec);
 	ASSERT_TRUE(fn_name, !ec);
@@ -159,6 +167,7 @@ int TestSaveRefusesToFollowSymlink() {
 #endif
 	RETURN_TEST(fn_name, 0);
 }
+
 // ---------------------------------------------------------------------------
 // RSA
 // ---------------------------------------------------------------------------
@@ -184,6 +193,7 @@ int TestSaveLoadRsaEncryptDecrypt() {
 	ASSERT_EQUAL(fn_name, recovered, kPlainText);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestSaveLoadRsaHybridEncryptDecrypt() {
 	const std::string fn_name = "TestSaveLoadRsaHybridEncryptDecrypt";
 	const fs::path out = SaveDir();
@@ -205,6 +215,7 @@ int TestSaveLoadRsaHybridEncryptDecrypt() {
 	ASSERT_EQUAL(fn_name, recovered, longText);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestSaveLoadRsaSignVerify() {
 	const std::string fn_name = "TestSaveLoadRsaSignVerify";
 	const fs::path out = SaveDir();
@@ -225,6 +236,7 @@ int TestSaveLoadRsaSignVerify() {
 	));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestSaveLoadRsaDerEncryptDecrypt() {
 	const std::string fn_name = "TestSaveLoadRsaDerEncryptDecrypt";
 	const fs::path out = SaveDir();
@@ -245,6 +257,7 @@ int TestSaveLoadRsaDerEncryptDecrypt() {
 	ASSERT_EQUAL(fn_name, recovered, kPlainText);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestSaveLoadRsaPrivateOnly() {
 	const std::string fn_name = "TestSaveLoadRsaPrivateOnly";
 	const fs::path out = SaveDir();
@@ -269,6 +282,7 @@ int TestSaveLoadRsaPrivateOnly() {
 	ASSERT_EQUAL(fn_name, recovered, kPlainText);
 	RETURN_TEST(fn_name, 0);
 }
+
 // ---------------------------------------------------------------------------
 // DSA / ECDSA / Ed25519
 // ---------------------------------------------------------------------------
@@ -293,6 +307,7 @@ int TestSaveLoadDsaSignVerify() {
 	));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestSaveLoadEcdsaSignVerify() {
 	const std::string fn_name = "TestSaveLoadEcdsaSignVerify";
 	const fs::path out = SaveDir();
@@ -313,6 +328,7 @@ int TestSaveLoadEcdsaSignVerify() {
 	));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestSaveLoadEd25519SignVerify() {
 	const std::string fn_name = "TestSaveLoadEd25519SignVerify";
 	const fs::path out = SaveDir();
@@ -334,6 +350,7 @@ int TestSaveLoadEd25519SignVerify() {
 	));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestSaveLoadEd25519DerSignVerify() {
 	const std::string fn_name = "TestSaveLoadEd25519DerSignVerify";
 	const fs::path out = SaveDir();
@@ -354,6 +371,7 @@ int TestSaveLoadEd25519DerSignVerify() {
 	));
 	RETURN_TEST(fn_name, 0);
 }
+
 // ---------------------------------------------------------------------------
 // ECC
 // ---------------------------------------------------------------------------
@@ -379,6 +397,7 @@ int TestSaveLoadEccEncryptDecrypt() {
 	ASSERT_EQUAL(fn_name, recovered, kPlainText);
 	RETURN_TEST(fn_name, 0);
 }
+
 // ---------------------------------------------------------------------------
 // ECDH / X25519
 // ---------------------------------------------------------------------------
@@ -404,6 +423,7 @@ int TestSaveLoadEcdhShare() {
 	ASSERT_TRUE(fn_name, s1 == s2);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestSaveLoadX25519Share() {
 	const std::string fn_name = "TestSaveLoadX25519Share";
 	const fs::path out = SaveDir();
@@ -420,6 +440,7 @@ int TestSaveLoadX25519Share() {
 	ASSERT_TRUE(fn_name, s1 == s2);
 	RETURN_TEST(fn_name, 0);
 }
+
 // ---------------------------------------------------------------------------
 // SavePublic / SavePrivate helpers
 // ---------------------------------------------------------------------------
@@ -449,6 +470,7 @@ int TestSavePublicOnlyThenLoad() {
 	ASSERT_EQUAL(fn_name, recovered, kPlainText);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestSavePrivateOnlyThenLoad() {
 	const std::string fn_name = "TestSavePrivateOnlyThenLoad";
 	const fs::path out = SaveDir();
@@ -476,6 +498,7 @@ int TestSavePrivateOnlyThenLoad() {
 	ASSERT_EQUAL(fn_name, recovered, kPlainText);
 	RETURN_TEST(fn_name, 0);
 }
+
 // ---------------------------------------------------------------------------
 // Encrypted Save → Load (requires Save* with Password)
 // ---------------------------------------------------------------------------
@@ -508,6 +531,7 @@ int TestSaveEncryptedRsaPrivateLoadDecrypt() {
 	ASSERT_EQUAL(fn_name, recovered, kPlainText);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestSaveEncryptedRsaPairLoadSignVerify() {
 	const std::string fn_name = "TestSaveEncryptedRsaPairLoadSignVerify";
 	const fs::path out = SaveDir();
@@ -533,6 +557,7 @@ int TestSaveEncryptedRsaPairLoadSignVerify() {
 	));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestSaveEncryptedWrongPasswordFails() {
 	const std::string fn_name = "TestSaveEncryptedWrongPasswordFails";
 	const fs::path out = SaveDir();
@@ -544,6 +569,7 @@ int TestSaveEncryptedWrongPasswordFails() {
 	ASSERT_TRUE(fn_name, KeyPair::Load(encPath, pass));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestSaveEncryptedDifferentPasswordsIndependent() {
 	const std::string fn_name = "TestSaveEncryptedDifferentPasswordsIndependent";
 	const fs::path out = SaveDir();
@@ -564,6 +590,7 @@ int TestSaveEncryptedDifferentPasswordsIndependent() {
 	ASSERT_EQUAL(fn_name, kpB->PublicKey(), g_rsa->PublicKey());
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestSaveEncryptedEd25519SignVerify() {
 	const std::string fn_name = "TestSaveEncryptedEd25519SignVerify";
 	const fs::path out = SaveDir();
@@ -586,6 +613,7 @@ int TestSaveEncryptedEd25519SignVerify() {
 	));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestSaveEncryptedDsaSignVerify() {
 	const std::string fn_name = "TestSaveEncryptedDsaSignVerify";
 	const fs::path out = SaveDir();
@@ -608,6 +636,7 @@ int TestSaveEncryptedDsaSignVerify() {
 	));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestSaveEncryptedEccEncryptDecrypt() {
 	const std::string fn_name = "TestSaveEncryptedEccEncryptDecrypt";
 	const fs::path out = SaveDir();
@@ -632,6 +661,7 @@ int TestSaveEncryptedEccEncryptDecrypt() {
 	ASSERT_EQUAL(fn_name, recovered, kPlainText);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestSaveEncryptedX25519Share() {
 	const std::string fn_name = "TestSaveEncryptedX25519Share";
 	const fs::path out = SaveDir();
@@ -651,6 +681,7 @@ int TestSaveEncryptedX25519Share() {
 	ASSERT_TRUE(fn_name, s1 == s2);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestSaveEncryptedPublicStaysPlain() {
 	const std::string fn_name = "TestSaveEncryptedPublicStaysPlain";
 	const fs::path out = SaveDir();
@@ -662,6 +693,7 @@ int TestSaveEncryptedPublicStaysPlain() {
 	ASSERT_EQUAL(fn_name, pubOnly->PublicKey(), g_rsa->PublicKey());
 	RETURN_TEST(fn_name, 0);
 }
+
 // ---------------------------------------------------------------------------
 // Cross-format PEM ↔ DER (plain and encrypted): same key material
 // ---------------------------------------------------------------------------
@@ -704,6 +736,7 @@ int TestCrossFormatRsaPemEncryptDerDecrypt() {
 	ASSERT_EQUAL(fn_name, recovered2, kPlainText);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestCrossFormatRsaEncryptedPemDer() {
 	const std::string fn_name = "TestCrossFormatRsaEncryptedPemDer";
 	const fs::path out = SaveDir();
@@ -730,6 +763,7 @@ int TestCrossFormatRsaEncryptedPemDer() {
 	ASSERT_EQUAL(fn_name, recovered, kPlainText);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestCrossFormatRsaPemSignDerVerify() {
 	const std::string fn_name = "TestCrossFormatRsaPemSignDerVerify";
 	const fs::path out = SaveDir();
@@ -753,6 +787,7 @@ int TestCrossFormatRsaPemSignDerVerify() {
 	));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestCrossFormatDsaPemSignDerVerify() {
 	const std::string fn_name = "TestCrossFormatDsaPemSignDerVerify";
 	const fs::path out = SaveDir();
@@ -776,6 +811,7 @@ int TestCrossFormatDsaPemSignDerVerify() {
 	));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestCrossFormatEcdsaPemSignDerVerify() {
 	const std::string fn_name = "TestCrossFormatEcdsaPemSignDerVerify";
 	const fs::path out = SaveDir();
@@ -799,6 +835,7 @@ int TestCrossFormatEcdsaPemSignDerVerify() {
 	));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestCrossFormatEd25519PemSignDerVerify() {
 	const std::string fn_name = "TestCrossFormatEd25519PemSignDerVerify";
 	const fs::path out = SaveDir();
@@ -822,6 +859,7 @@ int TestCrossFormatEd25519PemSignDerVerify() {
 	));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestCrossFormatEd25519EncryptedPemDer() {
 	const std::string fn_name = "TestCrossFormatEd25519EncryptedPemDer";
 	const fs::path out = SaveDir();
@@ -846,6 +884,7 @@ int TestCrossFormatEd25519EncryptedPemDer() {
 	));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestCrossFormatEccPemEncryptDerDecrypt() {
 	const std::string fn_name = "TestCrossFormatEccPemEncryptDerDecrypt";
 	const fs::path out = SaveDir();
@@ -871,6 +910,7 @@ int TestCrossFormatEccPemEncryptDerDecrypt() {
 	ASSERT_EQUAL(fn_name, recovered, kPlainText);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestCrossFormatEcdhPemDerShare() {
 	const std::string fn_name = "TestCrossFormatEcdhPemDerShare";
 	const fs::path out = SaveDir();
@@ -892,6 +932,7 @@ int TestCrossFormatEcdhPemDerShare() {
 	ASSERT_TRUE(fn_name, s1 == s2);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestCrossFormatX25519PemDerShare() {
 	const std::string fn_name = "TestCrossFormatX25519PemDerShare";
 	const fs::path out = SaveDir();
@@ -911,6 +952,7 @@ int TestCrossFormatX25519PemDerShare() {
 	ASSERT_TRUE(fn_name, s1 == s2);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestCrossFormatX25519EncryptedPemDerShare() {
 	const std::string fn_name = "TestCrossFormatX25519EncryptedPemDerShare";
 	const fs::path out = SaveDir();
@@ -929,6 +971,7 @@ int TestCrossFormatX25519EncryptedPemDerShare() {
 	ASSERT_TRUE(fn_name, s1 == s2);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestCrossFormatDsaEncryptedPemDer() {
 	const std::string fn_name = "TestCrossFormatDsaEncryptedPemDer";
 	const fs::path out = SaveDir();
@@ -953,6 +996,7 @@ int TestCrossFormatDsaEncryptedPemDer() {
 	));
 	RETURN_TEST(fn_name, 0);
 }
+
 // ---------------------------------------------------------------------------
 // Save edge cases: missing paths, public/private-only, overwrite, encryption
 // ---------------------------------------------------------------------------
@@ -965,6 +1009,7 @@ int TestSaveToMissingDirectoryFails() {
 	ASSERT_FALSE(fn_name, kp->Save(missing, "rsa_missing_dir"));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestSavePublicOnlyThenLoadHasNoPrivate() {
 	const std::string fn_name = "TestSavePublicOnlyThenLoadHasNoPrivate";
 	auto kp = KeyPair::RSA::Generate(2048);
@@ -978,6 +1023,7 @@ int TestSavePublicOnlyThenLoadHasNoPrivate() {
 	ASSERT_FALSE(fn_name, loaded->PrivateKey().has_value());
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestSavePrivateOnlyThenLoadDerivesPublicAndEncrypts() {
 	const std::string fn_name = "TestSavePrivateOnlyThenLoadDerivesPublicAndEncrypts";
 	auto kp = KeyPair::RSA::Generate(2048);
@@ -1005,6 +1051,7 @@ int TestSavePrivateOnlyThenLoadDerivesPublicAndEncrypts() {
 	ASSERT_EQUAL(fn_name, plain, StormByte::String::FromByteVector(recovered.Data()));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestSaveOverwriteSameBaseNameStillUsable() {
 	const std::string fn_name = "TestSaveOverwriteSameBaseNameStillUsable";
 	auto kp1 = KeyPair::RSA::Generate(2048);
@@ -1032,6 +1079,7 @@ int TestSaveOverwriteSameBaseNameStillUsable() {
 	ASSERT_EQUAL(fn_name, plain, StormByte::String::FromByteVector(recovered.Data()));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestSaveEncryptedEmptyPasswordFails() {
 	const std::string fn_name = "TestSaveEncryptedEmptyPasswordFails";
 	auto kp = KeyPair::RSA::Generate(2048);
@@ -1042,6 +1090,7 @@ int TestSaveEncryptedEmptyPasswordFails() {
 	ASSERT_FALSE(fn_name, kp->Save(out, "rsa_empty", empty));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestSaveEncryptedDifferentPasswordsBothWork() {
 	const std::string fn_name = "TestSaveEncryptedDifferentPasswordsBothWork";
 	auto kp = KeyPair::RSA::Generate(2048);
@@ -1060,6 +1109,7 @@ int TestSaveEncryptedDifferentPasswordsBothWork() {
 	ASSERT_FALSE(fn_name, KeyPair::Load(out / "rsa_b.pub.pem", out / "rsa_b.pem", passA));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestGenerateInvalidBitsThenNothingToSave() {
 	const std::string fn_name = "TestGenerateInvalidBitsThenNothingToSave";
 	ASSERT_FALSE(fn_name, KeyPair::RSA::Generate(0));
@@ -1068,6 +1118,7 @@ int TestGenerateInvalidBitsThenNothingToSave() {
 	ASSERT_FALSE(fn_name, KeyPair::ECDH::Generate(123));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestSaveEcdhRoundTripShare() {
 	const std::string fn_name = "TestSaveEcdhRoundTripShare";
 	auto a0 = KeyPair::ECDH::Generate(256);
@@ -1091,6 +1142,7 @@ int TestSaveEcdhRoundTripShare() {
 	ASSERT_TRUE(fn_name, s1 == s2);
 	RETURN_TEST(fn_name, 0);
 }
+
 int main() {
 	int result = 0;
 	// One-shot generation + save (expensive RSA/DSA only once)
@@ -1101,6 +1153,7 @@ int main() {
 		if (SaveAllKeypairs(setup) != 0)
 			return 1;
 	}
+
 	result += TestPrivateKeyFilesAreOwnerOnly();
 	result += TestSaveRefusesToFollowSymlink();
 	result += TestSaveLoadRsaEncryptDecrypt();

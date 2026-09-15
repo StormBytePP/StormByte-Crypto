@@ -40,6 +40,7 @@ ECC::PointerType ECC::Generate(unsigned short bits) noexcept {
 			default:
 				return nullptr;
 		}
+
 		CryptoPP::ECIES<CryptoPP::ECP>::Decryptor decryptor(RNG(), curve);
 		CryptoPP::ECIES<CryptoPP::ECP>::Encryptor encryptor(decryptor);
 		return std::make_shared<ECC>(

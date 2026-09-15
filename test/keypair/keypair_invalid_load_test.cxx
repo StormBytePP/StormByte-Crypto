@@ -58,10 +58,12 @@ int TestLoadEmptyFileFails() {
 		std::ofstream ofs(path, std::ios::binary | std::ios::trunc);
 		ASSERT_TRUE(fn_name, static_cast<bool>(ofs));
 	}
+
 	ASSERT_FALSE(fn_name, KeyPair::Load(path));
 	ASSERT_FALSE(fn_name, KeyPair::Load(path, path));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestLoadRandomGarbageFails() {
 	const std::string fn_name = "TestLoadRandomGarbageFails";
 	const auto path = KeysDir() / "garbage.bin";
@@ -71,9 +73,11 @@ int TestLoadRandomGarbageFails() {
 		ofs.write(junk, static_cast<std::streamsize>(sizeof(junk) - 1));
 		ASSERT_TRUE(fn_name, static_cast<bool>(ofs));
 	}
+
 	ASSERT_FALSE(fn_name, KeyPair::Load(path));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestLoadMalformedPemHeaderFails() {
 	const std::string fn_name = "TestLoadMalformedPemHeaderFails";
 	const auto path = KeysDir() / "bad_pem.pem";
@@ -84,9 +88,11 @@ int TestLoadMalformedPemHeaderFails() {
 			<< "-----END NOT A KEY-----\n";
 		ASSERT_TRUE(fn_name, static_cast<bool>(ofs));
 	}
+
 	ASSERT_FALSE(fn_name, KeyPair::Load(path));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestLoadPemMissingEndFails() {
 	const std::string fn_name = "TestLoadPemMissingEndFails";
 	const auto path = KeysDir() / "pem_no_end.pem";
@@ -96,9 +102,11 @@ int TestLoadPemMissingEndFails() {
 			<< "MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC7\n";
 		ASSERT_TRUE(fn_name, static_cast<bool>(ofs));
 	}
+
 	ASSERT_FALSE(fn_name, KeyPair::Load(path));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestLoadPemInvalidBase64Fails() {
 	const std::string fn_name = "TestLoadPemInvalidBase64Fails";
 	const auto path = KeysDir() / "pem_bad_b64.pem";
@@ -109,9 +117,11 @@ int TestLoadPemInvalidBase64Fails() {
 			<< "-----END PRIVATE KEY-----\n";
 		ASSERT_TRUE(fn_name, static_cast<bool>(ofs));
 	}
+
 	ASSERT_FALSE(fn_name, KeyPair::Load(path));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestLoadNonexistentPathFails() {
 	const std::string fn_name = "TestLoadNonexistentPathFails";
 	const auto path = KeysDir() / "no_such_file.pem";
@@ -120,6 +130,7 @@ int TestLoadNonexistentPathFails() {
 	ASSERT_FALSE(fn_name, KeyPair::Load(path, path));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestLoadDirectoryAsPathFails() {
 	const std::string fn_name = "TestLoadDirectoryAsPathFails";
 	const auto dir = KeysDir() / "as_dir";
@@ -127,6 +138,7 @@ int TestLoadDirectoryAsPathFails() {
 	ASSERT_FALSE(fn_name, KeyPair::Load(dir));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestLoadTruncatedDerFails() {
 	const std::string fn_name = "TestLoadTruncatedDerFails";
 	auto kp = KeyPair::RSA::Generate(2048);
@@ -140,6 +152,7 @@ int TestLoadTruncatedDerFails() {
 		std::ifstream ifs(privPath, std::ios::binary);
 		bytes.assign(std::istreambuf_iterator<char>(ifs), std::istreambuf_iterator<char>());
 	}
+
 	ASSERT_FALSE(fn_name, bytes.empty());
 	// Too short for any complete ASN.1 private key; must not Load
 	bytes.resize(std::min<size_t>(bytes.size(), 8));
@@ -149,10 +162,12 @@ int TestLoadTruncatedDerFails() {
 		ofs.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
 		ASSERT_TRUE(fn_name, static_cast<bool>(ofs));
 	}
+
 	ASSERT_FALSE(fn_name, KeyPair::Load(truncPath));
 	ASSERT_FALSE(fn_name, KeyPair::Load(out / "rsa.pub.der", truncPath));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestLoadMismatchedRsaPubDsaPrivFails() {
 	const std::string fn_name = "TestLoadMismatchedRsaPubDsaPrivFails";
 	auto rsa = KeyPair::RSA::Generate(2048);
@@ -166,6 +181,7 @@ int TestLoadMismatchedRsaPubDsaPrivFails() {
 	ASSERT_FALSE(fn_name, KeyPair::Load(out / "rsa.pub.pem", out / "dsa.pem"));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestLoadEncryptedWithoutPasswordFails() {
 	const std::string fn_name = "TestLoadEncryptedWithoutPasswordFails";
 	auto kp = KeyPair::RSA::Generate(2048);
@@ -177,6 +193,7 @@ int TestLoadEncryptedWithoutPasswordFails() {
 	ASSERT_FALSE(fn_name, KeyPair::Load(out / "rsa.pem"));
 	RETURN_TEST(fn_name, 0);
 }
+
 int main() {
 	fs::remove_all(KeysDir());
 	fs::create_directories(KeysDir());
@@ -196,5 +213,6 @@ int main() {
 	} else {
 		std::cout << result << " tests failed." << std::endl;
 	}
+
 	return result;
 }

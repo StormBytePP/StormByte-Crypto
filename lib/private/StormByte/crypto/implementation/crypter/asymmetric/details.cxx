@@ -55,6 +55,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 			return false;
 		}
 	}
+
 	std::uint32_t ParseEskLength(const DataType& lenBytes) noexcept
 	{
 		if (lenBytes.size() != 4)
@@ -64,6 +65,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 			(static_cast<uint32_t>(std::to_integer<unsigned char>(lenBytes[2])) << 8)  |
 			(static_cast<uint32_t>(std::to_integer<unsigned char>(lenBytes[3])));
 	}
+
 	// -------------------------------------------------------------------------
 	// Native
 	// -------------------------------------------------------------------------
@@ -72,16 +74,19 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 			std::unique_ptr<PkBox> box;
 			explicit NativeOps(std::unique_ptr<PkBox> b)
 				: box(std::move(b)) {}
+
 			bool Process(std::span<const std::byte> in, DataType& outChunk) override
 			{
 				return box && box->Transform(in, outChunk);
 			}
+
 			bool Finalize(DataType& /*outChunk*/) override
 			{
 				return true;
 			}
 		};
 	}
+
 	bool NativeProcessSpan(std::span<const std::byte> data,
 						WriteOnly& output,
 						std::unique_ptr<PkBox> box) noexcept
@@ -91,6 +96,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 		return Crypter::ProcessSpan(
 			data, output, std::make_unique<NativeOps>(std::move(box)));
 	}
+
 	Consumer NativeProcessStream(Consumer consumer,
 								ReadMode mode,
 								std::unique_ptr<PkBox> box) noexcept
@@ -100,10 +106,12 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 			producer.SetError();
 			return producer.Consumer();
 		}
+
 		return Crypter::Stream(
 			std::move(consumer), mode,
 			std::make_unique<NativeOps>(std::move(box)));
 	}
+
 	// -------------------------------------------------------------------------
 	// Hybrid encrypt
 	// -------------------------------------------------------------------------
@@ -117,11 +125,13 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 			bool streaming;
 			HybridEncryptOps(std::unique_ptr<PkBox> b, bool stream)
 				: box(std::move(b)), streaming(stream) {}
+
 			~HybridEncryptOps() override
 			{
 				SecureWipe(symKey);
 				SecureWipe(iv);
 			}
+
 			bool WriteHeader(DataType& outChunk) override
 			{
 				if (!box)
@@ -148,11 +158,13 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 							new CryptoPP::StringSinkTemplate<DataType>(buffer)
 						);
 					}
+
 					return true;
 				} catch (...) {
 					return false;
 				}
 			}
+
 			bool Process(std::span<const std::byte> in, DataType& outChunk) override
 			{
 				try {
@@ -164,6 +176,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 						buffer.clear();
 						return true;
 					}
+
 					CryptoPP::AuthenticatedEncryptionFilter ef(
 						aead,
 						new CryptoPP::StringSinkTemplate<DataType>(outChunk)
@@ -177,6 +190,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 					return false;
 				}
 			}
+
 			bool Finalize(DataType& outChunk) override
 			{
 				if (!streaming)
@@ -193,6 +207,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 			}
 		};
 	}
+
 	bool HybridEncryptSpan(std::span<const std::byte> data,
 						WriteOnly& output,
 						std::unique_ptr<PkBox> box) noexcept
@@ -203,6 +218,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 			data, output,
 			std::make_unique<HybridEncryptOps>(std::move(box), false));
 	}
+
 	Consumer HybridEncryptStream(Consumer consumer,
 								ReadMode mode,
 								std::unique_ptr<PkBox> box) noexcept
@@ -212,10 +228,12 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 			producer.SetError();
 			return producer.Consumer();
 		}
+
 		return Crypter::Stream(
 			std::move(consumer), mode,
 			std::make_unique<HybridEncryptOps>(std::move(box), true));
 	}
+
 	// -------------------------------------------------------------------------
 	// Hybrid decrypt
 	// -------------------------------------------------------------------------
@@ -230,11 +248,13 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 			bool streaming;
 			HybridDecryptOps(std::unique_ptr<PkBox> b, ReadMode m, bool stream)
 				: box(std::move(b)), mode(m), streaming(stream) {}
+
 			~HybridDecryptOps() override
 			{
 				SecureWipe(symKey);
 				SecureWipe(iv);
 			}
+
 			bool ReadHeader(std::span<const std::byte>& in) override
 			{
 				if (!box || in.size_bytes() < 4)
@@ -262,6 +282,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 						SecureWipe(eskData);
 						return false;
 					}
+
 					SecureWipe(eskData);
 					if (symKeyData.empty())
 						return false;
@@ -275,6 +296,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 					return false;
 				}
 			}
+
 			bool ReadHeader(Consumer& consumer) override
 			{
 				if (!box)
@@ -310,6 +332,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 						SecureWipe(eskData);
 						return false;
 					}
+
 					iv.CleanNew(kIvLen);
 					std::memcpy(iv.data(), ivData.data(), kIvLen);
 					SecureWipe(ivData);
@@ -320,6 +343,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 						SecureWipe(eskData);
 						return false;
 					}
+
 					SecureWipe(eskData);
 					if (symKeyData.empty())
 						return false;
@@ -338,6 +362,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 					return false;
 				}
 			}
+
 			bool Process(std::span<const std::byte> in, DataType& outChunk) override
 			{
 				try {
@@ -349,6 +374,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 						buffer.clear();
 						return true;
 					}
+
 					CryptoPP::AuthenticatedDecryptionFilter df(
 						aead,
 						new CryptoPP::StringSinkTemplate<DataType>(outChunk),
@@ -364,6 +390,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 					return false;
 				}
 			}
+
 			bool Finalize(DataType& outChunk) override
 			{
 				if (!streaming)
@@ -380,6 +407,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 			}
 		};
 	}
+
 	bool HybridDecryptSpan(std::span<const std::byte> data,
 						WriteOnly& output,
 						std::unique_ptr<PkBox> box) noexcept
@@ -390,6 +418,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 			data, output,
 			std::make_unique<HybridDecryptOps>(std::move(box), ReadMode::Copy, false));
 	}
+
 	Consumer HybridDecryptStream(Consumer consumer,
 								ReadMode mode,
 								std::unique_ptr<PkBox> box) noexcept
@@ -399,6 +428,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
 			producer.SetError();
 			return producer.Consumer();
 		}
+
 		return Crypter::Stream(
 			std::move(consumer), mode,
 			std::make_unique<HybridDecryptOps>(std::move(box), mode, true));

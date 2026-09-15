@@ -42,6 +42,7 @@ int TestBlake2bHashCorrectness() {
 	ASSERT_EQUAL(fn_name, expected_hash, actual_hash);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestBlake2bCollisionResistance() {
 	const std::string fn_name = "TestBlake2bCollisionResistance";
 	const std::string input_data_1 = "Original Input Data";
@@ -61,6 +62,7 @@ int TestBlake2bCollisionResistance() {
 	ASSERT_NOT_EQUAL(fn_name, StormByte::String::FromByteVector(hash_1_fifo.Data()), StormByte::String::FromByteVector(hash_2_fifo.Data()));
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestBlake2bProducesDifferentContent() {
 	const std::string fn_name = "TestBlake2bProducesDifferentContent";
 	const std::string original_data = "Data to hash";
@@ -74,6 +76,7 @@ int TestBlake2bProducesDifferentContent() {
 	ASSERT_NOT_EQUAL(fn_name, original_data, hashed_data);
 	RETURN_TEST(fn_name, 0);
 }
+
 int TestBlake2bHashUsingConsumerProducer() {
 	const std::string fn_name = "TestBlake2bHashUsingConsumerProducer";
 	const std::string input_data = "HashThisString";
@@ -98,6 +101,7 @@ int TestBlake2bHashUsingConsumerProducer() {
 	ASSERT_EQUAL(fn_name, expected_hash, hashed_data);
 	RETURN_TEST(fn_name, 0);
 }
+
 int main() {
 	int result = 0;
 	result += TestBlake2bHashCorrectness();
@@ -109,5 +113,6 @@ int main() {
 	} else {
 		std::cout << result << " tests failed." << std::endl;
 	}
+
 	return result;
 }
