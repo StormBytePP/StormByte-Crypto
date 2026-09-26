@@ -73,10 +73,11 @@ namespace StormByte {
 			 * @class Password
 			 * @brief Shared, wiped container for passwords and raw key material.
 			 *
-			 * Bytes live in a shared @ref Helpers::SecureContent and are wiped when
-			 * the last owner is destroyed. Copies share the same buffer. There is no
-			 * public view of the raw bytes: once ingested, the secret only exists
-			 * inside this object (and any @ref Vault that still holds a share).
+			 * Bytes live in shared storage allocated by this library and are wiped
+			 * when the last owner is destroyed. Copies share the same buffer. There
+			 * is no public view of the raw bytes: once ingested, the secret only
+			 * exists inside this object (and any @ref StormByte::Crypto::Secure::Vault
+			 * that still holds a share).
 			 *
 			 * ## Why ingest is a non-const reference, not a view and not a move
 			 *
@@ -90,9 +91,9 @@ namespace StormByte {
 			 *
 			 * Therefore the caller *cedes* a non-const `std::string&` or
 			 * `StormByte::String::String&`. This constructor copies the bytes into
-			 * @ref Helpers::SecureContent (allocated and wiped by this library) and
-			 * then overwrites and clears the caller's object. After return the
-			 * argument is empty; the only remaining copy is the one Password owns.
+			 * wiped storage owned by this library and then overwrites and clears the
+			 * caller's object. After return the argument is empty; the only remaining
+			 * copy is the one Password owns.
 			 *
 			 * String literals (`Password("secret")`) use `const char*`. They are
 			 * copied and the source is not wiped: a literal lives in read-only

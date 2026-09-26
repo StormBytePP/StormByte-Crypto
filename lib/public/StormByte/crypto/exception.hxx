@@ -121,7 +121,7 @@ namespace StormByte {
 
 			protected:
 				/**
-				 * @brief Format under `StormByte.Crypto.<child>`.
+				 * @brief Format under StormByte.Crypto plus the child segment.
 				 * @tparam Args Format argument types.
 				 * @param child Segment under `Crypto`.
 				 * @param fmt Format string.
@@ -135,7 +135,7 @@ namespace StormByte {
 						std::forward<Args>(args)...) {}
 
 				/**
-				 * @brief Plain message under `StormByte.Crypto.<child>`.
+				 * @brief Plain message under StormByte.Crypto plus the child segment.
 				 * @param child Segment under `Crypto`.
 				 * @param message Exception text. Not a format string.
 				 */
