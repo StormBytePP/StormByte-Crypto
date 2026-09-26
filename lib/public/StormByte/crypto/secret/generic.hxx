@@ -44,101 +44,115 @@
 #include <StormByte/crypto/keypair/generic.hxx>
 #include <StormByte/crypto/password.hxx>
 #include <StormByte/crypto/visibility.h>
+#include <StormByte/string/string.hxx>
 
 #include <optional>
-#include <string>
+#include <string_view>
 
 /**
- * @brief Key agreement of the Crypto module.
+ * @namespace StormByte
+ * @brief Root namespace of the StormByte suite.
  */
-namespace StormByte::Crypto::Secret {
+namespace StormByte {
 	/**
-	 * @enum Type
-	 * @brief Available agreement algorithms.
+	 * @namespace StormByte::Crypto
+	 * @brief Crypto module of the StormByte suite.
 	 */
-	enum class Type {
-		ECDH,		///< ECDH
-		X25519,		///< X25519
-	};
-
-	/**
-	 * @class Generic
-	 * @brief Abstract key-agreement object.
-	 *
-	 * Holds a local keypair and derives a shared secret from a peer public key.
-	 */
-	class STORMBYTE_CRYPTO_PUBLIC Generic: public StormByte::Clonable<Generic> {
-		public:
+	namespace Crypto {
+		/**
+		 * @namespace StormByte::Crypto::Secret
+		 * @brief Key agreement of the Crypto module.
+		 */
+		namespace Secret {
 			/**
-			 * @name Construction
-			 * @{
+			 * @enum Type
+			 * @brief Available agreement algorithms.
 			 */
+			enum class Type {
+				ECDH,		///< ECDH
+				X25519,		///< X25519
+			};
+
 			/**
-			 * @brief Copy constructor.
-			 * @param other Object to copy.
+			 * @class Generic
+			 * @brief Abstract key-agreement object.
+			 *
+			 * Holds a local keypair and derives a shared secret from a peer public key.
 			 */
-			Generic(const Generic& other) = default;
+			class STORMBYTE_CRYPTO_PUBLIC Generic: public StormByte::Clonable<Generic> {
+				public:
+					/**
+					 * @name Construction
+					 * @{
+					 */
+					/**
+					 * @brief Copy constructor.
+					 * @param other Object to copy.
+					 */
+					Generic(const Generic& other) = default;
+
+					/**
+					 * @brief Move constructor.
+					 * @param other Object to move.
+					 */
+					Generic(Generic&& other) noexcept = default;
+
+					/**
+					 * @brief Destructor.
+					 */
+					virtual ~Generic() noexcept;
+
+					/**
+					 * @brief Copy assignment.
+					 * @param other Object to copy.
+					 * @return Reference to this object.
+					 */
+					Generic& operator=(const Generic& other) = default;
+
+					/**
+					 * @brief Move assignment.
+					 * @param other Object to move.
+					 * @return Reference to this object.
+					 */
+					Generic& operator=(Generic&& other) noexcept = default;
+					/** @} */
+
+					/**
+					 * @brief Algorithm of this instance.
+					 * @return Agreement type.
+					 */
+					inline Type Type() const noexcept {
+						return m_type;
+					}
+
+					/**
+					 * @brief Derive a shared secret from a peer public key.
+					 * @param peerPublicKey Peer public key as Base64. Accepts String and std::string via string_view.
+					 * @return Password on success, or empty.
+					 */
+					virtual std::optional<Password> Share(std::string_view peerPublicKey) const noexcept = 0;
+
+				protected:
+					enum Type m_type;							///< Algorithm
+					KeyPair::Generic::PointerType m_keypair;	///< Local keypair (needs private key)
+
+					/**
+					 * @brief Construct with algorithm and keypair.
+					 * @param type Algorithm.
+					 * @param keypair Local keypair.
+					 */
+					inline Generic(enum Type type, KeyPair::Generic::PointerType keypair) noexcept
+						: m_type(type), m_keypair(std::move(keypair)) {}
+			};
 
 			/**
-			 * @brief Move constructor.
-			 * @param other Object to move.
-			 */
-			Generic(Generic&& other) noexcept = default;
-
-			/**
-			 * @brief Destructor.
-			 */
-			virtual ~Generic() noexcept = default;
-
-			/**
-			 * @brief Copy assignment.
-			 * @param other Object to copy.
-			 * @return Reference to this object.
-			 */
-			Generic& operator=(const Generic& other) = default;
-
-			/**
-			 * @brief Move assignment.
-			 * @param other Object to move.
-			 * @return Reference to this object.
-			 */
-			Generic& operator=(Generic&& other) noexcept = default;
-			/** @} */
-
-			/**
-			 * @brief Algorithm of this instance.
-			 * @return Agreement type.
-			 */
-			inline Type Type() const noexcept {
-				return m_type;
-			}
-
-			/**
-			 * @brief Derive a shared secret.
-			 * @param peerPublicKey Peer public key as Base64.
-			 * @return Password on success, or empty.
-			 */
-			virtual std::optional<Password> Share(const std::string& peerPublicKey) const noexcept = 0;
-
-		protected:
-			enum Type m_type;							///< Algorithm
-			KeyPair::Generic::PointerType m_keypair;	///< Local keypair (needs private key)
-
-			/**
-			 * @brief Construct with algorithm and keypair.
+			 * @brief Create an agreement object.
 			 * @param type Algorithm.
-			 * @param keypair Local keypair.
+			 * @param keypair Matching keypair.
+			 * @return Object pointer, or nullptr if the pair is null or mismatched.
+			 * @note ECDH defaults to 256 bits. For secp384r1/secp521r1 construct @ref ECDH with the bit size.
 			 */
-			inline Generic(enum Type type, KeyPair::Generic::PointerType keypair) noexcept
-				: m_type(type), m_keypair(std::move(keypair)) {}
-	};
-
-	/**
-	 * @brief Create an agreement object.
-	 * @param type Algorithm.
-	 * @param keypair Matching keypair.
-	 * @return Object pointer, or nullptr if the pair is null or mismatched.
-	 * @note ECDH defaults to 256 bits. For secp384r1/secp521r1 construct @ref ECDH with the bit size.
-	 */
-	STORMBYTE_CRYPTO_PUBLIC Generic::PointerType Create(Type type, KeyPair::Generic::PointerType keypair) noexcept;
+			STORMBYTE_CRYPTO_PUBLIC Generic::PointerType Create(Type type, KeyPair::Generic::PointerType keypair) noexcept;
+		}
+	}
 }

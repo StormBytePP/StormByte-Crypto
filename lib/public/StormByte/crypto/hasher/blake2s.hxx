@@ -88,7 +88,7 @@ namespace StormByte {
 					/**
 					 * @brief Destructor.
 					 */
-					~Blake2s() noexcept = default;
+					~Blake2s() noexcept;
 
 					/**
 					 * @brief Copy assignment.

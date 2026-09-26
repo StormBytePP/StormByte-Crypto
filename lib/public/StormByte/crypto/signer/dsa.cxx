@@ -41,9 +41,16 @@
 #include <StormByte/crypto/signer/dsa.hxx>
 #include <StormByte/crypto/implementation/signer/api.hxx>
 #include <dsa.h>
+
+#include <string>
+#include <string_view>
+
 using namespace StormByte::Crypto::Signer;
 using StormByte::Buffer::WriteOnly;
 using StormByte::Buffer::Consumer;
+
+DSA::~DSA() noexcept = default;
+
 bool DSA::DoSign(std::span<const std::byte> data, WriteOnly& output) const noexcept {
 	return Implementation::Signer::Sign<CryptoPP::DSA::Signer, CryptoPP::DSA::PrivateKey>(
 		data, m_keypair, output);
@@ -54,12 +61,12 @@ Consumer DSA::DoSign(Consumer consumer, ReadMode mode) const noexcept {
 		consumer, m_keypair, mode);
 }
 
-bool DSA::DoVerify(std::span<const std::byte> data, const std::string& signature) const noexcept {
+bool DSA::DoVerify(std::span<const std::byte> data, std::string_view signature) const noexcept {
 	return Implementation::Signer::Verify<CryptoPP::DSA::Verifier, CryptoPP::DSA::PublicKey>(
-		data, signature, m_keypair);
+		data, std::string{signature}, m_keypair);
 }
 
-bool DSA::DoVerify(Consumer consumer, const std::string& signature, ReadMode mode) const noexcept {
+bool DSA::DoVerify(Consumer consumer, std::string_view signature, ReadMode mode) const noexcept {
 	return Implementation::Signer::Verify<CryptoPP::DSA::Verifier, CryptoPP::DSA::PublicKey>(
-		consumer, signature, m_keypair, mode);
+		consumer, std::string{signature}, m_keypair, mode);
 }

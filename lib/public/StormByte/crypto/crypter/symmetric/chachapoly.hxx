@@ -89,7 +89,7 @@ namespace StormByte {
 					/**
 					 * @brief Destructor.
 					 */
-					virtual ~ChaChaPoly() noexcept = default;
+					~ChaChaPoly() noexcept;
 
 					/**
 					 * @brief Copy assignment.

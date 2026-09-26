@@ -46,6 +46,7 @@
 #include <StormByte/crypto/password.hxx>
 #include <StormByte/crypto/random.hxx>
 #include <StormByte/crypto/visibility.h>
+#include <StormByte/string/string.hxx>
 
 #include <base64.h>
 #include <filters.h>
@@ -53,6 +54,7 @@
 #include <optional>
 #include <queue.h>
 #include <string>
+#include <string_view>
 
 /**
  * @namespace StormByte
@@ -136,6 +138,17 @@ namespace StormByte {
 					} catch (...) {
 						return nullptr;
 					}
+				}
+
+				/**
+				 * @brief Deserialize a key from a public @ref StormByte::String::String.
+				 * @tparam KeyT Key type.
+				 * @param keyString Base64 public key.
+				 * @return Shared key, or nullptr.
+				 */
+				template<typename KeyT>
+				std::shared_ptr<KeyT> DeserializeKey(const StormByte::String::String& keyString) noexcept {
+					return DeserializeKey<KeyT>(std::string(static_cast<std::string_view>(keyString)));
 				}
 
 				/**

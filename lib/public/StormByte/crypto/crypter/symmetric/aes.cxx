@@ -41,7 +41,11 @@
 #include <StormByte/crypto/crypter/symmetric/aes.hxx>
 #include <StormByte/crypto/implementation/crypter/symmetric/api.hxx>
 #include <aes.h>
+
 using namespace StormByte::Crypto::Crypter;
+
+AES::~AES() noexcept = default;
+
 bool AES::DoEncrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept {
 	return Implementation::Crypter::Symmetric::EncryptCBC<CryptoPP::AES, CryptoPP::CBC_Mode<CryptoPP::AES>::Encryption, CryptoPP::SHA256>(input, m_password, output, 16, CryptoPP::AES::BLOCKSIZE);
 }

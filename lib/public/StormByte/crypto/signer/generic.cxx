@@ -45,8 +45,11 @@
 #include <StormByte/crypto/signer/rsa.hxx>
 
 #include <span>
+#include <string_view>
 
 using namespace StormByte::Crypto::Signer;
+
+Generic::~Generic() noexcept = default;
 
 bool Generic::DoSign(Buffer::ReadOnly& input, Buffer::WriteOnly& output, ReadMode mode) const noexcept {
 	StormByte::BinaryData data;
@@ -60,7 +63,7 @@ bool Generic::DoSign(Buffer::ReadOnly& input, Buffer::WriteOnly& output, ReadMod
 	return DoSign(std::span<const std::byte>(data.data(), data.size()), output);
 }
 
-bool Generic::DoVerify(Buffer::ReadOnly& input, const std::string& signature, ReadMode mode) const noexcept {
+bool Generic::DoVerify(Buffer::ReadOnly& input, std::string_view signature, ReadMode mode) const noexcept {
 	StormByte::BinaryData data;
 	bool read_ok;
 	if (mode == ReadMode::Copy)

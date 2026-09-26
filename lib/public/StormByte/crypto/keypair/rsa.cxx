@@ -47,6 +47,8 @@
 
 using namespace StormByte::Crypto::KeyPair;
 
+RSA::~RSA() noexcept = default;
+
 RSA::PointerType RSA::Generate(unsigned short bits) noexcept {
 	if (bits != 1024 && bits != 2048 && bits != 3072 && bits != 4096)
 		return nullptr;

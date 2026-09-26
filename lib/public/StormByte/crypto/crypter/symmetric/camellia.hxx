@@ -89,7 +89,7 @@ namespace StormByte {
 					/**
 					 * @brief Destructor.
 					 */
-					virtual ~Camellia() noexcept = default;
+					~Camellia() noexcept;
 
 					/**
 					 * @brief Copy assignment.

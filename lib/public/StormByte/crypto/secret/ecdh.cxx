@@ -40,12 +40,21 @@
 
 #include <StormByte/crypto/secret/ecdh.hxx>
 #include <StormByte/crypto/implementation/secret/details.hxx>
+
+#include <string>
+#include <string_view>
+
 using namespace StormByte::Crypto::Secret;
+
+ECDH::~ECDH() noexcept = default;
+
 std::optional<StormByte::Crypto::Password>
-ECDH::Share(const std::string& peerPublicKey) const noexcept
+ECDH::Share(std::string_view peerPublicKey) const noexcept
 {
 	if (!m_keypair || !m_keypair->HasPrivateKey())
 		return std::nullopt;
 	return Implementation::Secret::ECDHShare(
-		*m_keypair->PrivateKey(), peerPublicKey, m_bits);
+		*m_keypair->PrivateKey(),
+		std::string(peerPublicKey),
+		m_bits);
 }

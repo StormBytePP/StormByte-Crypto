@@ -43,6 +43,8 @@
 #include <StormByte/crypto/keypair/ecdh.hxx>
 #include <StormByte/crypto/secret/generic.hxx>
 
+#include <string_view>
+
 /**
  * @namespace StormByte
  * @brief Root namespace of the StormByte suite.
@@ -107,7 +109,7 @@ namespace StormByte {
 					/**
 					 * @brief Destructor.
 					 */
-					~ECDH() noexcept override = default;
+					~ECDH() noexcept;
 
 					/**
 					 * @brief Copy assignment.
@@ -142,10 +144,10 @@ namespace StormByte {
 
 					/**
 					 * @brief Derive a shared secret.
-					 * @param peerPublicKey Peer public key.
+					 * @param peerPublicKey Peer public key as Base64. Accepts String and std::string via string_view.
 					 * @return Password on success, or empty.
 					 */
-					std::optional<Password> Share(const std::string& peerPublicKey) const noexcept override;
+					std::optional<Password> Share(std::string_view peerPublicKey) const noexcept override;
 
 				private:
 					unsigned short m_bits;	///< Curve size in bits

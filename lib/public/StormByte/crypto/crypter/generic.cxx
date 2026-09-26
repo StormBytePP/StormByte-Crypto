@@ -44,6 +44,8 @@
 
 using namespace StormByte::Crypto::Crypter;
 
+Generic::~Generic() noexcept = default;
+
 bool Generic::DoEncrypt(Buffer::ReadOnly& input, Buffer::WriteOnly& output, ReadMode mode) const noexcept {
 	StormByte::BinaryData data;
 	bool read_ok;

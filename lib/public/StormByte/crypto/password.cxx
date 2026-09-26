@@ -43,6 +43,7 @@
 #include <StormByte/crypto/password.hxx>
 
 #include <cstring>
+#include <string_view>
 
 using namespace StormByte::Crypto;
 
@@ -57,10 +58,20 @@ namespace {
 	};
 }
 
-Password::Password(std::string value) noexcept {
+Password::Password(std::string& value) noexcept {
 	const StormByte::ByteSize n { value.size() };
 	auto* content = new Helpers::SecureContent(value.data(), static_cast<std::size_t>(n));
 	Helpers::SecureWipe(value);
+	m_data.reset(content, SecureContentDeleter{});
+}
+
+Password::Password(StormByte::String::String& value) noexcept {
+	const std::string_view view { value };
+	const StormByte::ByteSize n { view.size() };
+	auto* content = new Helpers::SecureContent(view.data(), static_cast<std::size_t>(n));
+	std::string scratch { view };
+	Helpers::SecureWipe(scratch);
+	value = StormByte::String::String{};
 	m_data.reset(content, SecureContentDeleter{});
 }
 
@@ -74,6 +85,16 @@ Password::Password(const void* data, StormByte::ByteSize size) noexcept {
 	auto* content = new Helpers::SecureContent(data, static_cast<std::size_t>(size));
 	m_data.reset(content, SecureContentDeleter{});
 }
+
+Password::Password(const Password& other) = default;
+
+Password::Password(Password&& other) noexcept = default;
+
+Password::~Password() = default;
+
+Password& Password::operator=(const Password& other) = default;
+
+Password& Password::operator=(Password&& other) noexcept = default;
 
 StormByte::ByteSize Password::Size() const noexcept {
 	return m_data ? StormByte::ByteSize { m_data->Size() } : StormByte::ByteSize { 0 };

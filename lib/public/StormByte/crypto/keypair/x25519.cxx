@@ -48,6 +48,8 @@
 
 using namespace StormByte::Crypto::KeyPair;
 
+X25519::~X25519() noexcept = default;
+
 X25519::PointerType X25519::Generate(unsigned short /*bits*/) noexcept {
 	try {
 		CryptoPP::x25519 agreement;
@@ -57,10 +59,7 @@ X25519::PointerType X25519::Generate(unsigned short /*bits*/) noexcept {
 		auto pubStr = Implementation::KeyPair::EncodeSecBlockBase64(pub);
 		Password privPwd = Implementation::KeyPair::PasswordFromSecBlock(priv);
 		Helpers::SecureWipe(pub);
-		return MakePointer<X25519>(
-			std::move(pubStr),
-			std::move(privPwd)
-		);
+		return MakePointer<X25519>(pubStr, std::move(privPwd));
 	} catch (...) {
 		return nullptr;
 	}

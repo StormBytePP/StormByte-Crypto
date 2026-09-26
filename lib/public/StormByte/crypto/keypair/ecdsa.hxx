@@ -42,9 +42,10 @@
 
 #include <StormByte/crypto/keypair/generic.hxx>
 #include <StormByte/crypto/password.hxx>
+#include <StormByte/string/string.hxx>
 
 #include <optional>
-#include <string>
+#include <string_view>
 
 /**
  * @namespace StormByte
@@ -73,11 +74,11 @@ namespace StormByte {
 					 */
 					/**
 					 * @brief Construct from public material and optional private Password.
-					 * @param publicKey Public key.
+					 * @param publicKey Public key. Accepts String and std::string via string_view.
 					 * @param privateKey Optional private key.
 					 */
-					inline ECDSA(std::string publicKey, std::optional<Password> privateKey = std::nullopt):
-						Generic(Type::ECDSA, std::move(publicKey), std::move(privateKey)) {}
+					inline ECDSA(std::string_view publicKey, std::optional<Password> privateKey = std::nullopt):
+						Generic(Type::ECDSA, StormByte::String::String{publicKey}, std::move(privateKey)) {}
 
 					/**
 					 * @brief Copy constructor.
@@ -94,7 +95,7 @@ namespace StormByte {
 					/**
 					 * @brief Destructor.
 					 */
-					~ECDSA() noexcept override = default;
+					~ECDSA() noexcept;
 
 					/**
 					 * @brief Copy assignment.
@@ -129,7 +130,7 @@ namespace StormByte {
 
 					/**
 					 * @brief Generate an ECDSA keypair.
-					 * @param bits Curve size in bits (e.g. 256).
+					 * @param bits Curve size in bits.
 					 * @return Keypair pointer, or nullptr.
 					 */
 					static PointerType Generate(unsigned short bits) noexcept;

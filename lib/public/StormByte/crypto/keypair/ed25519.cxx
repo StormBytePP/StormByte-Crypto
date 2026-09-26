@@ -49,6 +49,8 @@
 
 using namespace StormByte::Crypto::KeyPair;
 
+ED25519::~ED25519() noexcept = default;
+
 ED25519::PointerType ED25519::Generate(unsigned short /*bits*/) noexcept {
 	try {
 		CryptoPP::ed25519::Signer signer(RNG());
@@ -64,10 +66,7 @@ ED25519::PointerType ED25519::Generate(unsigned short /*bits*/) noexcept {
 		CryptoPP::SecByteBlock priv(privQueue.CurrentSize());
 		privQueue.Get(priv.data(), priv.size());
 		Password privPwd = Implementation::KeyPair::PasswordFromSecBlock(priv);
-		return MakePointer<ED25519>(
-			std::move(pubStr),
-			std::move(privPwd)
-		);
+		return MakePointer<ED25519>(pubStr, std::move(privPwd));
 	} catch (...) {
 		return nullptr;
 	}

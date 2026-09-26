@@ -104,7 +104,7 @@ namespace StormByte {
 					/**
 					 * @brief Destructor.
 					 */
-					virtual ~RSA() noexcept = default;
+					~RSA() noexcept;
 
 					/**
 					 * @brief Copy assignment.

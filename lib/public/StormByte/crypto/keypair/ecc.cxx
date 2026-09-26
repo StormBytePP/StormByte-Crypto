@@ -48,6 +48,8 @@
 
 using namespace StormByte::Crypto::KeyPair;
 
+ECC::~ECC() noexcept = default;
+
 ECC::PointerType ECC::Generate(unsigned short bits) noexcept {
 	try {
 		CryptoPP::OID curve;

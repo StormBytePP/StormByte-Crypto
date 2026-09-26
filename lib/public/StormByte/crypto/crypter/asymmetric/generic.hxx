@@ -44,195 +44,208 @@
 #include <StormByte/crypto/keypair/generic.hxx>
 
 /**
- * @brief Ciphers of the Crypto module.
+ * @namespace StormByte
+ * @brief Root namespace of the StormByte suite.
  */
-namespace StormByte::Crypto::Crypter {
+namespace StormByte {
 	/**
-	 * @class Asymmetric
-	 * @brief Keypair-based asymmetric crypter.
+	 * @namespace StormByte::Crypto
+	 * @brief Crypto module of the StormByte suite.
 	 */
-	class STORMBYTE_CRYPTO_PUBLIC Asymmetric: public Generic {
-		public:
+	namespace Crypto {
+		/**
+		 * @namespace StormByte::Crypto::Crypter
+		 * @brief Ciphers of the Crypto module.
+		 */
+		namespace Crypter {
 			/**
-			 * @enum Strategy
-			 * @brief How payload bytes are sealed.
+			 * @class Asymmetric
+			 * @brief Keypair-based asymmetric crypter.
 			 */
-			enum class Strategy {
-				Hybrid,	///< Encapsulate a random AES-GCM key with the public key
-				Native,	///< Pure asymmetric encryption
+			class STORMBYTE_CRYPTO_PUBLIC Asymmetric: public Generic {
+				public:
+					/**
+					 * @enum Strategy
+					 * @brief How payload bytes are sealed.
+					 */
+					enum class Strategy {
+						Hybrid,	///< Encapsulate a random AES-GCM key with the public key
+						Native,	///< Pure asymmetric encryption
+					};
+
+					/**
+					 * @name Construction
+					 * @{
+					 */
+					/**
+					 * @brief Copy constructor.
+					 * @param other Crypter to copy.
+					 */
+					Asymmetric(const Asymmetric& other) = default;
+
+					/**
+					 * @brief Move constructor.
+					 * @param other Crypter to move.
+					 */
+					Asymmetric(Asymmetric&& other) noexcept = default;
+
+					/**
+					 * @brief Destructor.
+					 */
+					virtual ~Asymmetric() noexcept override;
+
+					/**
+					 * @brief Copy assignment.
+					 * @param other Crypter to copy.
+					 * @return Reference to this crypter.
+					 */
+					Asymmetric& operator=(const Asymmetric& other) = default;
+
+					/**
+					 * @brief Move assignment.
+					 * @param other Crypter to move.
+					 * @return Reference to this crypter.
+					 */
+					Asymmetric& operator=(Asymmetric&& other) noexcept = default;
+					/** @} */
+
+					/**
+					 * @brief Keypair used by this crypter.
+					 * @return Shared keypair.
+					 */
+					KeyPair::Generic::PointerType KeyPair() const noexcept {
+						return m_keypair;
+					}
+
+					/**
+					 * @name Encrypt
+					 * @{
+					 */
+					/**
+					 * @brief Encrypt a byte span.
+					 * @param input Input bytes.
+					 * @param output Destination buffer.
+					 * @param strategy Native or Hybrid. Default Native.
+					 * @return true on success.
+					 */
+					bool Encrypt(std::span<const std::byte> input, Buffer::WriteOnly& output, Strategy strategy = Strategy::Native) const noexcept;
+
+					/**
+					 * @brief Encrypt a read-only buffer (copy).
+					 * @param input Input buffer.
+					 * @param output Destination buffer.
+					 * @param strategy Native or Hybrid. Default Native.
+					 * @return true on success.
+					 */
+					bool Encrypt(const Buffer::ReadOnly& input, Buffer::WriteOnly& output, Strategy strategy = Strategy::Native) const noexcept;
+
+					/**
+					 * @brief Encrypt a buffer, consuming it.
+					 * @param input Input buffer.
+					 * @param output Destination buffer.
+					 * @param strategy Native or Hybrid. Default Native.
+					 * @return true on success.
+					 */
+					bool Encrypt(Buffer::ReadOnly& input, Buffer::WriteOnly& output, Strategy strategy = Strategy::Native) const noexcept;
+
+					/**
+					 * @brief Encrypt a Consumer.
+					 * @param consumer Input consumer.
+					 * @param strategy Native or Hybrid. Default Native.
+					 * @param mode Copy or move.
+					 * @return Consumer with ciphertext.
+					 */
+					Buffer::Consumer Encrypt(Buffer::Consumer consumer, Strategy strategy = Strategy::Native, ReadMode mode = ReadMode::Move) const noexcept;
+					/** @} */
+
+					/**
+					 * @name Decrypt
+					 * @{
+					 */
+					/**
+					 * @brief Decrypt a byte span. Detects Native vs Hybrid.
+					 * @param input Input bytes.
+					 * @param output Destination buffer.
+					 * @return true on success.
+					 */
+					bool Decrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept;
+
+					/**
+					 * @brief Decrypt a read-only buffer (copy). Detects Native vs Hybrid.
+					 * @param input Input buffer.
+					 * @param output Destination buffer.
+					 * @return true on success.
+					 */
+					bool Decrypt(const Buffer::ReadOnly& input, Buffer::WriteOnly& output) const noexcept;
+
+					/**
+					 * @brief Decrypt a buffer, consuming it. Detects Native vs Hybrid.
+					 * @param input Input buffer.
+					 * @param output Destination buffer.
+					 * @return true on success.
+					 */
+					bool Decrypt(Buffer::ReadOnly& input, Buffer::WriteOnly& output) const noexcept;
+
+					/**
+					 * @brief Decrypt a Consumer. Detects Native vs Hybrid.
+					 * @param consumer Input consumer.
+					 * @param mode Copy or move.
+					 * @return Consumer with plaintext.
+					 */
+					Buffer::Consumer Decrypt(Buffer::Consumer consumer, ReadMode mode = ReadMode::Move) const noexcept;
+					/** @} */
+
+				protected:
+					KeyPair::Generic::PointerType m_keypair;	///< Shared keypair
+
+					/**
+					 * @brief Construct from a keypair pointer.
+					 * @param type Cipher.
+					 * @param keypair Keypair.
+					 */
+					inline Asymmetric(enum Type type, KeyPair::Generic::PointerType keypair):
+						Generic(type), m_keypair(keypair) {}
+
+					/**
+					 * @brief Construct by cloning a keypair.
+					 * @param type Cipher.
+					 * @param keypair Keypair.
+					 */
+					inline Asymmetric(enum Type type, const KeyPair::Generic& keypair):
+						Generic(type), m_keypair(keypair.Clone()) {}
+
+					/**
+					 * @brief Construct by moving a keypair.
+					 * @param type Cipher.
+					 * @param keypair Keypair.
+					 */
+					inline Asymmetric(enum Type type, KeyPair::Generic&& keypair):
+						Generic(type), m_keypair(keypair.Move()) {}
 			};
 
 			/**
-			 * @name Construction
-			 * @{
-			 */
-			/**
-			 * @brief Copy constructor.
-			 * @param other Crypter to copy.
-			 */
-			Asymmetric(const Asymmetric& other) = default;
-
-			/**
-			 * @brief Move constructor.
-			 * @param other Crypter to move.
-			 */
-			Asymmetric(Asymmetric&& other) noexcept = default;
-
-			/**
-			 * @brief Destructor.
-			 */
-			virtual ~Asymmetric() noexcept = default;
-
-			/**
-			 * @brief Copy assignment.
-			 * @param other Crypter to copy.
-			 * @return Reference to this crypter.
-			 */
-			Asymmetric& operator=(const Asymmetric& other) = default;
-
-			/**
-			 * @brief Move assignment.
-			 * @param other Crypter to move.
-			 * @return Reference to this crypter.
-			 */
-			Asymmetric& operator=(Asymmetric&& other) noexcept = default;
-			/** @} */
-
-			/**
-			 * @brief Keypair used by this crypter.
-			 * @return Shared keypair.
-			 */
-			KeyPair::Generic::PointerType KeyPair() const noexcept {
-				return m_keypair;
-			}
-
-			/**
-			 * @name Encrypt
-			 * @{
-			 */
-			/**
-			 * @brief Encrypt a byte span.
-			 * @param input Input bytes.
-			 * @param output Destination buffer.
-			 * @param strategy Native or Hybrid. Default Native.
-			 * @return true on success.
-			 */
-			bool Encrypt(std::span<const std::byte> input, Buffer::WriteOnly& output, Strategy strategy = Strategy::Native) const noexcept;
-
-			/**
-			 * @brief Encrypt a read-only buffer (copy).
-			 * @param input Input buffer.
-			 * @param output Destination buffer.
-			 * @param strategy Native or Hybrid. Default Native.
-			 * @return true on success.
-			 */
-			bool Encrypt(const Buffer::ReadOnly& input, Buffer::WriteOnly& output, Strategy strategy = Strategy::Native) const noexcept;
-
-			/**
-			 * @brief Encrypt a buffer, consuming it.
-			 * @param input Input buffer.
-			 * @param output Destination buffer.
-			 * @param strategy Native or Hybrid. Default Native.
-			 * @return true on success.
-			 */
-			bool Encrypt(Buffer::ReadOnly& input, Buffer::WriteOnly& output, Strategy strategy = Strategy::Native) const noexcept;
-
-			/**
-			 * @brief Encrypt a Consumer.
-			 * @param consumer Input consumer.
-			 * @param strategy Native or Hybrid. Default Native.
-			 * @param mode Copy or move.
-			 * @return Consumer with ciphertext.
-			 */
-			Buffer::Consumer Encrypt(Buffer::Consumer consumer, Strategy strategy = Strategy::Native, ReadMode mode = ReadMode::Move) const noexcept;
-			/** @} */
-
-			/**
-			 * @name Decrypt
-			 * @{
-			 */
-			/**
-			 * @brief Decrypt a byte span. Detects Native vs Hybrid.
-			 * @param input Input bytes.
-			 * @param output Destination buffer.
-			 * @return true on success.
-			 */
-			bool Decrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept;
-
-			/**
-			 * @brief Decrypt a read-only buffer (copy). Detects Native vs Hybrid.
-			 * @param input Input buffer.
-			 * @param output Destination buffer.
-			 * @return true on success.
-			 */
-			bool Decrypt(const Buffer::ReadOnly& input, Buffer::WriteOnly& output) const noexcept;
-
-			/**
-			 * @brief Decrypt a buffer, consuming it. Detects Native vs Hybrid.
-			 * @param input Input buffer.
-			 * @param output Destination buffer.
-			 * @return true on success.
-			 */
-			bool Decrypt(Buffer::ReadOnly& input, Buffer::WriteOnly& output) const noexcept;
-
-			/**
-			 * @brief Decrypt a Consumer. Detects Native vs Hybrid.
-			 * @param consumer Input consumer.
-			 * @param mode Copy or move.
-			 * @return Consumer with plaintext.
-			 */
-			Buffer::Consumer Decrypt(Buffer::Consumer consumer, ReadMode mode = ReadMode::Move) const noexcept;
-			/** @} */
-
-		protected:
-			KeyPair::Generic::PointerType m_keypair;	///< Shared keypair
-
-			/**
-			 * @brief Construct from a keypair pointer.
+			 * @brief Factory from a keypair pointer.
 			 * @param type Cipher.
 			 * @param keypair Keypair.
+			 * @return Crypter pointer.
 			 */
-			inline Asymmetric(enum Type type, KeyPair::Generic::PointerType keypair):
-				Generic(type), m_keypair(keypair) {}
+			STORMBYTE_CRYPTO_PUBLIC Generic::PointerType Create(enum Type type, KeyPair::Generic::PointerType keypair) noexcept;
 
 			/**
-			 * @brief Construct by cloning a keypair.
+			 * @brief Factory by cloning a keypair.
 			 * @param type Cipher.
 			 * @param keypair Keypair.
+			 * @return Crypter pointer.
 			 */
-			inline Asymmetric(enum Type type, const KeyPair::Generic& keypair):
-				Generic(type), m_keypair(keypair.Clone()) {}
+			STORMBYTE_CRYPTO_PUBLIC Generic::PointerType Create(enum Type type, const KeyPair::Generic& keypair) noexcept;
 
 			/**
-			 * @brief Construct by moving a keypair.
+			 * @brief Factory by moving a keypair.
 			 * @param type Cipher.
 			 * @param keypair Keypair.
+			 * @return Crypter pointer.
 			 */
-			inline Asymmetric(enum Type type, KeyPair::Generic&& keypair):
-				Generic(type), m_keypair(keypair.Move()) {}
-	};
-
-	/**
-	 * @brief Factory from a keypair pointer.
-	 * @param type Cipher.
-	 * @param keypair Keypair.
-	 * @return Crypter pointer.
-	 */
-	STORMBYTE_CRYPTO_PUBLIC Generic::PointerType Create(enum Type type, KeyPair::Generic::PointerType keypair) noexcept;
-
-	/**
-	 * @brief Factory by cloning a keypair.
-	 * @param type Cipher.
-	 * @param keypair Keypair.
-	 * @return Crypter pointer.
-	 */
-	STORMBYTE_CRYPTO_PUBLIC Generic::PointerType Create(enum Type type, const KeyPair::Generic& keypair) noexcept;
-
-	/**
-	 * @brief Factory by moving a keypair.
-	 * @param type Cipher.
-	 * @param keypair Keypair.
-	 * @return Crypter pointer.
-	 */
-	STORMBYTE_CRYPTO_PUBLIC Generic::PointerType Create(enum Type type, KeyPair::Generic&& keypair) noexcept;
+			STORMBYTE_CRYPTO_PUBLIC Generic::PointerType Create(enum Type type, KeyPair::Generic&& keypair) noexcept;
+		}
+	}
 }

@@ -50,6 +50,8 @@
 
 using namespace StormByte::Crypto::Hasher;
 
+Generic::~Generic() noexcept = default;
+
 bool Generic::DoHash(Buffer::ReadOnly& input, Buffer::WriteOnly& output, ReadMode mode) const noexcept {
 	StormByte::BinaryData data;
 	bool read_ok;

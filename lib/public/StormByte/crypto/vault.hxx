@@ -47,6 +47,7 @@
 #include <StormByte/size.hxx>
 
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 
@@ -106,7 +107,7 @@ namespace StormByte {
 				 * @param name Identifier.
 				 * @param password Password to share.
 				 */
-				void Store(std::string name, Password password) noexcept;
+				void Store(std::string_view name, Password password) noexcept;
 
 				/**
 				 * @brief Look up a password.
@@ -114,20 +115,21 @@ namespace StormByte {
 				 * @return Password, or an error if the name is missing.
 				 * @note The returned Password shares the buffer.
 				 */
-				ExpectedPassword Get(const std::string& name) const noexcept;
+				ExpectedPassword Get(std::string_view name) const noexcept;
 
 				/**
 				 * @brief Whether a name exists.
 				 * @param name Identifier.
 				 * @return true if present.
 				 */
-				bool Contains(const std::string& name) const noexcept;
+				bool Contains(std::string_view name) const noexcept;
 
 				/**
 				 * @brief Drop one password.
 				 * @param name Identifier.
+				 * @return true if a password was removed.
 				 */
-				void Remove(const std::string& name) noexcept;
+				void Remove(std::string_view name) noexcept;
 
 				/**
 				 * @brief Drop every password.

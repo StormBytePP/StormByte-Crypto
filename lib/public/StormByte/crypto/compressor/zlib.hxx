@@ -88,7 +88,7 @@ namespace StormByte {
 					/**
 					 * @brief Destructor.
 					 */
-					~Zlib() noexcept = default;
+					~Zlib() noexcept;
 
 					/**
 					 * @brief Copy assignment.

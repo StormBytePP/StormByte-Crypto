@@ -101,7 +101,7 @@ namespace StormByte {
 					/**
 					 * @brief Destructor.
 					 */
-					virtual ~Generic() noexcept = default;
+					virtual ~Generic() noexcept;
 
 					/**
 					 * @brief Copy assignment.

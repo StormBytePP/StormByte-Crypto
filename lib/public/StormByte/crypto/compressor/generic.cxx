@@ -46,6 +46,8 @@
 
 using namespace StormByte::Crypto::Compressor;
 
+Generic::~Generic() noexcept = default;
+
 bool Generic::DoCompress(Buffer::ReadOnly& input, Buffer::WriteOnly& output, ReadMode mode) const noexcept {
 	StormByte::BinaryData data;
 	bool read_ok;

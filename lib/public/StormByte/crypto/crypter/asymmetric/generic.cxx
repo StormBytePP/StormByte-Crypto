@@ -52,6 +52,9 @@ using StormByte::Buffer::Consumer;
 using StormByte::Buffer::Producer;
 using StormByte::Buffer::ReadOnly;
 using StormByte::Buffer::WriteOnly;
+using namespace StormByte::Crypto::Crypter;
+
+Asymmetric::~Asymmetric() noexcept = default;
 
 namespace StormByte::Crypto::Crypter {
 	Generic::PointerType Create(enum Type type, KeyPair::Generic::PointerType keypair) noexcept {
@@ -80,7 +83,7 @@ namespace StormByte::Crypto::Crypter {
 	}
 }
 
-bool StormByte::Crypto::Crypter::Asymmetric::Encrypt(std::span<const std::byte> input,
+bool Asymmetric::Encrypt(std::span<const std::byte> input,
 	WriteOnly& output,
 	Strategy strategy) const noexcept {
 	if (strategy == Strategy::Native)
@@ -101,7 +104,7 @@ bool StormByte::Crypto::Crypter::Asymmetric::Encrypt(std::span<const std::byte> 
 	return false;
 }
 
-bool StormByte::Crypto::Crypter::Asymmetric::Encrypt(const ReadOnly& input,
+bool Asymmetric::Encrypt(const ReadOnly& input,
 	WriteOnly& output,
 	Strategy strategy) const noexcept {
 	StormByte::BinaryData data;
@@ -110,7 +113,7 @@ bool StormByte::Crypto::Crypter::Asymmetric::Encrypt(const ReadOnly& input,
 	return Encrypt(std::span<const std::byte>(data.data(), data.size()), output, strategy);
 }
 
-bool StormByte::Crypto::Crypter::Asymmetric::Encrypt(ReadOnly& input,
+bool Asymmetric::Encrypt(ReadOnly& input,
 	WriteOnly& output,
 	Strategy strategy) const noexcept {
 	StormByte::BinaryData data;
@@ -119,7 +122,7 @@ bool StormByte::Crypto::Crypter::Asymmetric::Encrypt(ReadOnly& input,
 	return Encrypt(std::span<const std::byte>(data.data(), data.size()), output, strategy);
 }
 
-Consumer StormByte::Crypto::Crypter::Asymmetric::Encrypt(Consumer consumer,
+Consumer Asymmetric::Encrypt(Consumer consumer,
 	Strategy strategy,
 	ReadMode mode) const noexcept {
 	if (strategy == Strategy::Native)
@@ -142,7 +145,7 @@ Consumer StormByte::Crypto::Crypter::Asymmetric::Encrypt(Consumer consumer,
 	return producer.Consumer();
 }
 
-bool StormByte::Crypto::Crypter::Asymmetric::Decrypt(std::span<const std::byte> input,
+bool Asymmetric::Decrypt(std::span<const std::byte> input,
 	WriteOnly& output) const noexcept {
 	namespace Impl = Implementation::Crypter::Asymmetric;
 	bool hybridOk = false;
@@ -161,7 +164,7 @@ bool StormByte::Crypto::Crypter::Asymmetric::Decrypt(std::span<const std::byte> 
 	return DoDecrypt(input, output);
 }
 
-bool StormByte::Crypto::Crypter::Asymmetric::Decrypt(const ReadOnly& input,
+bool Asymmetric::Decrypt(const ReadOnly& input,
 	WriteOnly& output) const noexcept {
 	StormByte::BinaryData data;
 	if (!const_cast<ReadOnly&>(input).Read(StormByte::ByteSize{0}, data))
@@ -169,7 +172,7 @@ bool StormByte::Crypto::Crypter::Asymmetric::Decrypt(const ReadOnly& input,
 	return Decrypt(std::span<const std::byte>(data.data(), data.size()), output);
 }
 
-bool StormByte::Crypto::Crypter::Asymmetric::Decrypt(ReadOnly& input,
+bool Asymmetric::Decrypt(ReadOnly& input,
 	WriteOnly& output) const noexcept {
 	StormByte::BinaryData data;
 	if (!input.Extract(StormByte::ByteSize{0}, data))
@@ -177,7 +180,7 @@ bool StormByte::Crypto::Crypter::Asymmetric::Decrypt(ReadOnly& input,
 	return Decrypt(std::span<const std::byte>(data.data(), data.size()), output);
 }
 
-Consumer StormByte::Crypto::Crypter::Asymmetric::Decrypt(Consumer consumer, ReadMode mode) const noexcept {
+Consumer Asymmetric::Decrypt(Consumer consumer, ReadMode mode) const noexcept {
 	namespace Impl = Implementation::Crypter::Asymmetric;
 	StormByte::BinaryData headerPeek;
 	if (!consumer.Peek(StormByte::ByteSize{4}, headerPeek) || headerPeek.size() < 4)

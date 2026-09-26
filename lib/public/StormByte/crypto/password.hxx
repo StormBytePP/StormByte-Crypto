@@ -43,6 +43,7 @@
 #include <StormByte/byte_size.hxx>
 #include <StormByte/crypto/visibility.h>
 #include <StormByte/size.hxx>
+#include <StormByte/string/string.hxx>
 
 #include <memory>
 #include <string>
@@ -69,7 +70,32 @@ namespace StormByte {
 		 *
 		 * Bytes live in a shared @ref Helpers::SecureContent and are wiped when
 		 * the last owner is destroyed. Copies share the same buffer. There is no
-		 * public view of the raw bytes.
+		 * public view of the raw bytes: once ingested, the secret only exists
+		 * inside this object (and any @ref Vault that still holds a share).
+		 *
+		 * ## Why ingest is a non-const reference, not a view and not a move
+		 *
+		 * A password that stays in the caller's `std::string` / @ref StormByte::String::String
+		 * after construction is a leftover secret. `std::string_view` cannot wipe
+		 * that source (it does not own it) and would encourage keeping the
+		 * original buffer alive. Passing `std::string` by value or by move across
+		 * a DLL boundary is also unsafe: the string's buffer is allocated by the
+		 * caller's CRT/heap, and destroying or moving it inside this library can
+		 * free the wrong heap.
+		 *
+		 * Therefore the caller *cedes* a non-const `std::string&` or
+		 * `StormByte::String::String&`. This constructor copies the bytes into
+		 * @ref Helpers::SecureContent (allocated and wiped by this library) and
+		 * then overwrites and clears the caller's object. After return the
+		 * argument is empty; the only remaining copy is the one Password owns.
+		 *
+		 * String literals (`Password("secret")`) use `const char*`. They are
+		 * copied and the source is not wiped: a literal lives in read-only
+		 * storage. That form is for tests and non-secret placeholders, not for
+		 * production secrets typed in source.
+		 *
+		 * Raw bytes (`const void*` + @ref StormByte::ByteSize) are copied and
+		 * not wiped; the caller is responsible for the source buffer.
 		 */
 		class STORMBYTE_CRYPTO_PUBLIC Password {
 			public:
@@ -78,19 +104,25 @@ namespace StormByte {
 				 * @{
 				 */
 				/**
-				 * @brief From a string. The argument is wiped before return.
-				 * @param value Password characters.
+				 * @brief From a std::string. Copies into secure storage and wipes @p value.
+				 * @param value Password characters. Emptied and zeroed on return.
 				 */
-				explicit Password(std::string value) noexcept;
+				explicit Password(std::string& value) noexcept;
+
+				/**
+				 * @brief From a String. Copies into secure storage and wipes @p value.
+				 * @param value Password characters. Cleared on return.
+				 */
+				explicit Password(StormByte::String::String& value) noexcept;
 
 				/**
 				 * @brief From a C string up to the terminator. The source is not wiped.
-				 * @param value Null-terminated password.
+				 * @param value Null-terminated password (including literals).
 				 */
 				explicit Password(const char* value) noexcept;
 
 				/**
-				 * @brief From raw bytes. Exact size; no terminator is added.
+				 * @brief From raw bytes. Exact size; no terminator is added. The source is not wiped.
 				 * @param data Bytes, or nullptr if size is 0.
 				 * @param size Number of bytes.
 				 */
@@ -100,32 +132,32 @@ namespace StormByte {
 				 * @brief Copy constructor. Shares the buffer.
 				 * @param other Password to copy.
 				 */
-				Password(const Password& other) = default;
+				Password(const Password& other);
 
 				/**
 				 * @brief Move constructor.
 				 * @param other Password to move.
 				 */
-				Password(Password&& other) noexcept = default;
+				Password(Password&& other) noexcept;
 
 				/**
 				 * @brief Destructor. Wipes the buffer if this is the last owner.
 				 */
-				~Password() = default;
+				~Password();
 
 				/**
 				 * @brief Copy assignment.
 				 * @param other Password to copy.
 				 * @return Reference to this password.
 				 */
-				Password& operator=(const Password& other) = default;
+				Password& operator=(const Password& other);
 
 				/**
 				 * @brief Move assignment.
 				 * @param other Password to move.
 				 * @return Reference to this password.
 				 */
-				Password& operator=(Password&& other) noexcept = default;
+				Password& operator=(Password&& other) noexcept;
 				/** @} */
 
 				/**

@@ -48,7 +48,7 @@
 #include <StormByte/type_traits.hxx>
 
 #include <span>
-#include <string>
+#include <string_view>
 
 /**
  * @namespace StormByte
@@ -101,7 +101,7 @@ namespace StormByte {
 					/**
 					 * @brief Destructor.
 					 */
-					virtual ~Generic() noexcept = default;
+					virtual ~Generic() noexcept;
 
 					/**
 					 * @brief Copy assignment.
@@ -194,10 +194,10 @@ namespace StormByte {
 					/**
 					 * @brief Verify a byte span against a signature.
 					 * @param input Input bytes.
-					 * @param signature Signature.
+					 * @param signature Signature. Accepts String and std::string via string_view.
 					 * @return true if valid.
 					 */
-					inline bool Verify(std::span<const std::byte> input, const std::string& signature) const noexcept {
+					inline bool Verify(std::span<const std::byte> input, std::string_view signature) const noexcept {
 						return DoVerify(input, signature);
 					}
 
@@ -205,11 +205,11 @@ namespace StormByte {
 					 * @brief Verify an input range of byte-convertible values against a signature.
 					 * @tparam Range Input range type.
 					 * @param input Input values.
-					 * @param signature Signature.
+					 * @param signature Signature. Accepts String and std::string via string_view.
 					 * @return true if valid.
 					 */
 					template<StormByte::Type::ByteInputRange Range>
-					bool Verify(const Range& input, const std::string& signature) const {
+					bool Verify(const Range& input, std::string_view signature) const {
 						StormByte::BinaryData data;
 						for (const auto value: input) {
 							data.emplace_back(static_cast<std::byte>(value));
@@ -220,31 +220,31 @@ namespace StormByte {
 					/**
 					 * @brief Verify a ReadOnly buffer (copy).
 					 * @param input Input buffer.
-					 * @param signature Signature.
+					 * @param signature Signature. Accepts String and std::string via string_view.
 					 * @return true if valid.
 					 */
-					inline bool Verify(const Buffer::ReadOnly& input, const std::string& signature) const noexcept {
+					inline bool Verify(const Buffer::ReadOnly& input, std::string_view signature) const noexcept {
 						return DoVerify(const_cast<Buffer::ReadOnly&>(input), signature, ReadMode::Copy);
 					}
 
 					/**
 					 * @brief Verify a ReadOnly buffer (move).
 					 * @param input Input buffer.
-					 * @param signature Signature.
+					 * @param signature Signature. Accepts String and std::string via string_view.
 					 * @return true if valid.
 					 */
-					inline bool Verify(Buffer::ReadOnly& input, const std::string& signature) const noexcept {
+					inline bool Verify(Buffer::ReadOnly& input, std::string_view signature) const noexcept {
 						return DoVerify(input, signature, ReadMode::Move);
 					}
 
 					/**
 					 * @brief Verify a Consumer.
 					 * @param consumer Input consumer.
-					 * @param signature Signature.
+					 * @param signature Signature. Accepts String and std::string via string_view.
 					 * @param mode Copy or move.
 					 * @return true if valid.
 					 */
-					inline bool Verify(Buffer::Consumer consumer, const std::string& signature, ReadMode mode = ReadMode::Move) const noexcept {
+					inline bool Verify(Buffer::Consumer consumer, std::string_view signature, ReadMode mode = ReadMode::Move) const noexcept {
 						return DoVerify(consumer, signature, mode);
 					}
 					/** @} */
@@ -310,7 +310,7 @@ namespace StormByte {
 					 * @param mode Copy or move.
 					 * @return true if valid.
 					 */
-					bool DoVerify(Buffer::ReadOnly& input, const std::string& signature, ReadMode mode) const noexcept;
+					bool DoVerify(Buffer::ReadOnly& input, std::string_view signature, ReadMode mode) const noexcept;
 
 					/**
 					 * @brief Verify a byte span.
@@ -318,7 +318,7 @@ namespace StormByte {
 					 * @param signature Signature.
 					 * @return true if valid.
 					 */
-					virtual bool DoVerify(std::span<const std::byte> input, const std::string& signature) const noexcept = 0;
+					virtual bool DoVerify(std::span<const std::byte> input, std::string_view signature) const noexcept = 0;
 
 					/**
 					 * @brief Verify a Consumer.
@@ -327,7 +327,7 @@ namespace StormByte {
 					 * @param mode Copy or move.
 					 * @return true if valid.
 					 */
-					virtual bool DoVerify(Buffer::Consumer consumer, const std::string& signature, ReadMode mode) const noexcept = 0;
+					virtual bool DoVerify(Buffer::Consumer consumer, std::string_view signature, ReadMode mode) const noexcept = 0;
 			};
 
 			/**

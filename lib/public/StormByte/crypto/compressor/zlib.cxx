@@ -52,6 +52,8 @@ using StormByte::Buffer::Producer;
 using StormByte::Buffer::WriteOnly;
 using namespace StormByte::Crypto::Compressor;
 
+Zlib::~Zlib() noexcept = default;
+
 namespace {
 	struct ZlibCompressOps final : StormByte::Crypto::Implementation::Compressor::StreamOps {
 		StormByte::BinaryData buffer;

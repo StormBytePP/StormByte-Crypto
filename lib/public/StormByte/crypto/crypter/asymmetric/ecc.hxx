@@ -104,7 +104,7 @@ namespace StormByte {
 					/**
 					 * @brief Destructor.
 					 */
-					virtual ~ECC() noexcept = default;
+					~ECC() noexcept;
 
 					/**
 					 * @brief Copy assignment.

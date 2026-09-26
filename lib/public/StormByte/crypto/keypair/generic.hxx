@@ -44,10 +44,11 @@
 #include <StormByte/crypto/password.hxx>
 #include <StormByte/crypto/typedefs.hxx>
 #include <StormByte/crypto/visibility.h>
+#include <StormByte/string/string.hxx>
 
 #include <filesystem>
 #include <optional>
-#include <string>
+#include <string_view>
 
 /**
  * @namespace StormByte
@@ -91,7 +92,7 @@ namespace StormByte {
 			 * @class Generic
 			 * @brief Abstract keypair. Concrete algorithms derive from this.
 			 *
-			 * Public key is a non-secret string (typically Base64 SPKI DER).
+			 * Public key is a non-secret @ref StormByte::String::String (typically Base64 SPKI DER).
 			 * Private key, when present, is a @ref StormByte::Crypto::Password
 			 * holding PKCS#8 or native DER and is wiped with the last owner.
 			 */
@@ -116,7 +117,7 @@ namespace StormByte {
 					/**
 					 * @brief Destructor. Drops the private-key handle.
 					 */
-					virtual ~Generic() noexcept = default;
+					virtual ~Generic() noexcept;
 
 					/**
 					 * @brief Copy assignment.
@@ -143,9 +144,9 @@ namespace StormByte {
 
 					/**
 					 * @brief Public key string.
-					 * @return Public material.
+					 * @return Public material owned by this keypair.
 					 */
-					inline const std::string& PublicKey() const noexcept {
+					inline const StormByte::String::String& PublicKey() const noexcept {
 						return m_public_key;
 					}
 
@@ -176,7 +177,7 @@ namespace StormByte {
 					 * @param format PEM or DER.
 					 * @return true on success.
 					 */
-					bool Save(const std::filesystem::path& directory, const std::string& baseName, StorageFormat format = StorageFormat::PEM) const noexcept;
+					bool Save(const std::filesystem::path& directory, std::string_view baseName, StorageFormat format = StorageFormat::PEM) const noexcept;
 
 					/**
 					 * @brief Write public and private files. Private key encrypted (prefer PEM).
@@ -186,7 +187,7 @@ namespace StormByte {
 					 * @param format Prefer PEM when encrypting.
 					 * @return true on success.
 					 */
-					bool Save(const std::filesystem::path& directory, const std::string& baseName, const Password& encryptPassword, StorageFormat format = StorageFormat::PEM) const noexcept;
+					bool Save(const std::filesystem::path& directory, std::string_view baseName, const Password& encryptPassword, StorageFormat format = StorageFormat::PEM) const noexcept;
 
 					/**
 					 * @brief Write only the public key.
@@ -216,7 +217,7 @@ namespace StormByte {
 
 				protected:
 					enum Type m_type;						///< Algorithm
-					std::string m_public_key;				///< Public material
+					StormByte::String::String m_public_key;	///< Public material
 					std::optional<Password> m_private_key;	///< Private material, if any
 
 					/**
@@ -225,8 +226,10 @@ namespace StormByte {
 					 * @param public_key Public material.
 					 * @param private_key Optional private Password.
 					 */
-					inline Generic(enum Type type, std::string public_key, std::optional<Password> private_key = std::nullopt):
-						m_type(type), m_public_key(std::move(public_key)), m_private_key(std::move(private_key)) {}
+					inline Generic(enum Type type, StormByte::String::String public_key, std::optional<Password> private_key = std::nullopt):
+						m_type(type),
+						m_public_key(std::move(public_key)),
+						m_private_key(std::move(private_key)) {}
 			};
 
 			/**

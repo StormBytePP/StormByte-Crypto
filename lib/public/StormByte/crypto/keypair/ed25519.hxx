@@ -42,9 +42,10 @@
 
 #include <StormByte/crypto/keypair/generic.hxx>
 #include <StormByte/crypto/password.hxx>
+#include <StormByte/string/string.hxx>
 
 #include <optional>
-#include <string>
+#include <string_view>
 
 /**
  * @namespace StormByte
@@ -73,11 +74,11 @@ namespace StormByte {
 					 */
 					/**
 					 * @brief Construct from public material and optional private Password.
-					 * @param publicKey Public key.
+					 * @param publicKey Public key. Accepts String and std::string via string_view.
 					 * @param privateKey Optional private key.
 					 */
-					inline ED25519(std::string publicKey, std::optional<Password> privateKey = std::nullopt):
-						Generic(Type::ED25519, std::move(publicKey), std::move(privateKey)) {}
+					inline ED25519(std::string_view publicKey, std::optional<Password> privateKey = std::nullopt):
+						Generic(Type::ED25519, StormByte::String::String{publicKey}, std::move(privateKey)) {}
 
 					/**
 					 * @brief Copy constructor.
@@ -94,7 +95,7 @@ namespace StormByte {
 					/**
 					 * @brief Destructor.
 					 */
-					~ED25519() noexcept override = default;
+					~ED25519() noexcept;
 
 					/**
 					 * @brief Copy assignment.

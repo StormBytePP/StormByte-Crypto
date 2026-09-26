@@ -49,6 +49,8 @@
 
 using namespace StormByte::Crypto::KeyPair;
 
+ECDH::~ECDH() noexcept = default;
+
 ECDH::PointerType ECDH::Generate(unsigned short bits) noexcept {
 	try {
 		CryptoPP::OID curve;

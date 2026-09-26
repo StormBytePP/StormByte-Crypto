@@ -40,22 +40,31 @@
 
 #include <StormByte/crypto/secret/x25519.hxx>
 #include <StormByte/crypto/implementation/secret/details.hxx>
+
+#include <string>
+#include <string_view>
+
 using namespace StormByte::Crypto::Secret;
+
+X25519::~X25519() noexcept = default;
+
 std::optional<StormByte::Crypto::Password>
-X25519::Share(const std::string& peerPublicKey) const noexcept
+X25519::Share(std::string_view peerPublicKey) const noexcept
 {
 	if (!m_keypair || !m_keypair->HasPrivateKey())
 		return std::nullopt;
 	return Implementation::Secret::X25519Share(
-		*m_keypair->PrivateKey(), peerPublicKey);
+		*m_keypair->PrivateKey(),
+		std::string(peerPublicKey));
 }
 
 std::optional<StormByte::Crypto::Password>
 X25519::DeriveSharedSecret(KeyPair::Generic::PointerType keypair,
-						const std::string& peerPublicKey) noexcept
+						std::string_view peerPublicKey) noexcept
 {
 	if (!keypair || !keypair->HasPrivateKey())
 		return std::nullopt;
 	return Implementation::Secret::X25519Share(
-		*keypair->PrivateKey(), peerPublicKey);
+		*keypair->PrivateKey(),
+		std::string(peerPublicKey));
 }

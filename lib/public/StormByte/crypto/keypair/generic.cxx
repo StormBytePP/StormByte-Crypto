@@ -50,6 +50,7 @@
 #include <StormByte/crypto/keypair/x25519.hxx>
 #include <StormByte/crypto/password.hxx>
 #include <StormByte/crypto/random.hxx>
+#include <StormByte/string/string.hxx>
 
 #include <aes.h>
 #include <algorithm>
@@ -173,7 +174,6 @@ namespace {
 			if (!std::isspace(c))
 				filtered.push_back(static_cast<char>(c));
 		}
-
 		std::string decoded;
 		CryptoPP::StringSource(
 			filtered, true,
@@ -196,7 +196,6 @@ namespace {
 			pem.append(b64, i, 64);
 			pem += '\n';
 		}
-
 		pem += "-----END ";
 		pem += label;
 		pem += "-----\n";
@@ -231,7 +230,6 @@ namespace {
 				blocks.push_back(std::move(block));
 			pos = endMark + endToken.size();
 		}
-
 		return blocks;
 	}
 
@@ -261,7 +259,6 @@ namespace {
 			if (std::equal(oid.begin(), oid.end(), der.begin() + static_cast<std::ptrdiff_t>(i)))
 				return true;
 		}
-
 		return false;
 	}
 
@@ -315,7 +312,6 @@ namespace {
 					seq.SkipAll();
 					break;
 				}
-
 				const CryptoPP::byte tag = static_cast<CryptoPP::byte>(next & 0x1f);
 				const bool constructed = (next & CryptoPP::CONSTRUCTED) != 0;
 				if (tag == 0) {
@@ -331,7 +327,6 @@ namespace {
 					} else {
 						params.SkipAll();
 					}
-
 					params.MessageEnd();
 				} else if (tag == 1) {
 					CryptoPP::BERGeneralDecoder pubdec(
@@ -345,7 +340,6 @@ namespace {
 					break;
 				}
 			}
-
 			seq.MessageEnd();
 			if (!haveCurve)
 				curveOid = CryptoPP::ASN1::secp256r1();
@@ -428,22 +422,18 @@ namespace {
 			out = Type::RSA;
 			return true;
 		}
-
 		if (ContainsOid(der, oid_ed25519)) {
 			out = Type::ED25519;
 			return true;
 		}
-
 		if (ContainsOid(der, oid_x25519)) {
 			out = Type::X25519;
 			return true;
 		}
-
 		if (ContainsOid(der, oid_dsa)) {
 			out = Type::DSA;
 			return true;
 		}
-
 		if (ContainsOid(der, oid_ec)
 			|| ContainsOid(der, oid_secp256r1)
 			|| ContainsOid(der, oid_secp384r1)
@@ -451,7 +441,6 @@ namespace {
 			out = Type::ECC;
 			return true;
 		}
-
 		{
 			CryptoPP::RSA::PrivateKey rsaPriv;
 			if (TryLoadRsaPrivate(der, rsaPriv)) {
@@ -459,7 +448,6 @@ namespace {
 				return true;
 			}
 		}
-
 		{
 			CryptoPP::ECIES<CryptoPP::ECP>::PrivateKey ecPriv;
 			if (TryLoadEcPrivate(der, ecPriv)) {
@@ -467,7 +455,6 @@ namespace {
 				return true;
 			}
 		}
-
 		try {
 			CryptoPP::ArraySource src(der.data(), der.size(), true);
 			CryptoPP::ECIES<CryptoPP::ECP>::PublicKey pub;
@@ -492,18 +479,15 @@ namespace {
 				out.Assign(p + i + 2, 32);
 				return true;
 			}
-
 			if (p[i] == 0x04 && p[i + 1] == 0x22 && p[i + 2] == 0x04 && p[i + 3] == 0x20) {
 				out.Assign(p + i + 4, 32);
 				return true;
 			}
-
 			if (p[i] == 0x03 && p[i + 1] == 0x21 && p[i + 2] == 0x00) {
 				out.Assign(p + i + 3, 32);
 				return true;
 			}
 		}
-
 		return false;
 	}
 
@@ -583,7 +567,6 @@ namespace {
 					break;
 				}
 			}
-
 			pbkdf2Params.MessageEnd();
 			kdfSeq.MessageEnd();
 			CryptoPP::BERSequenceDecoder encScheme(pbes2Params);
@@ -612,7 +595,6 @@ namespace {
 				CryptoPP::PKCS5_PBKDF2_HMAC<CryptoPP::SHA1> pbkdf;
 				pbkdf.DeriveKey(key, key.size(), 0, pass, passLen, salt, salt.size(), iterations);
 			}
-
 			std::string plainStr;
 			CryptoPP::CBC_Mode<CryptoPP::AES>::Decryption dec;
 			dec.SetKeyWithIV(key, key.size(), iv, iv.size());
@@ -661,13 +643,7 @@ namespace {
 			RNG().GenerateBlock(iv, iv.size());
 			key.CleanNew(32);
 			CryptoPP::PKCS5_PBKDF2_HMAC<CryptoPP::SHA256> pbkdf;
-			pbkdf.DeriveKey(
-				key, key.size(),
-				0,
-				pass, passLen,
-				salt, salt.size(),
-				kPkcs8Pbkdf2Iterations
-			);
+			pbkdf.DeriveKey(key, key.size(), 0, pass, passLen, salt, salt.size(), kPkcs8Pbkdf2Iterations);
 			std::string cipherStr;
 			CryptoPP::CBC_Mode<CryptoPP::AES>::Encryption enc;
 			enc.SetKeyWithIV(key, key.size(), iv, iv.size());
@@ -705,30 +681,23 @@ namespace {
 									prf.Put(nullParam, 2);
 									prf.MessageEnd();
 								}
-
 								pbkdf2Params.MessageEnd();
 							}
-
 							kdf.MessageEnd();
 						}
-
 						{
 							CryptoPP::DERSequenceEncoder encScheme(pbes2);
 							kOidAes256Cbc.DEREncode(encScheme);
 							CryptoPP::DEREncodeOctetString(encScheme, iv, iv.size());
 							encScheme.MessageEnd();
 						}
-
 						pbes2.MessageEnd();
 					}
-
 					algId.MessageEnd();
 				}
-
 				CryptoPP::DEREncodeOctetString(outer, ciphertext, ciphertext.size());
 				outer.MessageEnd();
 			}
-
 			outEncDer.resize(queue.CurrentSize());
 			if (!outEncDer.empty())
 				queue.Get(outEncDer.data(), outEncDer.size());
@@ -782,7 +751,6 @@ namespace {
 					pub.Save(pubQueue);
 					break;
 				}
-
 				case Type::DSA: {
 					CryptoPP::DSA::PrivateKey priv;
 					if (!TryLoadDsaPrivate(privDer, priv))
@@ -792,7 +760,6 @@ namespace {
 					pub.Save(pubQueue);
 					break;
 				}
-
 				case Type::ECC:
 				case Type::ECDSA:
 				case Type::ECDH: {
@@ -804,7 +771,6 @@ namespace {
 					pub.Save(pubQueue);
 					break;
 				}
-
 				case Type::ED25519: {
 					CryptoPP::ArraySource src(privDer.data(), privDer.size(), true);
 					CryptoPP::ed25519::Signer signer;
@@ -813,7 +779,6 @@ namespace {
 					verifier.GetPublicKey().Save(pubQueue);
 					break;
 				}
-
 				case Type::X25519: {
 					if (privDer.size() == 32) {
 						CryptoPP::x25519 agreement;
@@ -823,18 +788,15 @@ namespace {
 						StormByte::Crypto::Helpers::SecureWipe(pub);
 						break;
 					}
-
 					CryptoPP::ArraySource src(privDer.data(), privDer.size(), true);
 					CryptoPP::x25519 x;
 					x.Load(src);
 					x.Save(pubQueue);
 					break;
 				}
-
 				default:
 					return false;
 			}
-
 			outPubDer.resize(pubQueue.CurrentSize());
 			if (!outPubDer.empty())
 				pubQueue.Get(outPubDer.data(), outPubDer.size());
@@ -847,19 +809,19 @@ namespace {
 	Generic::PointerType MakeKeyPair(Type type, std::string pubStored, std::optional<Password> priv) noexcept {
 		switch (type) {
 			case Type::DSA:
-				return DSA::MakePointer<DSA>(std::move(pubStored), std::move(priv));
+				return DSA::MakePointer<DSA>(pubStored, std::move(priv));
 			case Type::ECC:
-				return ECC::MakePointer<ECC>(std::move(pubStored), std::move(priv));
+				return ECC::MakePointer<ECC>(pubStored, std::move(priv));
 			case Type::ECDH:
-				return ECDH::MakePointer<ECDH>(std::move(pubStored), std::move(priv));
+				return ECDH::MakePointer<ECDH>(pubStored, std::move(priv));
 			case Type::ECDSA:
-				return ECDSA::MakePointer<ECDSA>(std::move(pubStored), std::move(priv));
+				return ECDSA::MakePointer<ECDSA>(pubStored, std::move(priv));
 			case Type::ED25519:
-				return ED25519::MakePointer<ED25519>(std::move(pubStored), std::move(priv));
+				return ED25519::MakePointer<ED25519>(pubStored, std::move(priv));
 			case Type::RSA:
-				return RSA::MakePointer<RSA>(std::move(pubStored), std::move(priv));
+				return RSA::MakePointer<RSA>(pubStored, std::move(priv));
 			case Type::X25519:
-				return X25519::MakePointer<X25519>(std::move(pubStored), std::move(priv));
+				return X25519::MakePointer<X25519>(pubStored, std::move(priv));
 			default:
 				return nullptr;
 		}
@@ -894,7 +856,6 @@ namespace {
 					if (DetectTypeFromDer(*pubDer, pubType) && pubType != Type::X25519)
 						return nullptr;
 				}
-
 				type = Type::X25519;
 				typeKnown = true;
 			} else if (privDer && !privDer->empty()) {
@@ -915,7 +876,6 @@ namespace {
 					typeKnown = true;
 				}
 			}
-
 			if (!typeKnown)
 				type = hint;
 			if (pubDer && !pubDer->empty() && privDer && !privDer->empty()) {
@@ -930,7 +890,6 @@ namespace {
 				if (pubOk && privOk && !TypesCompatible(pubType, privType))
 					return nullptr;
 			}
-
 			if (type == Type::X25519) {
 				CryptoPP::SecByteBlock privRaw(32), pubRaw(32);
 				constexpr std::array<CryptoPP::byte, 5> oid_x25519{
@@ -942,7 +901,7 @@ namespace {
 					if (rawPriv)
 						privRaw.Assign(privDer->data(), 32);
 					else if (oidPriv && ExtractRaw32(*privDer, privRaw))
-						{ /* OpenSSL PKCS#8 X25519 */ }
+						{ }
 					else
 						return nullptr;
 					if (pubDer && !pubDer->empty()) {
@@ -951,7 +910,7 @@ namespace {
 						if (rawPub)
 							pubRaw.Assign(pubDer->data(), 32);
 						else if (oidPub && ExtractRaw32(*pubDer, pubRaw))
-							{ /* ok */ }
+							{ }
 						else {
 							CryptoPP::x25519 ag;
 							ag.GeneratePublicKey(RNG(), privRaw, pubRaw);
@@ -960,33 +919,29 @@ namespace {
 						CryptoPP::x25519 ag;
 						ag.GeneratePublicKey(RNG(), privRaw, pubRaw);
 					}
-
 					std::string pubStored = Base64Encode(pubRaw.data(), pubRaw.size());
 					Password privPwd = PrivateDerToPassword(
 						std::span<const CryptoPP::byte>(privRaw.data(), privRaw.size())
 					);
 					SecureWipe(privRaw);
 					SecureWipe(pubRaw);
-					return X25519::MakePointer<X25519>(std::move(pubStored), std::move(privPwd));
+					return MakeKeyPair(Type::X25519, std::move(pubStored), std::move(privPwd));
 				}
-
 				if (pubDer && !pubDer->empty()) {
 					const bool rawPub = IsRaw32(*pubDer);
 					const bool oidPub = ContainsOid(*pubDer, oid_x25519);
 					if (rawPub)
 						pubRaw.Assign(pubDer->data(), 32);
 					else if (oidPub && ExtractRaw32(*pubDer, pubRaw))
-						{ /* ok */ }
+						{ }
 					else
 						return nullptr;
 					std::string pubStored = Base64Encode(pubRaw.data(), pubRaw.size());
 					SecureWipe(pubRaw);
-					return X25519::MakePointer<X25519>(std::move(pubStored), std::nullopt);
+					return MakeKeyPair(Type::X25519, std::move(pubStored), std::nullopt);
 				}
-
 				return nullptr;
 			}
-
 			if (type == Type::ECC || type == Type::ECDSA || type == Type::ECDH) {
 				if (privDer && !privDer->empty()) {
 					try {
@@ -1008,17 +963,11 @@ namespace {
 							priv.MakePublicKey(pub);
 							pubStored = StormByte::Crypto::Implementation::KeyPair::SerializeKey(pub);
 						}
-
-						if (type == Type::ECDSA)
-							return ECDSA::MakePointer<ECDSA>(std::move(pubStored), std::move(privPwd));
-						if (type == Type::ECDH)
-							return ECDH::MakePointer<ECDH>(std::move(pubStored), std::move(privPwd));
-						return ECC::MakePointer<ECC>(std::move(pubStored), std::move(privPwd));
+						return MakeKeyPair(type, std::move(pubStored), std::move(privPwd));
 					} catch (...) {
 						return nullptr;
 					}
 				}
-
 				if (pubDer && !pubDer->empty()) {
 					try {
 						CryptoPP::ArraySource src(pubDer->data(), pubDer->size(), true);
@@ -1027,19 +976,13 @@ namespace {
 						if (!pub.Validate(RNG(), 2))
 							return nullptr;
 						std::string pubStored = PublicDerToStored(*pubDer);
-						if (type == Type::ECDSA)
-							return ECDSA::MakePointer<ECDSA>(std::move(pubStored), std::nullopt);
-						if (type == Type::ECDH)
-							return ECDH::MakePointer<ECDH>(std::move(pubStored), std::nullopt);
-						return ECC::MakePointer<ECC>(std::move(pubStored), std::nullopt);
+						return MakeKeyPair(type, std::move(pubStored), std::nullopt);
 					} catch (...) {
 						return nullptr;
 					}
 				}
-
 				return nullptr;
 			}
-
 			std::optional<Password> privPwd;
 			if (privDer && !privDer->empty()) {
 				try {
@@ -1053,7 +996,6 @@ namespace {
 								normalized = RsaPrivateToPkcs8Der(priv);
 							break;
 						}
-
 						case Type::DSA: {
 							CryptoPP::DSA::PrivateKey priv;
 							ok = TryLoadDsaPrivate(*privDer, priv);
@@ -1061,7 +1003,6 @@ namespace {
 								normalized = DsaPrivateToPkcs8Der(priv);
 							break;
 						}
-
 						case Type::ED25519: {
 							CryptoPP::ArraySource src(privDer->data(), privDer->size(), true);
 							CryptoPP::ed25519::Signer signer;
@@ -1070,12 +1011,10 @@ namespace {
 							normalized.assign(privDer->begin(), privDer->end());
 							break;
 						}
-
 						default:
 							ok = false;
 							break;
 					}
-
 					if (!ok || normalized.empty())
 						return nullptr;
 					privPwd = PrivateDerToPassword(
@@ -1086,7 +1025,6 @@ namespace {
 					return nullptr;
 				}
 			}
-
 			std::string pubStored;
 			if (pubDer && !pubDer->empty()) {
 				pubStored = PublicDerToStored(*pubDer);
@@ -1098,7 +1036,6 @@ namespace {
 			} else {
 				return nullptr;
 			}
-
 			return MakeKeyPair(type, std::move(pubStored), std::move(privPwd));
 		} catch (...) {
 			return nullptr;
@@ -1131,17 +1068,14 @@ namespace {
 						DetectTypeFromDer(b.der, hint);
 				}
 			}
-
 			if (privDer) {
 				if (!TryDecryptPrivateDer(*privDer, privEncrypted, password))
 					return nullptr;
 				if (privEncrypted)
 					DetectTypeFromDer(*privDer, hint);
 			}
-
 			return BuildFromMaterial(std::move(pubDer), std::move(privDer), hint);
 		}
-
 		std::vector<CryptoPP::byte> copy(data.begin(), data.end());
 		if (password) {
 			std::vector<CryptoPP::byte> plain;
@@ -1149,7 +1083,6 @@ namespace {
 				return nullptr;
 			copy = std::move(plain);
 		}
-
 		Type hint = Type::RSA;
 		DetectTypeFromDer(copy, hint);
 		auto asPriv = BuildFromMaterial(std::nullopt, copy, hint);
@@ -1187,7 +1120,6 @@ namespace {
 			const std::string pem = PemEncode("PRIVATE KEY", der.data(), der.size());
 			ok = WriteFileBytes(path, reinterpret_cast<const CryptoPP::byte*>(pem.data()), pem.size());
 		}
-
 		SecureWipe(der);
 		if (ok)
 			RestrictToOwner(path);
@@ -1215,7 +1147,6 @@ namespace {
 			const std::string pem = PemEncode("ENCRYPTED PRIVATE KEY", encDer.data(), encDer.size());
 			ok = WriteFileBytes(path, reinterpret_cast<const CryptoPP::byte*>(pem.data()), pem.size());
 		}
-
 		SecureWipe(encDer);
 		if (ok)
 			RestrictToOwner(path);
@@ -1223,17 +1154,19 @@ namespace {
 	}
 }
 
-bool Generic::Save(const std::filesystem::path& directory, const std::string& baseName, StorageFormat format) const noexcept {
+Generic::~Generic() noexcept = default;
+
+bool Generic::Save(const std::filesystem::path& directory, std::string_view baseName, StorageFormat format) const noexcept {
 	try {
 		if (!std::filesystem::exists(directory) || !std::filesystem::is_directory(directory))
 			return false;
 		if (m_public_key.empty())
 			return false;
-		const auto pubPath = directory / (baseName + ExtensionFor(format, true));
+		const auto pubPath = directory / (std::string{baseName} + ExtensionFor(format, true));
 		if (!WritePublicFile(pubPath, m_public_key, format))
 			return false;
 		if (m_private_key.has_value()) {
-			const auto privPath = directory / (baseName + ExtensionFor(format, false));
+			const auto privPath = directory / (std::string{baseName} + ExtensionFor(format, false));
 			if (!WritePrivateFile(privPath, *m_private_key, format))
 				return false;
 		}
@@ -1246,7 +1179,7 @@ bool Generic::Save(const std::filesystem::path& directory, const std::string& ba
 
 bool Generic::Save(
 	const std::filesystem::path& directory,
-	const std::string& baseName,
+	std::string_view baseName,
 	const Password& encryptPassword,
 	StorageFormat format
 ) const noexcept {
@@ -1255,10 +1188,10 @@ bool Generic::Save(
 			return false;
 		if (m_public_key.empty() || !m_private_key.has_value())
 			return false;
-		const auto pubPath = directory / (baseName + ExtensionFor(format, true));
+		const auto pubPath = directory / (std::string{baseName} + ExtensionFor(format, true));
 		if (!WritePublicFile(pubPath, m_public_key, format))
 			return false;
-		const auto privPath = directory / (baseName + ExtensionFor(format, false));
+		const auto privPath = directory / (std::string{baseName} + ExtensionFor(format, false));
 		return WritePrivateFileEncrypted(privPath, *m_private_key, encryptPassword, format);
 	} catch (...) {
 		return false;
@@ -1338,14 +1271,12 @@ namespace StormByte::Crypto::KeyPair {
 							break;
 						}
 					}
-
 					if (!pubDer)
 						return nullptr;
 				} else {
 					pubDer = std::move(bytes);
 				}
 			}
-
 			if (!privateKeyPath.empty() && std::filesystem::exists(privateKeyPath)) {
 				auto bytes = ReadFileBytes(privateKeyPath);
 				if (bytes.empty())
@@ -1360,14 +1291,12 @@ namespace StormByte::Crypto::KeyPair {
 							break;
 						}
 					}
-
 					if (!privDer)
 						return nullptr;
 				} else {
 					privDer = std::move(bytes);
 				}
 			}
-
 			if (privEncrypted)
 				return nullptr;
 			Type hint = Type::RSA;
@@ -1402,14 +1331,12 @@ namespace StormByte::Crypto::KeyPair {
 							break;
 						}
 					}
-
 					if (!pubDer)
 						return nullptr;
 				} else {
 					pubDer = std::move(bytes);
 				}
 			}
-
 			if (!privateKeyPath.empty() && std::filesystem::exists(privateKeyPath)) {
 				auto bytes = ReadFileBytes(privateKeyPath);
 				if (bytes.empty())
@@ -1424,7 +1351,6 @@ namespace StormByte::Crypto::KeyPair {
 							break;
 						}
 					}
-
 					if (!privDer)
 						return nullptr;
 				} else {
@@ -1432,14 +1358,12 @@ namespace StormByte::Crypto::KeyPair {
 					privEncrypted = true;
 				}
 			}
-
 			if (!privDer)
 				return nullptr;
 			if (!TryDecryptPrivateDer(*privDer, privEncrypted, &password)) {
 				if (privEncrypted)
 					return nullptr;
 			}
-
 			Type hint = Type::RSA;
 			if (pubDer)
 				DetectTypeFromDer(*pubDer, hint);

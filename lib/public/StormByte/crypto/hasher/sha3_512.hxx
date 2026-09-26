@@ -88,7 +88,7 @@ namespace StormByte {
 					/**
 					 * @brief Destructor.
 					 */
-					~SHA3_512() noexcept = default;
+					~SHA3_512() noexcept;
 
 					/**
 					 * @brief Copy assignment.

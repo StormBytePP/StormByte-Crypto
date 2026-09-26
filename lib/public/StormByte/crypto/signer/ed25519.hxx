@@ -43,6 +43,8 @@
 #include <StormByte/crypto/keypair/ed25519.hxx>
 #include <StormByte/crypto/signer/generic.hxx>
 
+#include <string_view>
+
 /**
  * @namespace StormByte
  * @brief Root namespace of the StormByte suite.
@@ -76,14 +78,14 @@ namespace StormByte {
 						Generic(Type::ED25519, keypair) {}
 
 					/**
-					 * @brief Construct by cloning an ED25519 keypair.
+					 * @brief Construct by cloning an Ed25519 keypair.
 					 * @param keypair Keypair.
 					 */
 					inline ED25519(const KeyPair::ED25519& keypair):
 						Generic(Type::ED25519, keypair) {}
 
 					/**
-					 * @brief Construct by moving an ED25519 keypair.
+					 * @brief Construct by moving an Ed25519 keypair.
 					 * @param keypair Keypair.
 					 */
 					inline ED25519(KeyPair::ED25519&& keypair):
@@ -104,7 +106,7 @@ namespace StormByte {
 					/**
 					 * @brief Destructor.
 					 */
-					~ED25519() noexcept = default;
+					~ED25519() noexcept;
 
 					/**
 					 * @brief Copy assignment.
@@ -160,7 +162,7 @@ namespace StormByte {
 					 * @param signature Signature.
 					 * @return true if valid.
 					 */
-					bool DoVerify(std::span<const std::byte> input, const std::string& signature) const noexcept override;
+					bool DoVerify(std::span<const std::byte> input, std::string_view signature) const noexcept override;
 
 					/**
 					 * @brief Verify a Consumer.
@@ -169,7 +171,7 @@ namespace StormByte {
 					 * @param mode Copy or move.
 					 * @return true if valid.
 					 */
-					bool DoVerify(Buffer::Consumer consumer, const std::string& signature, ReadMode mode) const noexcept override;
+					bool DoVerify(Buffer::Consumer consumer, std::string_view signature, ReadMode mode) const noexcept override;
 			};
 		}
 	}

@@ -41,7 +41,11 @@
 #include <StormByte/crypto/crypter/symmetric/chachapoly.hxx>
 #include <StormByte/crypto/implementation/crypter/symmetric/api.hxx>
 #include <chachapoly.h>
+
 using namespace StormByte::Crypto::Crypter;
+
+ChaChaPoly::~ChaChaPoly() noexcept = default;
+
 bool ChaChaPoly::DoEncrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept {
 	return Implementation::Crypter::Symmetric::EncryptAEAD<CryptoPP::ChaCha20Poly1305, CryptoPP::ChaCha20Poly1305::Encryption, CryptoPP::SHA256>(input, m_password, output, 16, 12, 32);
 }

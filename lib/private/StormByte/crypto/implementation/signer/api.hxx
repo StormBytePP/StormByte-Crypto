@@ -47,11 +47,13 @@
 #include <StormByte/crypto/random.hxx>
 #include <StormByte/crypto/typedefs.hxx>
 #include <StormByte/crypto/visibility.h>
+#include <StormByte/string/string.hxx>
 
 #include <filters.h>
 #include <memory>
 #include <span>
 #include <string>
+#include <string_view>
 
 /**
  * @namespace StormByte
@@ -170,6 +172,13 @@ namespace StormByte {
 							}
 							verifier = std::make_unique<VerifierT>(*key);
 						}
+
+						/**
+						 * @brief Load the public key from a @ref StormByte::String::String.
+						 * @param pubKey Base64 public key.
+						 */
+						explicit ConcreteVerifyBox(const StormByte::String::String& pubKey):
+							ConcreteVerifyBox(std::string(static_cast<std::string_view>(pubKey))) {}
 
 						/**
 						 * @brief Push the signature before message bytes.
@@ -315,6 +324,20 @@ namespace StormByte {
 				}
 
 				/**
+				 * @brief One-shot verify from a public @ref StormByte::String::String.
+				 * @tparam VerifierT Crypto++ verifier type.
+				 * @tparam PublicKeyT Crypto++ public key type.
+				 * @param data Input.
+				 * @param signature Signature.
+				 * @param pubKey Base64 public key.
+				 * @return true if valid.
+				 */
+				template<typename VerifierT, typename PublicKeyT>
+				bool Verify(std::span<const std::byte> data, const std::string& signature, const StormByte::String::String& pubKey) noexcept {
+					return Verify<VerifierT, PublicKeyT>(data, signature, std::string(static_cast<std::string_view>(pubKey)));
+				}
+
+				/**
 				 * @brief One-shot verify from a KeyPair.
 				 * @tparam VerifierT Crypto++ verifier type.
 				 * @tparam PublicKeyT Crypto++ public key type.
@@ -345,6 +368,21 @@ namespace StormByte {
 					return VerifyStream(
 						std::move(consumer), mode, signature,
 						std::make_unique<ConcreteVerifyBox<VerifierT, PublicKeyT>>(pubKey));
+				}
+
+				/**
+				 * @brief Streaming verify from a public @ref StormByte::String::String.
+				 * @tparam VerifierT Crypto++ verifier type.
+				 * @tparam PublicKeyT Crypto++ public key type.
+				 * @param consumer Input consumer.
+				 * @param signature Signature.
+				 * @param pubKey Base64 public key.
+				 * @param mode Copy or move.
+				 * @return true if valid.
+				 */
+				template<typename VerifierT, typename PublicKeyT>
+				bool Verify(Buffer::Consumer consumer, const std::string& signature, const StormByte::String::String& pubKey, ReadMode mode) noexcept {
+					return Verify<VerifierT, PublicKeyT>(std::move(consumer), signature, std::string(static_cast<std::string_view>(pubKey)), mode);
 				}
 
 				/**

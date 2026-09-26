@@ -40,6 +40,9 @@
 
 #include <StormByte/crypto/vault.hxx>
 
+#include <string>
+#include <string_view>
+
 using namespace StormByte::Crypto;
 
 Vault::~Vault() noexcept {
@@ -62,25 +65,25 @@ Vault& Vault::operator=(Vault&& other) noexcept {
 	return *this;
 }
 
-void Vault::Store(std::string name, Password password) noexcept {
-	m_passwords.insert_or_assign(std::move(name), std::move(password));
+void Vault::Store(std::string_view name, Password password) noexcept {
+	m_passwords.insert_or_assign(std::string{name}, std::move(password));
 }
 
-ExpectedPassword Vault::Get(const std::string& name) const noexcept {
-	auto it = m_passwords.find(name);
+ExpectedPassword Vault::Get(std::string_view name) const noexcept {
+	auto it = m_passwords.find(std::string{name});
 	if (it == m_passwords.end()) {
-		return StormByte::Unexpected<VaultException>("Password '{}' not found", name);
+		return StormByte::Unexpected<VaultException>("Password '{}' not found", std::string{name});
 	}
 
 	return it->second;
 }
 
-bool Vault::Contains(const std::string& name) const noexcept {
-	return m_passwords.contains(name);
+bool Vault::Contains(std::string_view name) const noexcept {
+	return m_passwords.contains(std::string{name});
 }
 
-void Vault::Remove(const std::string& name) noexcept {
-	m_passwords.erase(name);
+void Vault::Remove(std::string_view name) noexcept {
+	m_passwords.erase(std::string{name});
 }
 
 void Vault::Clear() noexcept {

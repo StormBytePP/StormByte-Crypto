@@ -41,8 +41,12 @@
 #include <StormByte/crypto/crypter/asymmetric/ecc.hxx>
 #include <StormByte/crypto/implementation/crypter/asymmetric/api.hxx>
 #include <eccrypto.h>
+
 using ECIES = CryptoPP::ECIES<CryptoPP::ECP>;
 using namespace StormByte::Crypto::Crypter;
+
+ECC::~ECC() noexcept = default;
+
 bool ECC::DoEncrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept {
 	return Implementation::Crypter::Asymmetric::EncryptAsymmetric<ECIES::Encryptor, ECIES::PublicKey>(input, m_keypair, output);
 }

@@ -41,7 +41,11 @@
 #include <StormByte/crypto/crypter/symmetric/serpent.hxx>
 #include <StormByte/crypto/implementation/crypter/symmetric/api.hxx>
 #include <serpent.h>
+
 using namespace StormByte::Crypto::Crypter;
+
+Serpent::~Serpent() noexcept = default;
+
 bool Serpent::DoEncrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept {
 	return Implementation::Crypter::Symmetric::EncryptCBC<CryptoPP::Serpent, CryptoPP::CBC_Mode<CryptoPP::Serpent>::Encryption, CryptoPP::SHA256>(input, m_password, output, 16, CryptoPP::Serpent::BLOCKSIZE);
 }

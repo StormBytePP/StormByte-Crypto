@@ -48,6 +48,8 @@
 #include <filters.h>
 #include <memory>
 #include <queue.h>
+#include <string>
+#include <string_view>
 #include <xed25519.h>
 
 using StormByte::Buffer::Consumer;
@@ -55,6 +57,9 @@ using StormByte::Buffer::Producer;
 using StormByte::Buffer::WriteOnly;
 using StormByte::Crypto::Helpers::PasswordAccess;
 using StormByte::Crypto::Helpers::SecureWipe;
+using namespace StormByte::Crypto::Signer;
+
+ED25519::~ED25519() noexcept = default;
 
 namespace {
 	struct Ed25519SignBox final : StormByte::Crypto::Implementation::Signer::SignBox {
@@ -112,9 +117,10 @@ namespace {
 		std::unique_ptr<CryptoPP::SignatureVerificationFilter> filter;
 		bool ready = false;
 
-		explicit Ed25519VerifyBox(const std::string& pubKeyB64) {
+		explicit Ed25519VerifyBox(const StormByte::String::String& pubKeyB64) {
+			const std::string pubKey { static_cast<std::string_view>(pubKeyB64) };
 			CryptoPP::SecByteBlock pubRaw =
-				StormByte::Crypto::Implementation::KeyPair::DecodeSecBlockBase64(pubKeyB64);
+				StormByte::Crypto::Implementation::KeyPair::DecodeSecBlockBase64(pubKey);
 			CryptoPP::ByteQueue queue;
 			queue.Put(pubRaw.data(), pubRaw.size());
 			SecureWipe(pubRaw);
@@ -170,7 +176,7 @@ namespace {
 	};
 }
 
-bool StormByte::Crypto::Signer::ED25519::DoSign(std::span<const std::byte> data, WriteOnly& output) const noexcept {
+bool ED25519::DoSign(std::span<const std::byte> data, WriteOnly& output) const noexcept {
 	if (!m_keypair || !m_keypair->HasPrivateKey())
 		return false;
 	return Implementation::Signer::SignSpan(
@@ -178,7 +184,7 @@ bool StormByte::Crypto::Signer::ED25519::DoSign(std::span<const std::byte> data,
 		std::make_unique<Ed25519SignBox>(*m_keypair->PrivateKey()));
 }
 
-StormByte::Buffer::Consumer StormByte::Crypto::Signer::ED25519::DoSign(Consumer consumer, ReadMode mode) const noexcept {
+Consumer ED25519::DoSign(Consumer consumer, ReadMode mode) const noexcept {
 	if (!m_keypair || !m_keypair->HasPrivateKey()) {
 		Producer producer;
 		producer.SetError();
@@ -190,21 +196,21 @@ StormByte::Buffer::Consumer StormByte::Crypto::Signer::ED25519::DoSign(Consumer 
 		std::make_unique<Ed25519SignBox>(*m_keypair->PrivateKey()));
 }
 
-bool StormByte::Crypto::Signer::ED25519::DoVerify(std::span<const std::byte> data,
-	const std::string& signature) const noexcept {
+bool ED25519::DoVerify(std::span<const std::byte> data,
+	std::string_view signature) const noexcept {
 	if (!m_keypair)
 		return false;
 	return Implementation::Signer::VerifySpan(
-		data, signature,
+		data, std::string{signature},
 		std::make_unique<Ed25519VerifyBox>(m_keypair->PublicKey()));
 }
 
-bool StormByte::Crypto::Signer::ED25519::DoVerify(Consumer consumer,
-	const std::string& signature,
+bool ED25519::DoVerify(Consumer consumer,
+	std::string_view signature,
 	ReadMode mode) const noexcept {
 	if (!m_keypair)
 		return false;
 	return Implementation::Signer::VerifyStream(
-		std::move(consumer), mode, signature,
+		std::move(consumer), mode, std::string{signature},
 		std::make_unique<Ed25519VerifyBox>(m_keypair->PublicKey()));
 }

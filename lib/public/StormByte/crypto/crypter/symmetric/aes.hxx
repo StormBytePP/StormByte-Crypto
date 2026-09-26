@@ -89,7 +89,7 @@ namespace StormByte {
 					/**
 					 * @brief Destructor.
 					 */
-					virtual ~AES() noexcept = default;
+					~AES() noexcept;
 
 					/**
 					 * @brief Copy assignment.

@@ -43,6 +43,8 @@
 #include <StormByte/crypto/keypair/rsa.hxx>
 #include <StormByte/crypto/signer/generic.hxx>
 
+#include <string_view>
+
 /**
  * @namespace StormByte
  * @brief Root namespace of the StormByte suite.
@@ -104,7 +106,7 @@ namespace StormByte {
 					/**
 					 * @brief Destructor.
 					 */
-					~RSA() noexcept = default;
+					~RSA() noexcept;
 
 					/**
 					 * @brief Copy assignment.
@@ -160,7 +162,7 @@ namespace StormByte {
 					 * @param signature Signature.
 					 * @return true if valid.
 					 */
-					bool DoVerify(std::span<const std::byte> input, const std::string& signature) const noexcept override;
+					bool DoVerify(std::span<const std::byte> input, std::string_view signature) const noexcept override;
 
 					/**
 					 * @brief Verify a Consumer.
@@ -169,7 +171,7 @@ namespace StormByte {
 					 * @param mode Copy or move.
 					 * @return true if valid.
 					 */
-					bool DoVerify(Buffer::Consumer consumer, const std::string& signature, ReadMode mode) const noexcept override;
+					bool DoVerify(Buffer::Consumer consumer, std::string_view signature, ReadMode mode) const noexcept override;
 			};
 		}
 	}

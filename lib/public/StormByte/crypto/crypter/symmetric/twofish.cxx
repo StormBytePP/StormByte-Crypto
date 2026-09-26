@@ -41,7 +41,11 @@
 #include <StormByte/crypto/crypter/symmetric/twofish.hxx>
 #include <StormByte/crypto/implementation/crypter/symmetric/api.hxx>
 #include <twofish.h>
+
 using namespace StormByte::Crypto::Crypter;
+
+TwoFish::~TwoFish() noexcept = default;
+
 bool TwoFish::DoEncrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept {
 	return Implementation::Crypter::Symmetric::EncryptCBC<CryptoPP::Twofish, CryptoPP::CBC_Mode<CryptoPP::Twofish>::Encryption, CryptoPP::SHA256>(input, m_password, output, 16, CryptoPP::Twofish::BLOCKSIZE);
 }

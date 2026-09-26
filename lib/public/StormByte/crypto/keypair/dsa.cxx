@@ -47,6 +47,8 @@
 
 using namespace StormByte::Crypto::KeyPair;
 
+DSA::~DSA() noexcept = default;
+
 DSA::PointerType DSA::Generate(unsigned short bits) noexcept {
 	try {
 		CryptoPP::DSA::PrivateKey privateKey;
