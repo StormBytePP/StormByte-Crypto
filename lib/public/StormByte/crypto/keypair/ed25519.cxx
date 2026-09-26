@@ -41,7 +41,7 @@
 #include <StormByte/crypto/helpers/secure_wipe.hxx>
 #include <StormByte/crypto/implementation/keypair/api.hxx>
 #include <StormByte/crypto/keypair/ed25519.hxx>
-#include <StormByte/crypto/password.hxx>
+#include <StormByte/crypto/secure/password.hxx>
 #include <StormByte/crypto/random.hxx>
 
 #include <queue.h>
@@ -65,7 +65,7 @@ ED25519::PointerType ED25519::Generate(unsigned short /*bits*/) noexcept {
 		signer.GetPrivateKey().Save(privQueue);
 		CryptoPP::SecByteBlock priv(privQueue.CurrentSize());
 		privQueue.Get(priv.data(), priv.size());
-		Password privPwd = Implementation::KeyPair::PasswordFromSecBlock(priv);
+		Secure::Password privPwd = Implementation::KeyPair::PasswordFromSecBlock(priv);
 		return MakePointer<ED25519>(pubStr, std::move(privPwd));
 	} catch (...) {
 		return nullptr;

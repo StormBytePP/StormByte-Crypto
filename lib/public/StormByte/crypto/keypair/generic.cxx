@@ -48,7 +48,7 @@
 #include <StormByte/crypto/keypair/generic.hxx>
 #include <StormByte/crypto/keypair/rsa.hxx>
 #include <StormByte/crypto/keypair/x25519.hxx>
-#include <StormByte/crypto/password.hxx>
+#include <StormByte/crypto/secure/password.hxx>
 #include <StormByte/crypto/random.hxx>
 #include <StormByte/string/string.hxx>
 
@@ -83,7 +83,8 @@
 using namespace StormByte::Crypto::KeyPair;
 using StormByte::Crypto::Helpers::PasswordAccess;
 using StormByte::Crypto::Helpers::SecureWipe;
-using StormByte::Crypto::Password;
+namespace Secure = StormByte::Crypto::Secure;
+using StormByte::Crypto::Secure::Password;
 using StormByte::Crypto::RNG;
 
 namespace {
@@ -506,7 +507,7 @@ namespace {
 		return Base64Decode(stored);
 	}
 
-	std::vector<CryptoPP::byte> PrivatePasswordToDer(const Password& pwd) {
+	std::vector<CryptoPP::byte> PrivatePasswordToDer(const Secure::Password& pwd) {
 		const auto* data = PasswordAccess::Data(pwd);
 		const size_t n = PasswordAccess::Size(pwd);
 		if (!data || n == 0)
@@ -516,7 +517,7 @@ namespace {
 
 	bool DecryptPkcs8EncryptedDer(
 		std::span<const CryptoPP::byte> encDer,
-		const Password& password,
+		const Secure::Password& password,
 		std::vector<CryptoPP::byte>& outPlainPkcs8
 	) noexcept {
 		CryptoPP::SecByteBlock salt, iv, key, ciphertext;
@@ -628,7 +629,7 @@ namespace {
 
 	bool EncryptPkcs8Der(
 		std::span<const CryptoPP::byte> plainPkcs8,
-		const Password& password,
+		const Secure::Password& password,
 		std::vector<CryptoPP::byte>& outEncDer
 	) noexcept {
 		CryptoPP::SecByteBlock salt, iv, key, ciphertext;
@@ -806,7 +807,7 @@ namespace {
 		}
 	}
 
-	Generic::PointerType MakeKeyPair(Type type, std::string pubStored, std::optional<Password> priv) noexcept {
+	Generic::PointerType MakeKeyPair(Type type, std::string pubStored, std::optional<Secure::Password> priv) noexcept {
 		switch (type) {
 			case Type::DSA:
 				return DSA::MakePointer<DSA>(pubStored, std::move(priv));
@@ -920,7 +921,7 @@ namespace {
 						ag.GeneratePublicKey(RNG(), privRaw, pubRaw);
 					}
 					std::string pubStored = Base64Encode(pubRaw.data(), pubRaw.size());
-					Password privPwd = PrivateDerToPassword(
+					Secure::Password privPwd = PrivateDerToPassword(
 						std::span<const CryptoPP::byte>(privRaw.data(), privRaw.size())
 					);
 					SecureWipe(privRaw);
@@ -951,7 +952,7 @@ namespace {
 						auto pkcs8 = EcPrivateToPkcs8Der(priv);
 						if (pkcs8.empty())
 							return nullptr;
-						Password privPwd = PrivateDerToPassword(
+						Secure::Password privPwd = PrivateDerToPassword(
 							std::span<const CryptoPP::byte>(pkcs8.data(), pkcs8.size())
 						);
 						SecureWipe(pkcs8);
@@ -983,7 +984,7 @@ namespace {
 				}
 				return nullptr;
 			}
-			std::optional<Password> privPwd;
+			std::optional<Secure::Password> privPwd;
 			if (privDer && !privDer->empty()) {
 				try {
 					bool ok = false;
@@ -1109,7 +1110,7 @@ namespace {
 		return WriteFileBytes(path, reinterpret_cast<const CryptoPP::byte*>(pem.data()), pem.size());
 	}
 
-	bool WritePrivateFile(const std::filesystem::path& path, const Password& priv, StorageFormat format) noexcept {
+	bool WritePrivateFile(const std::filesystem::path& path, const Secure::Password& priv, StorageFormat format) noexcept {
 		auto der = PrivatePasswordToDer(priv);
 		if (der.empty())
 			return false;
@@ -1128,8 +1129,8 @@ namespace {
 
 	bool WritePrivateFileEncrypted(
 		const std::filesystem::path& path,
-		const Password& privMaterial,
-		const Password& encryptPassword,
+		const Secure::Password& privMaterial,
+		const Secure::Password& encryptPassword,
 		StorageFormat format
 	) noexcept {
 		auto plainDer = PrivatePasswordToDer(privMaterial);
@@ -1180,7 +1181,7 @@ bool Generic::Save(const std::filesystem::path& directory, std::string_view base
 bool Generic::Save(
 	const std::filesystem::path& directory,
 	std::string_view baseName,
-	const Password& encryptPassword,
+	const Secure::Password& encryptPassword,
 	StorageFormat format
 ) const noexcept {
 	try {
@@ -1220,7 +1221,7 @@ bool Generic::SavePrivate(const std::filesystem::path& filePath, StorageFormat f
 
 bool Generic::SavePrivate(
 	const std::filesystem::path& filePath,
-	const Password& encryptPassword,
+	const Secure::Password& encryptPassword,
 	StorageFormat format
 ) const noexcept {
 	try {
@@ -1313,7 +1314,7 @@ namespace StormByte::Crypto::KeyPair {
 	Generic::PointerType Load(
 		const std::filesystem::path& publicKeyPath,
 		const std::filesystem::path& privateKeyPath,
-		const Password& password
+		const Secure::Password& password
 	) noexcept {
 		try {
 			std::optional<std::vector<CryptoPP::byte>> pubDer;
@@ -1388,7 +1389,7 @@ namespace StormByte::Crypto::KeyPair {
 		}
 	}
 
-	Generic::PointerType Load(const std::filesystem::path& path, const Password& password) noexcept {
+	Generic::PointerType Load(const std::filesystem::path& path, const Secure::Password& password) noexcept {
 		try {
 			if (path.empty() || !std::filesystem::exists(path))
 				return nullptr;

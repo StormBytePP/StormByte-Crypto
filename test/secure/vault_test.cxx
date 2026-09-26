@@ -38,13 +38,15 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
-#include <StormByte/crypto/password.hxx>
-#include <StormByte/crypto/vault.hxx>
+#include <StormByte/crypto/secure/password.hxx>
+#include <StormByte/crypto/secure/vault.hxx>
 #include <StormByte/test_handlers.h>
 
 #include <utility>
 
 using namespace StormByte::Crypto;
+using StormByte::Crypto::Secure::Password;
+using StormByte::Crypto::Secure::Vault;
 
 // -------------------
 // Store / get
@@ -84,7 +86,7 @@ int test_vault_get_missing() {
 	auto missing = vault.Get("nope");
 	ASSERT_FALSE(fn_name, static_cast<bool>(missing));
 	const std::string message = missing.error()->what();
-	ASSERT_TRUE(fn_name, message.find("StormByte.Crypto.Vault") != std::string::npos);
+	ASSERT_TRUE(fn_name, message.find("StormByte.Crypto.Secure.Vault") != std::string::npos);
 	RETURN_TEST(fn_name, 0);
 }
 

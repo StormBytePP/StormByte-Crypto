@@ -41,7 +41,7 @@
 #include <StormByte/crypto/helpers/secure_wipe.hxx>
 #include <StormByte/crypto/implementation/keypair/api.hxx>
 #include <StormByte/crypto/keypair/ecdh.hxx>
-#include <StormByte/crypto/password.hxx>
+#include <StormByte/crypto/secure/password.hxx>
 #include <StormByte/crypto/random.hxx>
 
 #include <eccrypto.h>

@@ -41,7 +41,7 @@
 #include "helpers.hxx"
 
 #include <StormByte/crypto/crypter/symmetric/aes_gcm.hxx>
-#include <StormByte/crypto/password.hxx>
+#include <StormByte/crypto/secure/password.hxx>
 #include <StormByte/test_handlers.h>
 
 #include <cstdint>
@@ -50,6 +50,7 @@
 
 using StormByte::Buffer::FIFO;
 using namespace StormByte::Crypto;
+using StormByte::Crypto::Secure::Password;
 
 // -------------------
 // Round trip

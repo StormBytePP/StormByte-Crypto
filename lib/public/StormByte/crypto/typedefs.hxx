@@ -40,9 +40,6 @@
 
 #pragma once
 
-#include <StormByte/crypto/exception.hxx>
-#include <StormByte/expected.hxx>
-
 /**
  * @namespace StormByte
  * @brief Root namespace of the StormByte suite.
@@ -53,8 +50,6 @@ namespace StormByte {
 	 * @brief Crypto module of the StormByte suite.
 	 */
 	namespace Crypto {
-		class Password;
-
 		/**
 		 * @enum ReadMode
 		 * @brief How a source buffer is consumed.
@@ -63,10 +58,5 @@ namespace StormByte {
 			Copy,	///< Copy the input
 			Move	///< Consume the input
 		};
-
-		/**
-		 * @brief Password or a vault error.
-		 */
-		using ExpectedPassword = StormByte::Expected<Password, VaultException>;
 	}
 }

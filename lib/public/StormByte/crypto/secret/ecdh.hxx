@@ -147,7 +147,7 @@ namespace StormByte {
 					 * @param peerPublicKey Peer public key as Base64. Accepts String and std::string via string_view.
 					 * @return Password on success, or empty.
 					 */
-					std::optional<Password> Share(std::string_view peerPublicKey) const noexcept override;
+					std::optional<Secure::Password> Share(std::string_view peerPublicKey) const noexcept override;
 
 				private:
 					unsigned short m_bits;	///< Curve size in bits

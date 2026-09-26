@@ -71,7 +71,7 @@ namespace StormByte {
 					 * @brief Construct with a password.
 					 * @param password Password.
 					 */
-					inline Serpent(class Password password):
+					inline Serpent(Secure::Password password):
 						Symmetric(Type::Serpent, std::move(password)) {}
 
 					/**

@@ -68,7 +68,7 @@ namespace {
 		std::unique_ptr<CryptoPP::SignerFilter> filter;
 		bool ready = false;
 
-		explicit Ed25519SignBox(const StormByte::Crypto::Password& priv) {
+		explicit Ed25519SignBox(const StormByte::Crypto::Secure::Password& priv) {
 			const unsigned char* privData = PasswordAccess::Data(priv);
 			const std::size_t privSize = PasswordAccess::Size(priv);
 			if (!privData || privSize == 0)

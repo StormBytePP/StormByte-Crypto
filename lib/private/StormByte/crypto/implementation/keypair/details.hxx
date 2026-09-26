@@ -41,7 +41,7 @@
 #pragma once
 
 #include <StormByte/crypto/helpers/secure_wipe.hxx>
-#include <StormByte/crypto/password.hxx>
+#include <StormByte/crypto/secure/password.hxx>
 #include <StormByte/crypto/visibility.h>
 
 #include <secblock.h>
@@ -86,8 +86,8 @@ namespace StormByte {
 				 * @param block Source block (wiped).
 				 * @return Password.
 				 */
-				inline Password PasswordFromSecBlock(CryptoPP::SecByteBlock& block) noexcept {
-					Password result(block.data(), StormByte::ByteSize{block.size()});
+				inline Secure::Password PasswordFromSecBlock(CryptoPP::SecByteBlock& block) noexcept {
+					Secure::Password result(block.data(), StormByte::ByteSize{block.size()});
 					Helpers::SecureWipe(block);
 					return result;
 				}

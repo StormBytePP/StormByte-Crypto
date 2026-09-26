@@ -71,7 +71,7 @@ namespace StormByte {
 					 * @brief Construct with a password.
 					 * @param password Password.
 					 */
-					inline ChaChaPoly(class Password password):
+					inline ChaChaPoly(Secure::Password password):
 						Symmetric(Type::ChaChaPoly, std::move(password)) {}
 
 					/**

@@ -38,8 +38,10 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
-#include <StormByte/crypto/exception.hxx>
+#include <StormByte/crypto/secure/exception.hxx>
 
-using namespace StormByte::Crypto;
+using namespace StormByte::Crypto::Secure;
 
 Exception::~Exception() noexcept = default;
+
+VaultException::~VaultException() noexcept = default;

@@ -130,7 +130,7 @@ namespace StormByte {
 					 * @param peerPublicKey Peer public key as Base64. Accepts String and std::string via string_view.
 					 * @return Password on success, or empty.
 					 */
-					std::optional<Password> Share(std::string_view peerPublicKey) const noexcept override;
+					std::optional<Secure::Password> Share(std::string_view peerPublicKey) const noexcept override;
 
 					/**
 					 * @brief Derive a shared secret without an instance.
@@ -138,7 +138,7 @@ namespace StormByte {
 					 * @param peerPublicKey Peer public key as Base64. Accepts String and std::string via string_view.
 					 * @return Password on success, or empty.
 					 */
-					static std::optional<Password> DeriveSharedSecret(
+					static std::optional<Secure::Password> DeriveSharedSecret(
 						KeyPair::Generic::PointerType keypair,
 						std::string_view peerPublicKey) noexcept;
 			};

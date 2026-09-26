@@ -42,7 +42,7 @@
 
 #include <StormByte/crypto/helpers/password_view.hxx>
 #include <StormByte/crypto/implementation/crypter/details.hxx>
-#include <StormByte/crypto/password.hxx>
+#include <StormByte/crypto/secure/password.hxx>
 #include <StormByte/crypto/typedefs.hxx>
 #include <StormByte/crypto/visibility.h>
 
@@ -72,7 +72,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 	template<class CryptoHMAC>
 	size_t DeriveKey(CryptoPP::SecByteBlock& key,
 					const CryptoPP::SecByteBlock& salt,
-					const Password& password) noexcept
+					const Secure::Password& password) noexcept
 	{
 		try {
 			CryptoPP::PKCS5_PBKDF2_HMAC<CryptoHMAC> pbkdf2;

@@ -38,13 +38,14 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
-#include <StormByte/crypto/password.hxx>
+#include <StormByte/crypto/secure/password.hxx>
 #include <StormByte/test_handlers.h>
 
 #include <string>
 #include <utility>
 
 using namespace StormByte::Crypto;
+using StormByte::Crypto::Secure::Password;
 
 // -------------------
 // Construction
@@ -62,7 +63,7 @@ int test_password_construct_from_c_string() {
 int test_password_construct_from_string() {
 	const std::string fn_name = "test_password_construct_from_string";
 	std::string raw = "from-std-string";
-	Password p(std::move(raw));
+	Password p(raw);
 	ASSERT_FALSE(fn_name, p.Empty());
 	ASSERT_EQUAL(fn_name, p.Size(), StormByte::ByteSize{std::string("from-std-string").size()});
 	RETURN_TEST(fn_name, 0);

@@ -46,6 +46,7 @@
 
 using StormByte::Buffer::FIFO;
 using namespace StormByte::Crypto;
+using StormByte::Crypto::Secure::Password;
 
 namespace {
 	constexpr unsigned short kCurveBits = 256;
@@ -223,7 +224,7 @@ int test_ecc_with_corrupted_keys() {
 	const std::string message = "This is a test message.";
 	auto kp = KeyPair::ECC::Generate(kCurveBits);
 	ASSERT_TRUE(fn_name, static_cast<bool>(kp));
-	std::string corrupted_public = kp->PublicKey();
+	std::string corrupted_public { std::string_view{kp->PublicKey()} };
 	if (!corrupted_public.empty())
 		corrupted_public[0] = static_cast<char>(~corrupted_public[0]);
 	auto badKp = KeyPair::ECC::MakePointer<KeyPair::ECC>(

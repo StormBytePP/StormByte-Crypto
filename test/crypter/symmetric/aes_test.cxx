@@ -42,11 +42,12 @@
 
 #include <StormByte/buffer/producer.hxx>
 #include <StormByte/crypto/crypter/symmetric/aes.hxx>
-#include <StormByte/crypto/password.hxx>
+#include <StormByte/crypto/secure/password.hxx>
 #include <StormByte/test_handlers.h>
 
 using StormByte::Buffer::FIFO;
 using namespace StormByte::Crypto;
+using StormByte::Crypto::Secure::Password;
 
 // -------------------
 // Round trip

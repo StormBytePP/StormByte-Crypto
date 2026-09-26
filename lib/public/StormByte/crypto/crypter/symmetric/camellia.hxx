@@ -71,7 +71,7 @@ namespace StormByte {
 					 * @brief Construct with a password.
 					 * @param password Password.
 					 */
-					inline Camellia(class Password password):
+					inline Camellia(Secure::Password password):
 						Symmetric(Type::Camellia, std::move(password)) {}
 
 					/**

@@ -40,7 +40,7 @@
 
 #pragma once
 
-#include <StormByte/crypto/password.hxx>
+#include <StormByte/crypto/secure/password.hxx>
 #include <StormByte/crypto/visibility.h>
 
 #include <optional>
@@ -57,7 +57,7 @@ namespace StormByte::Crypto::Implementation::Secret {
 	 * @param bits Curve size (256 / 384 / 521).
 	 * @return Password, or empty.
 	 */
-	std::optional<Password> ECDHShare(const Password& privateKey,
+	std::optional<Secure::Password> ECDHShare(const Secure::Password& privateKey,
 									const std::string& peerPublicKeyBase64,
 									unsigned short bits) noexcept;
 
@@ -67,6 +67,6 @@ namespace StormByte::Crypto::Implementation::Secret {
 	 * @param peerPublicKeyBase64 Peer public key as Base64.
 	 * @return Password, or empty.
 	 */
-	std::optional<Password> X25519Share(const Password& privateKey,
+	std::optional<Secure::Password> X25519Share(const Secure::Password& privateKey,
 										const std::string& peerPublicKeyBase64) noexcept;
 }

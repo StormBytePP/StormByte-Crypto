@@ -71,7 +71,7 @@ namespace StormByte {
 					 * @brief Construct with a password.
 					 * @param password Password.
 					 */
-					inline AES_GCM(class Password password):
+					inline AES_GCM(Secure::Password password):
 						Symmetric(Type::AES_GCM, std::move(password)) {}
 
 					/**

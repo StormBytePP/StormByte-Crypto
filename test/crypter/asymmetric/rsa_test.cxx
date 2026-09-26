@@ -46,6 +46,7 @@
 
 using StormByte::Buffer::FIFO;
 using namespace StormByte::Crypto;
+using StormByte::Crypto::Secure::Password;
 
 namespace {
 	std::span<const std::byte> Bytes(const std::string& s) {
@@ -200,7 +201,7 @@ int test_rsa_with_corrupted_keys(KeyPair::Generic::PointerType kp) {
 	const std::string fn_name = "test_rsa_with_corrupted_keys";
 	const std::string message = "This is a test message.";
 	Crypter::RSA rsa(kp);
-	std::string corrupted_public = kp->PublicKey();
+	std::string corrupted_public { std::string_view{kp->PublicKey()} };
 	if (!corrupted_public.empty())
 		corrupted_public[0] = static_cast<char>(~corrupted_public[0]);
 	auto badKp = KeyPair::RSA::MakePointer<KeyPair::RSA>(

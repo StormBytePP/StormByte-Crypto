@@ -51,7 +51,8 @@
 
 using StormByte::Crypto::Helpers::PasswordAccess;
 using StormByte::Crypto::Helpers::SecureWipe;
-using StormByte::Crypto::Password;
+namespace Secure = StormByte::Crypto::Secure;
+using StormByte::Crypto::Secure::Password;
 using StormByte::Crypto::RNG;
 
 namespace {
@@ -93,8 +94,8 @@ namespace {
 	}
 }
 
-std::optional<Password> StormByte::Crypto::Implementation::Secret::ECDHShare(
-	const Password& privateKey,
+std::optional<Secure::Password> StormByte::Crypto::Implementation::Secret::ECDHShare(
+	const Secure::Password& privateKey,
 	const std::string& peerPublicKeyBase64,
 	unsigned short bits) noexcept {
 	CryptoPP::SecByteBlock priv;
@@ -203,8 +204,8 @@ std::optional<Password> StormByte::Crypto::Implementation::Secret::ECDHShare(
 	}
 }
 
-std::optional<Password> StormByte::Crypto::Implementation::Secret::X25519Share(
-	const Password& privateKey,
+std::optional<Secure::Password> StormByte::Crypto::Implementation::Secret::X25519Share(
+	const Secure::Password& privateKey,
 	const std::string& peerPublicKeyBase64) noexcept {
 	CryptoPP::SecByteBlock privIn, pubIn, priv, pub, secret;
 	try {

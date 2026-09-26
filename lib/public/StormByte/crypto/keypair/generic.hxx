@@ -41,7 +41,7 @@
 #pragma once
 
 #include <StormByte/clonable.hxx>
-#include <StormByte/crypto/password.hxx>
+#include <StormByte/crypto/secure/password.hxx>
 #include <StormByte/crypto/typedefs.hxx>
 #include <StormByte/crypto/visibility.h>
 #include <StormByte/string/string.hxx>
@@ -93,7 +93,7 @@ namespace StormByte {
 			 * @brief Abstract keypair. Concrete algorithms derive from this.
 			 *
 			 * Public key is a non-secret @ref StormByte::String::String (typically Base64 SPKI DER).
-			 * Private key, when present, is a @ref StormByte::Crypto::Password
+			 * Private key, when present, is a @ref StormByte::Crypto::Secure::Password
 			 * holding PKCS#8 or native DER and is wiped with the last owner.
 			 */
 			class STORMBYTE_CRYPTO_PUBLIC Generic: public StormByte::Clonable<Generic> {
@@ -162,7 +162,7 @@ namespace StormByte {
 					 * @brief Private key, if any.
 					 * @return Shared Password, or empty.
 					 */
-					inline const std::optional<Password>& PrivateKey() const noexcept {
+					inline const std::optional<Secure::Password>& PrivateKey() const noexcept {
 						return m_private_key;
 					}
 
@@ -187,7 +187,7 @@ namespace StormByte {
 					 * @param format Prefer PEM when encrypting.
 					 * @return true on success.
 					 */
-					bool Save(const std::filesystem::path& directory, std::string_view baseName, const Password& encryptPassword, StorageFormat format = StorageFormat::PEM) const noexcept;
+					bool Save(const std::filesystem::path& directory, std::string_view baseName, const Secure::Password& encryptPassword, StorageFormat format = StorageFormat::PEM) const noexcept;
 
 					/**
 					 * @brief Write only the public key.
@@ -212,13 +212,13 @@ namespace StormByte {
 					 * @param format Prefer PEM.
 					 * @return true on success.
 					 */
-					bool SavePrivate(const std::filesystem::path& filePath, const Password& encryptPassword, StorageFormat format = StorageFormat::PEM) const noexcept;
+					bool SavePrivate(const std::filesystem::path& filePath, const Secure::Password& encryptPassword, StorageFormat format = StorageFormat::PEM) const noexcept;
 					/** @} */
 
 				protected:
 					enum Type m_type;						///< Algorithm
 					StormByte::String::String m_public_key;	///< Public material
-					std::optional<Password> m_private_key;	///< Private material, if any
+					std::optional<Secure::Password> m_private_key;	///< Private material, if any
 
 					/**
 					 * @brief Construct with algorithm and material.
@@ -226,7 +226,7 @@ namespace StormByte {
 					 * @param public_key Public material.
 					 * @param private_key Optional private Password.
 					 */
-					inline Generic(enum Type type, StormByte::String::String public_key, std::optional<Password> private_key = std::nullopt):
+					inline Generic(enum Type type, StormByte::String::String public_key, std::optional<Secure::Password> private_key = std::nullopt):
 						m_type(type),
 						m_public_key(std::move(public_key)),
 						m_private_key(std::move(private_key)) {}
@@ -255,7 +255,7 @@ namespace StormByte {
 			 * @param password Password for an encrypted private key.
 			 * @return Keypair pointer, or nullptr.
 			 */
-			STORMBYTE_CRYPTO_PUBLIC Generic::PointerType Load(const std::filesystem::path& publicKeyPath, const std::filesystem::path& privateKeyPath, const Password& password) noexcept;
+			STORMBYTE_CRYPTO_PUBLIC Generic::PointerType Load(const std::filesystem::path& publicKeyPath, const std::filesystem::path& privateKeyPath, const Secure::Password& password) noexcept;
 
 			/**
 			 * @brief Load from one file (public, private, or concatenated PEM).
@@ -270,7 +270,7 @@ namespace StormByte {
 			 * @param password Password for encrypted private material.
 			 * @return Keypair pointer, or nullptr.
 			 */
-			STORMBYTE_CRYPTO_PUBLIC Generic::PointerType Load(const std::filesystem::path& path, const Password& password) noexcept;
+			STORMBYTE_CRYPTO_PUBLIC Generic::PointerType Load(const std::filesystem::path& path, const Secure::Password& password) noexcept;
 		}
 	}
 }

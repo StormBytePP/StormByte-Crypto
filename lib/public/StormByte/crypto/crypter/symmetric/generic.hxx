@@ -41,7 +41,7 @@
 #pragma once
 
 #include <StormByte/crypto/crypter/generic.hxx>
-#include <StormByte/crypto/password.hxx>
+#include <StormByte/crypto/secure/password.hxx>
 
 /**
  * @brief Ciphers of the Crypto module.
@@ -51,7 +51,7 @@ namespace StormByte::Crypto::Crypter {
 	 * @class Symmetric
 	 * @brief Password-based symmetric crypter.
 	 *
-	 * Copies share the same @ref StormByte::Crypto::Password. The buffer is
+	 * Copies share the same @ref StormByte::Crypto::Secure::Password. The buffer is
 	 * wiped when the last owner is destroyed.
 	 */
 	class STORMBYTE_CRYPTO_PUBLIC Symmetric: public Generic {
@@ -97,7 +97,7 @@ namespace StormByte::Crypto::Crypter {
 			 * @return Shared password.
 			 * @note Shares ownership of the underlying bytes.
 			 */
-			inline const class Password& Password() const noexcept {
+			inline const Secure::Password& Password() const noexcept {
 				return m_password;
 			}
 
@@ -106,17 +106,17 @@ namespace StormByte::Crypto::Crypter {
 			 * @param length Number of bytes.
 			 * @return Password.
 			 */
-			static class Password RandomPassword(size_t length = 32) noexcept;
+			static Secure::Password RandomPassword(size_t length = 32) noexcept;
 
 		protected:
-			class Password m_password;	///< Shared password
+			Secure::Password m_password;	///< Shared password
 
 			/**
 			 * @brief Construct with a cipher and a password.
 			 * @param type Cipher.
 			 * @param password Password.
 			 */
-			inline Symmetric(enum Type type, class Password password):
+			inline Symmetric(enum Type type, Secure::Password password):
 				Generic(type), m_password(std::move(password)) {}
 	};
 
@@ -126,5 +126,5 @@ namespace StormByte::Crypto::Crypter {
 	 * @param password Password.
 	 * @return Crypter pointer, or nullptr on failure.
 	 */
-	STORMBYTE_CRYPTO_PUBLIC Generic::PointerType Create(enum Type type, class Password password) noexcept;
+	STORMBYTE_CRYPTO_PUBLIC Generic::PointerType Create(enum Type type, Secure::Password password) noexcept;
 }

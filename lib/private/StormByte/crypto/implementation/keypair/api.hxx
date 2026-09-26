@@ -43,7 +43,7 @@
 #include <StormByte/crypto/helpers/password_view.hxx>
 #include <StormByte/crypto/helpers/secure_wipe.hxx>
 #include <StormByte/crypto/implementation/keypair/details.hxx>
-#include <StormByte/crypto/password.hxx>
+#include <StormByte/crypto/secure/password.hxx>
 #include <StormByte/crypto/random.hxx>
 #include <StormByte/crypto/visibility.h>
 #include <StormByte/string/string.hxx>
@@ -104,18 +104,18 @@ namespace StormByte {
 				 * @return Password, or empty on failure.
 				 */
 				template<typename KeyT>
-				Password SerializeKeyBinary(const KeyT& key) noexcept {
+				Secure::Password SerializeKeyBinary(const KeyT& key) noexcept {
 					try {
 						CryptoPP::ByteQueue queue;
 						key.Save(queue);
 						const size_t n = queue.CurrentSize();
 						CryptoPP::SecByteBlock der(n);
 						queue.Get(der.data(), der.size());
-						Password result(der.data(), StormByte::ByteSize{der.size()});
+						Secure::Password result(der.data(), StormByte::ByteSize{der.size()});
 						Helpers::SecureWipe(der);
 						return result;
 					} catch (...) {
-						return Password(static_cast<const void*>(nullptr), StormByte::ByteSize{0});
+						return Secure::Password(static_cast<const void*>(nullptr), StormByte::ByteSize{0});
 					}
 				}
 
@@ -158,7 +158,7 @@ namespace StormByte {
 				 * @return Shared key, or nullptr.
 				 */
 				template<typename KeyT>
-				std::shared_ptr<KeyT> DeserializeKey(const Password& keyBinary) noexcept {
+				std::shared_ptr<KeyT> DeserializeKey(const Secure::Password& keyBinary) noexcept {
 					try {
 						const unsigned char* data = Helpers::PasswordAccess::Data(keyBinary);
 						const std::size_t n = Helpers::PasswordAccess::Size(keyBinary);
@@ -182,7 +182,7 @@ namespace StormByte {
 				 * @return Shared key, or nullptr.
 				 */
 				template<typename KeyT>
-				std::shared_ptr<KeyT> DeserializeKey(const std::optional<Password>& keyBinary) noexcept {
+				std::shared_ptr<KeyT> DeserializeKey(const std::optional<Secure::Password>& keyBinary) noexcept {
 					if (!keyBinary.has_value())
 						return nullptr;
 					return DeserializeKey<KeyT>(*keyBinary);
@@ -203,7 +203,7 @@ namespace StormByte {
 						agr.GenerateKeyPair(RNG(), priv, pub);
 
 						auto pubStr = EncodeSecBlockBase64(pub);
-						Password privPwd = PasswordFromSecBlock(priv);
+						Secure::Password privPwd = PasswordFromSecBlock(priv);
 						Helpers::SecureWipe(pub);
 
 						return std::make_shared<KeyPairT>(std::move(pubStr), std::move(privPwd));

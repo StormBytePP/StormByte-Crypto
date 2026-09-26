@@ -43,7 +43,7 @@
 #include <StormByte/crypto/helpers/secure_wipe.hxx>
 #include <StormByte/crypto/implementation/crypter/details.hxx>
 #include <StormByte/crypto/implementation/crypter/symmetric/details.hxx>
-#include <StormByte/crypto/password.hxx>
+#include <StormByte/crypto/secure/password.hxx>
 #include <StormByte/crypto/random.hxx>
 #include <StormByte/crypto/typedefs.hxx>
 #include <StormByte/crypto/visibility.h>
@@ -76,7 +76,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 	 */
 	template<typename AlgoT, typename CryptorT, typename CryptoHMAC>
 	bool EncryptCBC(std::span<const std::byte> dataSpan,
-					const Password& password,
+					const Secure::Password& password,
 					Buffer::WriteOnly& output,
 					const std::size_t& salt_size,
 					const std::size_t& iv_size,
@@ -87,7 +87,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 		 * @brief One-shot CBC encrypt engine.
 		 */
 		struct Ops final : Crypter::Ops {
-			Password password;						///< Password material
+			Secure::Password password;						///< Password material
 			std::size_t salt_size, iv_size, key_size;	///< Sizes
 			CryptoPP::SecByteBlock salt, iv, key;	///< Salt, IV, derived key
 			std::unique_ptr<CryptorT> encryption;	///< Cipher
@@ -99,7 +99,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			 * @param is IV size.
 			 * @param ks Key size.
 			 */
-			Ops(Password p, std::size_t ss, std::size_t is, std::size_t ks)
+			Ops(Secure::Password p, std::size_t ss, std::size_t is, std::size_t ks)
 				: password(std::move(p)), salt_size(ss), iv_size(is), key_size(ks)
 				, salt(ss), iv(is), key(ks) {}
 
@@ -195,7 +195,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 	 */
 	template<typename AlgoT, typename CryptorT, typename CryptoHMAC>
 	Buffer::Consumer EncryptCBC(Buffer::Consumer consumer,
-								Password password,
+								Secure::Password password,
 								ReadMode mode,
 								const std::size_t& salt_size,
 								const std::size_t& iv_size,
@@ -206,7 +206,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 		 * @brief Streaming CBC encrypt engine.
 		 */
 		struct Ops final : Crypter::Ops {
-			Password password;						///< Password material
+			Secure::Password password;						///< Password material
 			std::size_t salt_size, iv_size, key_size;	///< Sizes
 			CryptoPP::SecByteBlock salt, iv, key;	///< Salt, IV, derived key
 			std::unique_ptr<CryptorT> encryption;	///< Cipher
@@ -220,7 +220,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			 * @param is IV size.
 			 * @param ks Key size.
 			 */
-			Ops(Password p, std::size_t ss, std::size_t is, std::size_t ks)
+			Ops(Secure::Password p, std::size_t ss, std::size_t is, std::size_t ks)
 				: password(std::move(p)), salt_size(ss), iv_size(is), key_size(ks)
 				, salt(ss), iv(is), key(ks) {}
 
@@ -321,7 +321,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 	 */
 	template<typename AlgoT, typename DecryptorT, typename CryptoHMAC>
 	bool DecryptCBC(std::span<const std::byte> dataSpan,
-					const Password& password,
+					const Secure::Password& password,
 					Buffer::WriteOnly& output,
 					const std::size_t& salt_size,
 					const std::size_t& iv_size,
@@ -332,7 +332,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 		 * @brief One-shot CBC decrypt engine.
 		 */
 		struct Ops final : Crypter::Ops {
-			Password password;						///< Password material
+			Secure::Password password;						///< Password material
 			std::size_t salt_size, iv_size, key_size;	///< Sizes
 			CryptoPP::SecByteBlock salt, iv, key;	///< Salt, IV, derived key
 			std::unique_ptr<DecryptorT> decryption;	///< Cipher
@@ -344,7 +344,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			 * @param is IV size.
 			 * @param ks Key size.
 			 */
-			Ops(Password p, std::size_t ss, std::size_t is, std::size_t ks)
+			Ops(Secure::Password p, std::size_t ss, std::size_t is, std::size_t ks)
 				: password(std::move(p)), salt_size(ss), iv_size(is), key_size(ks)
 				, salt(ss), iv(is), key(ks) {}
 
@@ -436,7 +436,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 	 */
 	template<typename AlgoT, typename DecryptorT, typename CryptoHMAC>
 	Buffer::Consumer DecryptCBC(Buffer::Consumer consumer,
-								Password password,
+								Secure::Password password,
 								ReadMode mode,
 								const std::size_t& salt_size,
 								const std::size_t& iv_size,
@@ -447,7 +447,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 		 * @brief Streaming CBC decrypt engine.
 		 */
 		struct Ops final : Crypter::Ops {
-			Password password;						///< Password material
+			Secure::Password password;						///< Password material
 			std::size_t salt_size, iv_size, key_size;	///< Sizes
 			CryptoPP::SecByteBlock salt, iv, key;	///< Salt, IV, derived key
 			std::unique_ptr<DecryptorT> decryption;	///< Cipher
@@ -461,7 +461,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			 * @param is IV size.
 			 * @param ks Key size.
 			 */
-			Ops(Password p, std::size_t ss, std::size_t is, std::size_t ks)
+			Ops(Secure::Password p, std::size_t ss, std::size_t is, std::size_t ks)
 				: password(std::move(p)), salt_size(ss), iv_size(is), key_size(ks)
 				, salt(ss), iv(is), key(ks) {}
 
@@ -565,7 +565,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 	 */
 	template<typename AlgoT, typename CryptorT, typename CryptoHMAC>
 	bool EncryptGCM(std::span<const std::byte> dataSpan,
-					const Password& password,
+					const Secure::Password& password,
 					Buffer::WriteOnly& output,
 					const std::size_t& salt_size,
 					const std::size_t& iv_size,
@@ -577,7 +577,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 		 * @brief One-shot GCM encrypt engine.
 		 */
 		struct Ops final : Crypter::Ops {
-			Password password;						///< Password material
+			Secure::Password password;						///< Password material
 			std::size_t salt_size, iv_size, key_size;	///< Sizes
 			std::vector<std::byte> aad;				///< AAD copy
 			CryptoPP::SecByteBlock salt, iv, key;	///< Salt, IV, derived key
@@ -592,7 +592,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			 * @param ks Key size.
 			 * @param a AAD.
 			 */
-			Ops(Password p, std::size_t ss, std::size_t is, std::size_t ks,
+			Ops(Secure::Password p, std::size_t ss, std::size_t is, std::size_t ks,
 				std::span<const std::byte> a)
 				: password(std::move(p)), salt_size(ss), iv_size(is), key_size(ks)
 				, aad(a.begin(), a.end())
@@ -693,7 +693,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 	 */
 	template<typename AlgoT, typename CryptorT, typename CryptoHMAC>
 	Buffer::Consumer EncryptGCM(Buffer::Consumer consumer,
-								Password password,
+								Secure::Password password,
 								ReadMode mode,
 								const std::size_t& salt_size,
 								const std::size_t& iv_size,
@@ -705,7 +705,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 		 * @brief Streaming GCM encrypt engine.
 		 */
 		struct Ops final : Crypter::Ops {
-			Password password;						///< Password material
+			Secure::Password password;						///< Password material
 			std::size_t salt_size, iv_size, key_size;	///< Sizes
 			std::vector<std::byte> aad;				///< AAD copy
 			CryptoPP::SecByteBlock salt, iv, key;	///< Salt, IV, derived key
@@ -721,7 +721,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			 * @param ks Key size.
 			 * @param a AAD.
 			 */
-			Ops(Password p, std::size_t ss, std::size_t is, std::size_t ks,
+			Ops(Secure::Password p, std::size_t ss, std::size_t is, std::size_t ks,
 				std::span<const std::byte> a)
 				: password(std::move(p)), salt_size(ss), iv_size(is), key_size(ks)
 				, aad(a.begin(), a.end())
@@ -829,7 +829,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 	 */
 	template<typename AlgoT, typename DecryptorT, typename CryptoHMAC>
 	bool DecryptGCM(std::span<const std::byte> encryptedSpan,
-					const Password& password,
+					const Secure::Password& password,
 					Buffer::WriteOnly& output,
 					const std::size_t& salt_size,
 					const std::size_t& iv_size,
@@ -840,7 +840,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 		 * @brief One-shot GCM decrypt engine.
 		 */
 		struct Ops final : Crypter::Ops {
-			Password password;						///< Password material
+			Secure::Password password;						///< Password material
 			std::size_t salt_size, iv_size, key_size;	///< Sizes
 			CryptoPP::SecByteBlock salt, iv, key;	///< Salt, IV, derived key
 			DecryptorT decryption;					///< Cipher
@@ -853,7 +853,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			 * @param is IV size.
 			 * @param ks Key size.
 			 */
-			Ops(Password p, std::size_t ss, std::size_t is, std::size_t ks)
+			Ops(Secure::Password p, std::size_t ss, std::size_t is, std::size_t ks)
 				: password(std::move(p)), salt_size(ss), iv_size(is), key_size(ks)
 				, salt(ss), iv(is), key(ks) {}
 
@@ -944,7 +944,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 	 */
 	template<typename AlgoT, typename DecryptorT, typename CryptoHMAC>
 	Buffer::Consumer DecryptGCM(Buffer::Consumer consumer,
-								Password password,
+								Secure::Password password,
 								ReadMode mode,
 								const std::size_t& salt_size,
 								const std::size_t& iv_size,
@@ -956,7 +956,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 		 * @brief Streaming GCM decrypt engine.
 		 */
 		struct Ops final : Crypter::Ops {
-			Password password;						///< Password material
+			Secure::Password password;						///< Password material
 			std::size_t salt_size, iv_size, key_size;	///< Sizes
 			std::vector<std::byte> aad;				///< AAD copy
 			CryptoPP::SecByteBlock salt, iv, key;	///< Salt, IV, derived key
@@ -972,7 +972,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			 * @param ks Key size.
 			 * @param a AAD.
 			 */
-			Ops(Password p, std::size_t ss, std::size_t is, std::size_t ks,
+			Ops(Secure::Password p, std::size_t ss, std::size_t is, std::size_t ks,
 				std::span<const std::byte> a)
 				: password(std::move(p)), salt_size(ss), iv_size(is), key_size(ks)
 				, aad(a.begin(), a.end())
@@ -1086,7 +1086,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 	 */
 	template<typename AlgoT, typename CryptorT, typename CryptoHMAC>
 	bool EncryptAEAD(std::span<const std::byte> dataSpan,
-					const Password& password,
+					const Secure::Password& password,
 					Buffer::WriteOnly& output,
 					const std::size_t& salt_size,
 					const std::size_t& iv_size,
@@ -1113,7 +1113,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 	 */
 	template<typename AlgoT, typename CryptorT, typename CryptoHMAC>
 	Buffer::Consumer EncryptAEAD(Buffer::Consumer consumer,
-								Password password,
+								Secure::Password password,
 								ReadMode mode,
 								const std::size_t& salt_size,
 								const std::size_t& iv_size,
@@ -1141,7 +1141,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 	 */
 	template<typename AlgoT, typename DecryptorT, typename CryptoHMAC>
 	bool DecryptAEAD(std::span<const std::byte> encryptedSpan,
-					const Password& password,
+					const Secure::Password& password,
 					Buffer::WriteOnly& output,
 					const std::size_t& salt_size,
 					const std::size_t& iv_size,
@@ -1153,7 +1153,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 		 * @brief One-shot AEAD decrypt engine with AAD.
 		 */
 		struct Ops final : Crypter::Ops {
-			Password password;						///< Password material
+			Secure::Password password;						///< Password material
 			std::size_t salt_size, iv_size, key_size;	///< Sizes
 			std::vector<std::byte> aad;				///< AAD copy
 			CryptoPP::SecByteBlock salt, iv, key;	///< Salt, IV, derived key
@@ -1168,7 +1168,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			 * @param ks Key size.
 			 * @param a AAD.
 			 */
-			Ops(Password p, std::size_t ss, std::size_t is, std::size_t ks,
+			Ops(Secure::Password p, std::size_t ss, std::size_t is, std::size_t ks,
 				std::span<const std::byte> a)
 				: password(std::move(p)), salt_size(ss), iv_size(is), key_size(ks)
 				, aad(a.begin(), a.end())
@@ -1266,7 +1266,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 	 */
 	template<typename AlgoT, typename DecryptorT, typename CryptoHMAC>
 	Buffer::Consumer DecryptAEAD(Buffer::Consumer consumer,
-								Password password,
+								Secure::Password password,
 								ReadMode mode,
 								const std::size_t& salt_size,
 								const std::size_t& iv_size,

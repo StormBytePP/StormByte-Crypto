@@ -38,12 +38,12 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
-#include <StormByte/crypto/vault.hxx>
+#include <StormByte/crypto/secure/vault.hxx>
 
 #include <string>
 #include <string_view>
 
-using namespace StormByte::Crypto;
+using namespace StormByte::Crypto::Secure;
 
 Vault::~Vault() noexcept {
 	Clear();

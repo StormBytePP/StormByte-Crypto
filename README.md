@@ -17,13 +17,13 @@ The suite is split on purpose. Base, Buffer, Config, Database, Logger, Multimedi
 
 - **Hasher** — SHA-256, SHA-512, SHA3-256, SHA3-512, BLAKE2b, BLAKE2s. One-shot hex digest or a `Buffer::Consumer` that yields the digest when the source closes.
 - **Compressor** — Zlib, Gzip, BZip2. Same block / stream contract as the rest of the module.
-- **Symmetric crypter** — AES CBC, AES-GCM, ChaCha20-Poly1305, Camellia, Serpent, Twofish. Keys from `Password` via PBKDF2-HMAC-SHA256 (600 000 iterations). Authenticated modes fail closed on a bad tag or a wrong password.
+- **Symmetric crypter** — AES CBC, AES-GCM, ChaCha20-Poly1305, Camellia, Serpent, Twofish. Keys from `Secure::Password` via PBKDF2-HMAC-SHA256 (600 000 iterations). Authenticated modes fail closed on a bad tag or a wrong password.
 - **Asymmetric crypter** — RSA OAEP-SHA and ECC ECIES. `Strategy::Native` is one PK transform per blob. `Strategy::Hybrid` wraps a random AES-256-GCM session key. Decrypt auto-detects the envelope.
 - **Signer** — DSA, RSA PKCS#1 v1.5 + SHA-256, ECDSA, Ed25519. Block and streaming sign / verify.
-- **Secret** — ECDH on secp256r1 / secp384r1 / secp521r1, and X25519. The shared secret is a `Password`, not a `std::string`.
-- **KeyPair** — Generate, persist PEM or DER, optional PKCS#8 (PBES2 + PBKDF2 + AES-256-CBC, OpenSSL-compatible). Public key travels as Base64 SPKI; private key stays in a `Password`. Handles are `Clonable` + `MakePointer` / `Shared` (`KeyPair::Generic::PointerType`).
-- **Password / Vault** — reference-counted wiped buffer; named store. Last owner zeros the bytes. Vault is movable, not copyable. `Password::Size()` is `StormByte::ByteSize`. A missing `Vault::Get` is `StormByte.Crypto.Vault: …`.
-- **Buffer-first I/O** — `std::span<const std::byte>` → `Buffer::WriteOnly` for blocks; `Buffer::Consumer` in / out for pipelines (Network, Multimedia). Octet payloads are `StormByte::BinaryData`. Abstract counts use `StormByte::Size`; octet lengths use `StormByte::ByteSize`.
+- **Secret** — ECDH on secp256r1 / secp384r1 / secp521r1, and X25519. The shared secret is a `Secure::Password`, not a `std::string`.
+- **KeyPair** — Generate, persist PEM or DER, optional PKCS#8 (PBES2 + PBKDF2 + AES-256-CBC, OpenSSL-compatible). Public key travels as `StormByte::String::String` (Base64 SPKI); private key stays in a `Secure::Password`. Handles are `Clonable` + `MakePointer` / `Shared` (`KeyPair::Generic::PointerType`).
+- **Secure::Password / Secure::Vault** — wiped secret buffer and named store under `StormByte::Crypto::Secure`. Last owner zeros the bytes. Vault is movable, not copyable. `Password::Size()` is `StormByte::ByteSize`. A missing `Vault::Get` is `StormByte.Crypto.Secure.Vault: …`.
+- **Buffer-first I/O** — `std::span<const std::byte>` → `Buffer::WriteOnly` for blocks; `Buffer::Consumer` in / out for pipelines (Network, Multimedia). Octet payloads are `StormByte::BinaryData`. Abstract counts use `StormByte::Size`; octet lengths use `StormByte::ByteSize`. Non-secret public text is ingested as `std::string_view`.
 
 ## The rest of the suite
 
@@ -72,11 +72,11 @@ cmake --build build
 
 ## Usage
 
-Headers are `#include <StormByte/crypto/….hxx>`. Namespace root is `StormByte::Crypto`.
+Headers are `#include <StormByte/crypto/….hxx>`. Namespace root is `StormByte::Crypto`. Wiped secrets live in `StormByte::Crypto::Secure`.
 
 Nothing in the public tree includes Crypto++. Private headers are not installed.
 
-Public handles are `Clonable` + `MakePointer` / `Shared`. KeyPair, Signer, Crypter and Secret take `KeyPair::Generic::PointerType`, not `std::shared_ptr`. Exceptions use `Path{"Crypto"}`; child offices add their own segment. `what()` is `StormByte.Crypto` or `StormByte.Crypto.<Child>: message`.
+Public handles are `Clonable` + `MakePointer` / `Shared`. KeyPair, Signer, Crypter and Secret take `KeyPair::Generic::PointerType`, not `std::shared_ptr`. Exceptions use `Path{"Crypto"}`; child offices add their own segment. `what()` is `StormByte.Crypto` or `StormByte.Crypto.<Child>: message`. Secure uses `StormByte.Crypto.Secure` / `StormByte.Crypto.Secure.Vault`.
 
 ### Factories
 
@@ -85,7 +85,7 @@ auto hasher = Hasher::Create(Hasher::Type::SHA256);
 auto zip    = Compressor::Create(Compressor::Type::Zlib, 6);
 auto aes    = Crypter::Create(Crypter::Type::AES_GCM, password);
 auto rsaKp  = KeyPair::RSA::Generate(2048);
-auto rsa    = Crypter::Create(Crypter::Type::RSA, rsaKp);          // Hybrid by default
+auto rsa    = Crypter::Create(Crypter::Type::RSA, rsaKp);
 auto signer = Signer::Create(Signer::Type::ECDSA, ecdsaKp);
 auto ecdh   = Secret::Create(Secret::Type::ECDH, ecdhKp);
 ```
@@ -94,19 +94,32 @@ Concrete types (`Crypter::AES_GCM`, `KeyPair::X25519`, `Signer::ED25519`, …) c
 
 ### Password and Vault
 
-`Password` is the only public container for secret bytes (passphrases, private key DER, shared secrets). Copies share the buffer; the last owner wipes it. `Size()` is `StormByte::ByteSize`.
+`Secure::Password` is the only public container for secret bytes (passphrases, private key DER, shared secrets). Copies share the buffer; the last owner wipes it. `Size()` is `StormByte::ByteSize`.
+
+Ingest is deliberately not `std::string_view` and not `std::string` by value.
+
+- A view cannot wipe the caller's buffer, so the secret would stay in the program after construction.
+- Passing `std::string` by value or by move across a DLL is unsafe: the buffer was allocated on the caller's heap. Destroying it inside this library can free the wrong CRT.
+- Therefore the caller *cedes* a non-const `std::string&` or `StormByte::String::String&`. The constructor copies into wiped storage owned by this module and then overwrites and clears the argument. After return the only remaining copy is the one `Password` holds.
+- Literals use `explicit Password(const char*)`. They are copied; the source is not wiped (it lives in read-only storage). Use that form for tests and placeholders, not for production secrets kept in source.
+- Raw bytes (`const void*` + `ByteSize`) are copied and not wiped; the caller owns the source.
 
 ```cpp
-#include <StormByte/crypto/password.hxx>
-#include <StormByte/crypto/vault.hxx>
+#include <StormByte/crypto/secure/password.hxx>
+#include <StormByte/crypto/secure/vault.hxx>
 #include <StormByte/crypto/crypter/generic.hxx>
 
 using namespace StormByte::Crypto;
+using StormByte::Crypto::Secure::Password;
+using StormByte::Crypto::Secure::Vault;
 
-Password db("s3cret-from-env");
+std::string fromEnv = std::getenv("DB_SECRET");
+Password db(fromEnv);                 // fromEnv is emptied and wiped
+Password placeholder("token-xyz");    // literal: not wiped
+
 Vault vault;
 vault.Store("database", db);
-vault.Store("api", Password("token-xyz"));
+vault.Store("api", placeholder);
 
 if (auto p = vault.Get("database")) {
 	auto aes = Crypter::Create(Crypter::Type::AES_GCM, *p);
@@ -119,7 +132,7 @@ vault.Remove("api");
 vault.Clear();
 ```
 
-`Vault` is movable, not copyable. A move leaves the source empty.
+`Vault` is movable, not copyable. A move leaves the source empty. Names are `std::string_view`. A missing name is `Secure::VaultException`.
 
 ### Hash and compress
 
@@ -139,13 +152,13 @@ const char msg[] = "payload";
 const auto span = std::span<const std::byte>(
 	reinterpret_cast<const std::byte*>(msg), sizeof(msg) - 1);
 
-sha->Hash(span, digest);       // hex digest
+sha->Hash(span, digest);
 zip->Compress(span, packed);
 
 StormByte::Buffer::Producer prod;
 prod.Write(msg);
 prod.Close();
-auto hashed = sha->Hash(prod.Consumer());   // Consumer → hex
+auto hashed = sha->Hash(prod.Consumer());
 ```
 
 ### Symmetric encrypt
@@ -154,11 +167,12 @@ Password → random salt + PBKDF2-HMAC-SHA256 → key. AES-GCM and ChaCha20-Poly
 
 ```cpp
 #include <StormByte/crypto/crypter/symmetric/aes_gcm.hxx>
-#include <StormByte/crypto/password.hxx>
+#include <StormByte/crypto/secure/password.hxx>
 #include <StormByte/buffer/fifo.hxx>
 #include <StormByte/buffer/producer.hxx>
 
 using namespace StormByte::Crypto;
+using StormByte::Crypto::Secure::Password;
 
 Password password("SecurePassword123!");
 Crypter::AES_GCM gcm(password);
@@ -184,7 +198,7 @@ CBC siblings (AES, Camellia, Serpent, Twofish) use the same `Encrypt` / `Decrypt
 
 ### Asymmetric encrypt
 
-`Native` is one PK operation per blob (small messages). `Hybrid` is a random AES-256-GCM key wrapped with the recipient public key (anything that would be painful as raw RSA/ECIES). Decrypt reads the header and picks the path.
+`Native` is one PK operation per blob (small messages). `Hybrid` is a random AES-256-GCM key wrapped with the recipient public key. Decrypt reads the header and picks the path.
 
 ```cpp
 #include <StormByte/crypto/keypair/rsa.hxx>
@@ -194,7 +208,7 @@ CBC siblings (AES, Camellia, Serpent, Twofish) use the same `Encrypt` / `Decrypt
 using namespace StormByte::Crypto;
 
 auto kp = KeyPair::RSA::Generate(2048);
-Crypter::RSA hybrid(kp);                                 // Strategy::Hybrid
+Crypter::RSA hybrid(kp);
 Crypter::RSA native(kp, Crypter::Asymmetric::Strategy::Native);
 
 StormByte::Buffer::FIFO out;
@@ -215,21 +229,22 @@ ECC (`Crypter::ECC` + `KeyPair::ECC`) is the same API.
 
 ```cpp
 #include <StormByte/crypto/keypair/rsa.hxx>
-#include <StormByte/crypto/password.hxx>
+#include <StormByte/crypto/secure/password.hxx>
 
 using namespace StormByte::Crypto;
+using StormByte::Crypto::Secure::Password;
 
 auto kp = KeyPair::RSA::Generate(2048);
 kp->Save("/tmp/keys", "app", KeyPair::StorageFormat::PEM);
 
 Password wrap("disk-secret");
-kp->Save("/tmp/keys", "app-enc", KeyPair::StorageFormat::PEM, wrap);
+kp->Save("/tmp/keys", "app-enc", wrap);
 
 auto loaded = KeyPair::Load("/tmp/keys/app.pub.pem", "/tmp/keys/app.pem");
 auto enc    = KeyPair::Load("/tmp/keys/app-enc.pub.pem", "/tmp/keys/app-enc.pem", wrap);
 ```
 
-Wrong or missing wrap password fails closed. Type comes from the OID (RSA, DSA, EC, Ed25519, X25519). Generate → Save → Load stays usable for encrypt, sign and share. X25519 also understands raw 32-byte library form.
+Wrong or missing wrap password fails closed. Type comes from the OID (RSA, DSA, EC, Ed25519, X25519). Generate → Save → Load stays usable for encrypt, sign and share. X25519 also understands raw 32-byte library form. `PublicKey()` is `const StormByte::String::String&`; convert with `std::string{std::string_view{kp->PublicKey()}}` if you need a `std::string`.
 
 ### Sign and verify
 
@@ -245,7 +260,7 @@ auto signer = Signer::Create(Signer::Type::ED25519, kp);
 
 StormByte::Buffer::FIFO sig;
 signer->Sign(span, sig);
-bool ok = signer->Verify(span, std::string(
+bool ok = signer->Verify(span, std::string_view(
 	reinterpret_cast<const char*>(sig.Data().data()), sig.Data().size()));
 ```
 
@@ -263,15 +278,16 @@ auto alice = KeyPair::X25519::Generate();
 auto bob   = KeyPair::X25519::Generate();
 
 auto secret = Secret::Create(Secret::Type::X25519, alice);
-auto shared = secret->Share(bob->PublicKey());   // Expected<Password>
+auto shared = secret->Share(bob->PublicKey());
 ```
 
-ECDH is the same with `KeyPair::ECDH::Generate(256|384|521)` and `Secret::Type::ECDH`.
+`Share` takes `std::string_view` (a `String` converts). The result is `std::optional<Secure::Password>`. ECDH is the same with `KeyPair::ECDH::Generate(256|384|521)` and `Secret::Type::ECDH`.
 
 ## Security notes
 
 - **Decompression of untrusted input is not size-bounded.** Like the underlying zlib/libbzip2, `Compressor` decompresses as much as the stream decodes to; a small malicious input can expand to a very large output ("decompression bomb"). If you decompress data from an untrusted source, bound it yourself: check the expected/maximum size before decompressing, or stop draining the streaming `Consumer` once your own limit is hit.
 - Private key files written by `KeyPair::Save`/`SavePrivate` are created owner-only (`0600` on POSIX) and refuse to write through a pre-existing symlink at the destination path. Public key files are unaffected by either restriction.
+- Do not keep a live `std::string` of a production password after `Password` construction. Cede the buffer so it can be wiped. Do not pass secrets as `string_view` into `Password`.
 
 ## Contributing
 

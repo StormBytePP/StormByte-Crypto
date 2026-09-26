@@ -71,7 +71,7 @@ namespace StormByte {
 					 * @brief Construct with a password.
 					 * @param password Password.
 					 */
-					inline TwoFish(class Password password):
+					inline TwoFish(Secure::Password password):
 						Symmetric(Type::TwoFish, std::move(password)) {}
 
 					/**

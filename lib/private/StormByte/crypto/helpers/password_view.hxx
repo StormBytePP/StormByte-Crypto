@@ -41,7 +41,7 @@
 #pragma once
 
 #include <StormByte/crypto/helpers/secure_content.hxx>
-#include <StormByte/crypto/password.hxx>
+#include <StormByte/crypto/secure/password.hxx>
 
 #include <cstddef>
 
@@ -51,7 +51,7 @@
 namespace StormByte::Crypto::Helpers {
 	/**
 	 * @struct PasswordAccess
-	 * @brief Read access to @ref StormByte::Crypto::Password bytes.
+	 * @brief Read access to @ref StormByte::Crypto::Secure::Password bytes.
 	 *
 	 * Implementation only. Not installed.
 	 */
@@ -61,7 +61,7 @@ namespace StormByte::Crypto::Helpers {
 		 * @param password Password.
 		 * @return Data pointer, or nullptr if empty.
 		 */
-		static const unsigned char* Data(const Password& password) noexcept {
+		static const unsigned char* Data(const StormByte::Crypto::Secure::Password& password) noexcept {
 			return password.m_data ? password.m_data->Data() : nullptr;
 		}
 
@@ -70,7 +70,7 @@ namespace StormByte::Crypto::Helpers {
 		 * @param password Password.
 		 * @return Byte count.
 		 */
-		static std::size_t Size(const Password& password) noexcept {
+		static std::size_t Size(const StormByte::Crypto::Secure::Password& password) noexcept {
 			return password.m_data ? password.m_data->Size() : 0;
 		}
 	};

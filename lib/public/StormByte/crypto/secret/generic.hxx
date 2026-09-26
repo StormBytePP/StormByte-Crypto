@@ -42,7 +42,7 @@
 
 #include <StormByte/clonable.hxx>
 #include <StormByte/crypto/keypair/generic.hxx>
-#include <StormByte/crypto/password.hxx>
+#include <StormByte/crypto/secure/password.hxx>
 #include <StormByte/crypto/visibility.h>
 #include <StormByte/string/string.hxx>
 
@@ -130,7 +130,7 @@ namespace StormByte {
 					 * @param peerPublicKey Peer public key as Base64. Accepts String and std::string via string_view.
 					 * @return Password on success, or empty.
 					 */
-					virtual std::optional<Password> Share(std::string_view peerPublicKey) const noexcept = 0;
+					virtual std::optional<Secure::Password> Share(std::string_view peerPublicKey) const noexcept = 0;
 
 				protected:
 					enum Type m_type;							///< Algorithm

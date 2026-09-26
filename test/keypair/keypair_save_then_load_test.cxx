@@ -51,7 +51,7 @@
 #include <StormByte/crypto/keypair/generic.hxx>
 #include <StormByte/crypto/keypair/rsa.hxx>
 #include <StormByte/crypto/keypair/x25519.hxx>
-#include <StormByte/crypto/password.hxx>
+#include <StormByte/crypto/secure/password.hxx>
 #include <StormByte/crypto/secret/ecdh.hxx>
 #include <StormByte/crypto/secret/x25519.hxx>
 #include <StormByte/crypto/signer/dsa.hxx>
@@ -66,6 +66,7 @@
 #include <string>
 
 using namespace StormByte::Crypto;
+using StormByte::Crypto::Secure::Password;
 using StormByte::Buffer::FIFO;
 namespace fs = std::filesystem;
 

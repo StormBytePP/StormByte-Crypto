@@ -41,7 +41,7 @@
 #pragma once
 
 #include <StormByte/crypto/keypair/generic.hxx>
-#include <StormByte/crypto/password.hxx>
+#include <StormByte/crypto/secure/password.hxx>
 #include <StormByte/string/string.hxx>
 
 #include <optional>
@@ -77,7 +77,7 @@ namespace StormByte {
 					 * @param publicKey Public key. Accepts String and std::string via string_view.
 					 * @param privateKey Optional private key.
 					 */
-					inline RSA(std::string_view publicKey, std::optional<Password> privateKey = std::nullopt):
+					inline RSA(std::string_view publicKey, std::optional<Secure::Password> privateKey = std::nullopt):
 						Generic(Type::RSA, StormByte::String::String{publicKey}, std::move(privateKey)) {}
 
 					/**

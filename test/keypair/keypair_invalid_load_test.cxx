@@ -41,7 +41,7 @@
 #include <StormByte/crypto/keypair/dsa.hxx>
 #include <StormByte/crypto/keypair/generic.hxx>
 #include <StormByte/crypto/keypair/rsa.hxx>
-#include <StormByte/crypto/password.hxx>
+#include <StormByte/crypto/secure/password.hxx>
 #include <StormByte/test_handlers.h>
 
 #include <filesystem>
@@ -51,6 +51,7 @@
 #include <vector>
 
 using namespace StormByte::Crypto;
+using StormByte::Crypto::Secure::Password;
 namespace fs = std::filesystem;
 
 #ifndef STORMBYTE_TEST_KEYS_DIR

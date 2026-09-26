@@ -43,7 +43,7 @@
 #include <StormByte/crypto/implementation/keypair/api.hxx>
 #include <StormByte/crypto/implementation/signer/details.hxx>
 #include <StormByte/crypto/keypair/generic.hxx>
-#include <StormByte/crypto/password.hxx>
+#include <StormByte/crypto/secure/password.hxx>
 #include <StormByte/crypto/random.hxx>
 #include <StormByte/crypto/typedefs.hxx>
 #include <StormByte/crypto/visibility.h>
@@ -93,7 +93,7 @@ namespace StormByte {
 						 * @brief Load the private key and build the filter.
 						 * @param privKey DER private key.
 						 */
-						explicit ConcreteSignBox(const Password& privKey) {
+						explicit ConcreteSignBox(const Secure::Password& privKey) {
 							auto keyRes = KeyPair::DeserializeKey<PrivateKeyT>(privKey);
 							if (!keyRes)
 								return;
@@ -250,7 +250,7 @@ namespace StormByte {
 				 * @return true on success.
 				 */
 				template<typename SignerT, typename PrivateKeyT>
-				bool Sign(std::span<const std::byte> data, const Password& privKey, Buffer::WriteOnly& output) noexcept {
+				bool Sign(std::span<const std::byte> data, const Secure::Password& privKey, Buffer::WriteOnly& output) noexcept {
 					return SignSpan(
 						data, output,
 						std::make_unique<ConcreteSignBox<SignerT, PrivateKeyT>>(privKey));
@@ -282,7 +282,7 @@ namespace StormByte {
 				 * @return Consumer with the signature.
 				 */
 				template<typename SignerT, typename PrivateKeyT>
-				Buffer::Consumer Sign(Buffer::Consumer consumer, Password privKey, ReadMode mode) noexcept {
+				Buffer::Consumer Sign(Buffer::Consumer consumer, Secure::Password privKey, ReadMode mode) noexcept {
 					return SignStream(
 						std::move(consumer), mode,
 						std::make_unique<ConcreteSignBox<SignerT, PrivateKeyT>>(std::move(privKey)));

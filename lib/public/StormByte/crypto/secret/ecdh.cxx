@@ -48,7 +48,7 @@ using namespace StormByte::Crypto::Secret;
 
 ECDH::~ECDH() noexcept = default;
 
-std::optional<StormByte::Crypto::Password>
+std::optional<StormByte::Crypto::Secure::Password>
 ECDH::Share(std::string_view peerPublicKey) const noexcept
 {
 	if (!m_keypair || !m_keypair->HasPrivateKey())

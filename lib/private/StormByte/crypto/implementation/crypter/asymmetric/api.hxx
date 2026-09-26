@@ -43,7 +43,7 @@
 #include <StormByte/crypto/implementation/crypter/asymmetric/details.hxx>
 #include <StormByte/crypto/implementation/keypair/api.hxx>
 #include <StormByte/crypto/keypair/generic.hxx>
-#include <StormByte/crypto/password.hxx>
+#include <StormByte/crypto/secure/password.hxx>
 #include <StormByte/crypto/random.hxx>
 #include <StormByte/crypto/typedefs.hxx>
 #include <StormByte/crypto/visibility.h>
@@ -156,7 +156,7 @@ namespace StormByte {
 							 * @brief Load the private key from a Password.
 							 * @param privKey DER private key.
 							 */
-							explicit DecryptBox(const Password& privKey) {
+							explicit DecryptBox(const Secure::Password& privKey) {
 								auto keyRes = KeyPair::DeserializeKey<KeyT>(privKey);
 								if (!keyRes)
 									return;

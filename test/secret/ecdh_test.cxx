@@ -42,6 +42,7 @@
 #include <StormByte/test_handlers.h>
 
 using namespace StormByte::Crypto;
+using StormByte::Crypto::Secure::Password;
 
 // -------------------
 // Generate
@@ -177,7 +178,7 @@ int test_ecdh_shared_secret_corrupted_keys() {
 	auto kp = KeyPair::ECDH::Generate(256);
 	ASSERT_TRUE(fn_name, static_cast<bool>(kp));
 	ASSERT_TRUE(fn_name, kp->HasPrivateKey());
-	std::string corrupted = kp->PublicKey();
+	std::string corrupted { std::string_view{kp->PublicKey()} };
 	if (corrupted.size() > 1)
 		corrupted = corrupted.substr(0, corrupted.size() / 2);
 	auto badKp = KeyPair::ECDH::MakePointer<KeyPair::ECDH>(

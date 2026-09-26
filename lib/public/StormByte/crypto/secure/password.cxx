@@ -40,16 +40,16 @@
 
 #include <StormByte/crypto/helpers/secure_content.hxx>
 #include <StormByte/crypto/helpers/secure_wipe.hxx>
-#include <StormByte/crypto/password.hxx>
+#include <StormByte/crypto/secure/password.hxx>
 
 #include <cstring>
 #include <string_view>
 
-using namespace StormByte::Crypto;
+using namespace StormByte::Crypto::Secure;
 
 namespace {
 	struct SecureContentDeleter {
-		void operator()(Helpers::SecureContent* ptr) const noexcept {
+		void operator()(StormByte::Crypto::Helpers::SecureContent* ptr) const noexcept {
 			if (ptr) {
 				ptr->Wipe();
 				delete ptr;
@@ -60,29 +60,29 @@ namespace {
 
 Password::Password(std::string& value) noexcept {
 	const StormByte::ByteSize n { value.size() };
-	auto* content = new Helpers::SecureContent(value.data(), static_cast<std::size_t>(n));
-	Helpers::SecureWipe(value);
+	auto* content = new StormByte::Crypto::Helpers::SecureContent(value.data(), static_cast<std::size_t>(n));
+	StormByte::Crypto::Helpers::SecureWipe(value);
 	m_data.reset(content, SecureContentDeleter{});
 }
 
 Password::Password(StormByte::String::String& value) noexcept {
 	const std::string_view view { value };
 	const StormByte::ByteSize n { view.size() };
-	auto* content = new Helpers::SecureContent(view.data(), static_cast<std::size_t>(n));
+	auto* content = new StormByte::Crypto::Helpers::SecureContent(view.data(), static_cast<std::size_t>(n));
 	std::string scratch { view };
-	Helpers::SecureWipe(scratch);
+	StormByte::Crypto::Helpers::SecureWipe(scratch);
 	value = StormByte::String::String{};
 	m_data.reset(content, SecureContentDeleter{});
 }
 
 Password::Password(const char* value) noexcept {
 	const StormByte::ByteSize n { value ? std::strlen(value) : 0 };
-	auto* content = new Helpers::SecureContent(value, static_cast<std::size_t>(n));
+	auto* content = new StormByte::Crypto::Helpers::SecureContent(value, static_cast<std::size_t>(n));
 	m_data.reset(content, SecureContentDeleter{});
 }
 
 Password::Password(const void* data, StormByte::ByteSize size) noexcept {
-	auto* content = new Helpers::SecureContent(data, static_cast<std::size_t>(size));
+	auto* content = new StormByte::Crypto::Helpers::SecureContent(data, static_cast<std::size_t>(size));
 	m_data.reset(content, SecureContentDeleter{});
 }
 

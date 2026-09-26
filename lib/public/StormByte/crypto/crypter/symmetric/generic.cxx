@@ -46,7 +46,7 @@
 #include <StormByte/crypto/crypter/symmetric/serpent.hxx>
 #include <StormByte/crypto/crypter/symmetric/twofish.hxx>
 #include <StormByte/crypto/helpers/secure_wipe.hxx>
-#include <StormByte/crypto/password.hxx>
+#include <StormByte/crypto/secure/password.hxx>
 #include <StormByte/crypto/random.hxx>
 
 using namespace StormByte::Crypto::Crypter;
@@ -54,16 +54,16 @@ using StormByte::Crypto::Helpers::SecureWipe;
 
 Symmetric::~Symmetric() noexcept = default;
 
-StormByte::Crypto::Password Symmetric::RandomPassword(std::size_t length) noexcept {
+StormByte::Crypto::Secure::Password Symmetric::RandomPassword(std::size_t length) noexcept {
 	CryptoPP::SecByteBlock raw(length);
 	RNG().GenerateBlock(raw, length);
-	StormByte::Crypto::Password result(raw.data(), StormByte::ByteSize{raw.size()});
+	StormByte::Crypto::Secure::Password result(raw.data(), StormByte::ByteSize{raw.size()});
 	SecureWipe(raw);
 	return result;
 }
 
 namespace StormByte::Crypto::Crypter {
-	Generic::PointerType Create(enum Type type, StormByte::Crypto::Password password) noexcept {
+	Generic::PointerType Create(enum Type type, StormByte::Crypto::Secure::Password password) noexcept {
 		switch (type) {
 			case Type::AES:
 				return AES::MakePointer<AES>(std::move(password));
