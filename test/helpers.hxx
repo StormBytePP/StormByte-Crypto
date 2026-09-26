@@ -42,51 +42,43 @@
 
 #include <StormByte/buffer/consumer.hxx>
 #include <StormByte/buffer/fifo.hxx>
-#include <StormByte/string.hxx>
 
+#include <iostream>
+#include <string>
 #include <thread>
 
-using StormByte::Buffer::DataType;
-
-StormByte::Buffer::FIFO ReadAllFromConsumer(StormByte::Buffer::Consumer consumer) {
-	// Read the decompressed data from the consumer
+inline StormByte::Buffer::FIFO ReadAllFromConsumer(StormByte::Buffer::Consumer consumer) {
 	StormByte::Buffer::FIFO data;
 	while (!consumer.EoF()) {
-		size_t available_bytes = consumer.AvailableBytes();
-		if (available_bytes == 0) {
+		const StormByte::ByteSize available = consumer.Available();
+		if (available == StormByte::ByteSize{0}) {
 			std::this_thread::yield();
 			continue;
 		}
 
-		DataType d;
-		bool read_result = consumer.Read(available_bytes, d);
-		if (!read_result) {
-			std::cerr << "ReadAllFromConsumer: Read returned false, available=" << available_bytes << " EoF=" << consumer.EoF() << " writable=" << consumer.IsWritable() << std::endl;
+		StormByte::BinaryData d;
+		if (!consumer.Read(available, d)) {
+			std::cerr << "ReadAllFromConsumer: Read returned false, EoF=" << consumer.EoF()
+				<< " writable=" << consumer.IsWritable() << std::endl;
 			return data;
 		}
-		if (d.empty()) {
-			std::cerr << "ReadAllFromConsumer: read zero bytes despite available=" << available_bytes << std::endl;
-		}
+		if (d.empty())
+			std::cerr << "ReadAllFromConsumer: read zero bytes despite available data" << std::endl;
 
 		data.Write(std::move(d));
 	}
 	return data;
 }
 
-std::string DeserializeString(const StormByte::Buffer::FIFO& buffer) {
-	DataType data;
-	bool read_ok = buffer.Read(data);
-	if (!read_ok) {
+inline std::string DeserializeString(const StormByte::BinaryData& data) {
+	if (data.empty())
 		return {};
-	}
-
-	return StormByte::String::FromByteVector(data);
+	return std::string(reinterpret_cast<const char*>(data.data()), data.size());
 }
 
-// Overload: accept a raw DataType (vector<std::byte>) directly and convert
-// to a std::string. Some call sites pass `fifo.Data()` which returns the
-// internal `DataType` reference; providing this overload avoids an implicit
-// conversion to `FIFO` and is more direct.
-inline std::string DeserializeString(const DataType& data) {
-	return StormByte::String::FromByteVector(data);
+inline std::string DeserializeString(const StormByte::Buffer::FIFO& buffer) {
+	StormByte::BinaryData data;
+	if (!const_cast<StormByte::Buffer::FIFO&>(buffer).Read(StormByte::ByteSize{0}, data))
+		return {};
+	return DeserializeString(data);
 }

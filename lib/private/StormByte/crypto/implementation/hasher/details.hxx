@@ -44,57 +44,68 @@
 #include <StormByte/crypto/typedefs.hxx>
 #include <StormByte/crypto/visibility.h>
 
-#include <functional>
 #include <memory>
-#include <secblock.h>
 #include <span>
 
 /**
- * @brief Private hasher implementation.
+ * @namespace StormByte
+ * @brief Root namespace of the StormByte suite.
  */
-namespace StormByte::Crypto::Implementation::Hasher {
+namespace StormByte {
 	/**
-	 * @struct Ops
-	 * @brief Chunk-oriented hash engine.
+	 * @namespace StormByte::Crypto
+	 * @brief Crypto module of the StormByte suite.
 	 */
-	struct Ops {
-		virtual ~Ops() = default;
-
+	namespace Crypto {
 		/**
-		 * @brief Feed one chunk.
-		 * @param in Input bytes.
+		 * @namespace StormByte::Crypto::Implementation
+		 * @brief Private implementation of the Crypto module.
 		 */
-		virtual void Update(std::span<const std::byte> in) = 0;
+		namespace Implementation {
+			/**
+			 * @namespace StormByte::Crypto::Implementation::Hasher
+			 * @brief Private hasher implementation.
+			 */
+			namespace Hasher {
+				/**
+				 * @struct Ops
+				 * @brief Chunk-oriented hash engine.
+				 */
+				struct Ops {
+					virtual ~Ops() = default;
 
-		/**
-		 * @brief Finish and write the hex digest.
-		 * @param out Destination.
-		 * @return true on success.
-		 */
-		virtual bool Finalize(Buffer::DataType& out) = 0;
-	};
+					/**
+					 * @brief Feed one chunk.
+					 * @param in Input bytes.
+					 */
+					virtual void Update(std::span<const std::byte> in) = 0;
 
-	/**
-	 * @brief One-shot hash.
-	 * @param data Input.
-	 * @param output Destination.
-	 * @param ops Engine.
-	 * @return true on success.
-	 */
-	STORMBYTE_CRYPTO_PRIVATE bool ProcessSpan(
-		std::span<const std::byte> data,
-		Buffer::WriteOnly& output,
-		std::unique_ptr<Ops> ops) noexcept;
+					/**
+					 * @brief Finish and write the hex digest.
+					 * @param out Destination.
+					 * @return true on success.
+					 */
+					virtual bool Finalize(StormByte::BinaryData& out) = 0;
+				};
 
-	/**
-	 * @brief Streaming hash. Yields a hex digest.
-	 * @param consumer Input consumer.
-	 * @param mode Copy or move.
-	 * @param ops Engine.
-	 * @return Consumer with the digest.
-	 */
-	STORMBYTE_CRYPTO_PRIVATE Buffer::Consumer Stream(
-		Buffer::Consumer consumer,
-		ReadMode mode,
-		std::unique_ptr<Ops> ops) noexcept;
+				/**
+				 * @brief One-shot hash.
+				 * @param data Input.
+				 * @param output Destination.
+				 * @param ops Engine.
+				 * @return true on success.
+				 */
+				STORMBYTE_CRYPTO_PRIVATE bool ProcessSpan(std::span<const std::byte> data, Buffer::WriteOnly& output, std::unique_ptr<Ops> ops) noexcept;
+
+				/**
+				 * @brief Streaming hash. Yields a hex digest.
+				 * @param consumer Input consumer.
+				 * @param mode Copy or move.
+				 * @param ops Engine.
+				 * @return Consumer with the digest.
+				 */
+				STORMBYTE_CRYPTO_PRIVATE Buffer::Consumer Stream(Buffer::Consumer consumer, ReadMode mode, std::unique_ptr<Ops> ops) noexcept;
+			}
+		}
+	}
 }

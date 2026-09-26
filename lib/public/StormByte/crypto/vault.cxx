@@ -39,7 +39,9 @@
  */
 
 #include <StormByte/crypto/vault.hxx>
+
 using namespace StormByte::Crypto;
+
 Vault::~Vault() noexcept {
 	Clear();
 }
@@ -85,8 +87,8 @@ void Vault::Clear() noexcept {
 	m_passwords.clear();
 }
 
-std::size_t Vault::Size() const noexcept {
-	return m_passwords.size();
+StormByte::Size Vault::Size() const noexcept {
+	return StormByte::Size { m_passwords.size() };
 }
 
 bool Vault::Empty() const noexcept {

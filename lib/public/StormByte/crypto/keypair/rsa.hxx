@@ -47,80 +47,93 @@
 #include <string>
 
 /**
- * @brief Keypairs of the Crypto module.
+ * @namespace StormByte
+ * @brief Root namespace of the StormByte suite.
  */
-namespace StormByte::Crypto::KeyPair {
+namespace StormByte {
 	/**
-	 * @class RSA
-	 * @brief RSA keypair.
+	 * @namespace StormByte::Crypto
+	 * @brief Crypto module of the StormByte suite.
 	 */
-	class STORMBYTE_CRYPTO_PUBLIC RSA final: public Generic {
-		public:
+	namespace Crypto {
+		/**
+		 * @namespace StormByte::Crypto::KeyPair
+		 * @brief Keypairs of the Crypto module.
+		 */
+		namespace KeyPair {
 			/**
-			 * @name Construction
-			 * @{
+			 * @class RSA
+			 * @brief RSA keypair.
 			 */
-			/**
-			 * @brief Construct from public material and optional private Password.
-			 * @param publicKey Public key.
-			 * @param privateKey Optional private key.
-			 */
-			inline RSA(std::string publicKey, std::optional<Password> privateKey = std::nullopt):
-				Generic(Type::RSA, std::move(publicKey), std::move(privateKey)) {}
+			class STORMBYTE_CRYPTO_PUBLIC RSA final: public Generic {
+				public:
+					/**
+					 * @name Construction
+					 * @{
+					 */
+					/**
+					 * @brief Construct from public material and optional private Password.
+					 * @param publicKey Public key.
+					 * @param privateKey Optional private key.
+					 */
+					inline RSA(std::string publicKey, std::optional<Password> privateKey = std::nullopt):
+						Generic(Type::RSA, std::move(publicKey), std::move(privateKey)) {}
 
-			/**
-			 * @brief Copy constructor.
-			 * @param other Keypair to copy.
-			 */
-			RSA(const RSA& other) = default;
+					/**
+					 * @brief Copy constructor.
+					 * @param other Keypair to copy.
+					 */
+					RSA(const RSA& other) = default;
 
-			/**
-			 * @brief Move constructor.
-			 * @param other Keypair to move.
-			 */
-			RSA(RSA&& other) noexcept = default;
+					/**
+					 * @brief Move constructor.
+					 * @param other Keypair to move.
+					 */
+					RSA(RSA&& other) noexcept = default;
 
-			/**
-			 * @brief Destructor.
-			 */
-			~RSA() noexcept override = default;
+					/**
+					 * @brief Destructor.
+					 */
+					~RSA() noexcept override = default;
 
-			/**
-			 * @brief Copy assignment.
-			 * @param other Keypair to copy.
-			 * @return Reference to this keypair.
-			 */
-			RSA& operator=(const RSA& other) = default;
+					/**
+					 * @brief Copy assignment.
+					 * @param other Keypair to copy.
+					 * @return Reference to this keypair.
+					 */
+					RSA& operator=(const RSA& other) = default;
 
-			/**
-			 * @brief Move assignment.
-			 * @param other Keypair to move.
-			 * @return Reference to this keypair.
-			 */
-			RSA& operator=(RSA&& other) noexcept = default;
-			/** @} */
+					/**
+					 * @brief Move assignment.
+					 * @param other Keypair to move.
+					 * @return Reference to this keypair.
+					 */
+					RSA& operator=(RSA&& other) noexcept = default;
+					/** @} */
 
-			/**
-			 * @brief Clone this keypair.
-			 * @return Shared pointer to the clone.
-			 */
-			PointerType Clone() const override {
-				return std::make_shared<RSA>(*this);
-			}
+					/**
+					 * @brief Clone this keypair.
+					 * @return Shared pointer to the clone.
+					 */
+					PointerType Clone() const override {
+						return MakePointer<RSA>(*this);
+					}
 
-			/**
-			 * @brief Move this keypair into a new instance.
-			 * @return Shared pointer to the moved keypair.
-			 */
-			PointerType Move() override {
-				return std::make_shared<RSA>(std::move(*this));
-			}
+					/**
+					 * @brief Move this keypair into a new instance.
+					 * @return Shared pointer to the moved keypair.
+					 */
+					PointerType Move() override {
+						return MakePointer<RSA>(std::move(*this));
+					}
 
-			/**
-			 * @brief Generate an RSA keypair.
-			 * @param bits Key size in bits.
-			 * @return Keypair pointer, or nullptr.
-			 */
-			static PointerType Generate(unsigned short bits) noexcept;
-	};
+					/**
+					 * @brief Generate an RSA keypair.
+					 * @param bits Key size in bits.
+					 * @return Keypair pointer, or nullptr.
+					 */
+					static PointerType Generate(unsigned short bits) noexcept;
+			};
+		}
+	}
 }

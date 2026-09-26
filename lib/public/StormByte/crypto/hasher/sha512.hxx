@@ -43,88 +43,101 @@
 #include <StormByte/crypto/hasher/generic.hxx>
 
 /**
- * @brief Hash algorithms of the Crypto module.
+ * @namespace StormByte
+ * @brief Root namespace of the StormByte suite.
  */
-namespace StormByte::Crypto::Hasher {
+namespace StormByte {
 	/**
-	 * @class SHA512
-	 * @brief SHA-512 hasher.
+	 * @namespace StormByte::Crypto
+	 * @brief Crypto module of the StormByte suite.
 	 */
-	class STORMBYTE_CRYPTO_PUBLIC SHA512 final: public Generic {
-		public:
+	namespace Crypto {
+		/**
+		 * @namespace StormByte::Crypto::Hasher
+		 * @brief Hash algorithms of the Crypto module.
+		 */
+		namespace Hasher {
 			/**
-			 * @name Construction
-			 * @{
+			 * @class SHA512
+			 * @brief SHA-512 hasher.
 			 */
-			/**
-			 * @brief Default constructor.
-			 */
-			inline SHA512():
-				Generic(Type::SHA512) {}
+			class STORMBYTE_CRYPTO_PUBLIC SHA512 final: public Generic {
+				public:
+					/**
+					 * @name Construction
+					 * @{
+					 */
+					/**
+					 * @brief Default constructor.
+					 */
+					inline SHA512():
+						Generic(Type::SHA512) {}
 
-			/**
-			 * @brief Copy constructor.
-			 * @param other Hasher to copy.
-			 */
-			SHA512(const SHA512& other) = default;
+					/**
+					 * @brief Copy constructor.
+					 * @param other Hasher to copy.
+					 */
+					SHA512(const SHA512& other) = default;
 
-			/**
-			 * @brief Move constructor.
-			 * @param other Hasher to move.
-			 */
-			SHA512(SHA512&& other) noexcept = default;
+					/**
+					 * @brief Move constructor.
+					 * @param other Hasher to move.
+					 */
+					SHA512(SHA512&& other) noexcept = default;
 
-			/**
-			 * @brief Destructor.
-			 */
-			~SHA512() noexcept = default;
+					/**
+					 * @brief Destructor.
+					 */
+					~SHA512() noexcept = default;
 
-			/**
-			 * @brief Copy assignment.
-			 * @param other Hasher to copy.
-			 * @return Reference to this hasher.
-			 */
-			SHA512& operator=(const SHA512& other) = default;
+					/**
+					 * @brief Copy assignment.
+					 * @param other Hasher to copy.
+					 * @return Reference to this hasher.
+					 */
+					SHA512& operator=(const SHA512& other) = default;
 
-			/**
-			 * @brief Move assignment.
-			 * @param other Hasher to move.
-			 * @return Reference to this hasher.
-			 */
-			SHA512& operator=(SHA512&& other) noexcept = default;
-			/** @} */
+					/**
+					 * @brief Move assignment.
+					 * @param other Hasher to move.
+					 * @return Reference to this hasher.
+					 */
+					SHA512& operator=(SHA512&& other) noexcept = default;
+					/** @} */
 
-			/**
-			 * @brief Clone this hasher.
-			 * @return Shared pointer to the clone.
-			 */
-			inline PointerType Clone() const noexcept override {
-				return std::make_shared<SHA512>(*this);
-			}
+					/**
+					 * @brief Clone this hasher.
+					 * @return Shared pointer to the clone.
+					 */
+					inline PointerType Clone() const noexcept override {
+						return MakePointer<SHA512>(*this);
+					}
 
-			/**
-			 * @brief Move this hasher into a new instance.
-			 * @return Shared pointer to the moved hasher.
-			 */
-			inline PointerType Move() noexcept override {
-				return std::make_shared<SHA512>(std::move(*this));
-			}
+					/**
+					 * @brief Move this hasher into a new instance.
+					 * @return Shared pointer to the moved hasher.
+					 */
+					inline PointerType Move() noexcept override {
+						return MakePointer<SHA512>(std::move(*this));
+					}
 
-		private:
-			/**
-			 * @brief Hash a byte span.
-			 * @param input Input bytes.
-			 * @param output Destination buffer.
-			 * @return true on success.
-			 */
-			bool DoHash(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
+				private:
+					/**
+					 * @brief Hash a byte span.
+					 * @param input Input bytes.
+					 * @param output Destination buffer.
+					 * @return true on success.
+					 */
+					bool DoHash(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
 
-			/**
-			 * @brief Hash a Consumer.
-			 * @param consumer Input consumer.
-			 * @param mode Copy or move.
-			 * @return Consumer with the digest.
-			 */
-			Buffer::Consumer DoHash(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
-	};
+					/**
+					 * @brief Hash a Consumer.
+					 * @param consumer Input consumer.
+					 * @param mode Copy or move.
+					 * @return Consumer with the digest.
+					 */
+					Buffer::Consumer DoHash(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
+			};
+		}
+	}
 }

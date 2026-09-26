@@ -44,89 +44,102 @@
 #include <StormByte/crypto/secret/generic.hxx>
 
 /**
- * @brief Key agreement of the Crypto module.
+ * @namespace StormByte
+ * @brief Root namespace of the StormByte suite.
  */
-namespace StormByte::Crypto::Secret {
+namespace StormByte {
 	/**
-	 * @class X25519
-	 * @brief X25519 shared-secret derivation.
+	 * @namespace StormByte::Crypto
+	 * @brief Crypto module of the StormByte suite.
 	 */
-	class STORMBYTE_CRYPTO_PUBLIC X25519 final: public Generic {
-		public:
+	namespace Crypto {
+		/**
+		 * @namespace StormByte::Crypto::Secret
+		 * @brief Key agreement of the Crypto module.
+		 */
+		namespace Secret {
 			/**
-			 * @name Construction
-			 * @{
+			 * @class X25519
+			 * @brief X25519 shared-secret derivation.
 			 */
-			/**
-			 * @brief Construct from an X25519 keypair (needs private key).
-			 * @param keypair Keypair.
-			 */
-			inline explicit X25519(KeyPair::Generic::PointerType keypair) noexcept
-				: Generic(Type::X25519, std::move(keypair)) {}
+			class STORMBYTE_CRYPTO_PUBLIC X25519 final: public Generic {
+				public:
+					/**
+					 * @name Construction
+					 * @{
+					 */
+					/**
+					 * @brief Construct from an X25519 keypair (needs private key).
+					 * @param keypair Keypair.
+					 */
+					inline explicit X25519(KeyPair::Generic::PointerType keypair) noexcept:
+						Generic(Type::X25519, std::move(keypair)) {}
 
-			/**
-			 * @brief Copy constructor.
-			 * @param other Object to copy.
-			 */
-			X25519(const X25519& other) = default;
+					/**
+					 * @brief Copy constructor.
+					 * @param other Object to copy.
+					 */
+					X25519(const X25519& other) = default;
 
-			/**
-			 * @brief Move constructor.
-			 * @param other Object to move.
-			 */
-			X25519(X25519&& other) noexcept = default;
+					/**
+					 * @brief Move constructor.
+					 * @param other Object to move.
+					 */
+					X25519(X25519&& other) noexcept = default;
 
-			/**
-			 * @brief Destructor.
-			 */
-			~X25519() noexcept override = default;
+					/**
+					 * @brief Destructor.
+					 */
+					~X25519() noexcept override = default;
 
-			/**
-			 * @brief Copy assignment.
-			 * @param other Object to copy.
-			 * @return Reference to this object.
-			 */
-			X25519& operator=(const X25519& other) = default;
+					/**
+					 * @brief Copy assignment.
+					 * @param other Object to copy.
+					 * @return Reference to this object.
+					 */
+					X25519& operator=(const X25519& other) = default;
 
-			/**
-			 * @brief Move assignment.
-			 * @param other Object to move.
-			 * @return Reference to this object.
-			 */
-			X25519& operator=(X25519&& other) noexcept = default;
-			/** @} */
+					/**
+					 * @brief Move assignment.
+					 * @param other Object to move.
+					 * @return Reference to this object.
+					 */
+					X25519& operator=(X25519&& other) noexcept = default;
+					/** @} */
 
-			/**
-			 * @brief Clone this object.
-			 * @return Shared pointer to the clone.
-			 */
-			Generic::PointerType Clone() const override {
-				return std::make_shared<X25519>(*this);
-			}
+					/**
+					 * @brief Clone this object.
+					 * @return Shared pointer to the clone.
+					 */
+					Generic::PointerType Clone() const override {
+						return X25519::MakePointer<X25519>(*this);
+					}
 
-			/**
-			 * @brief Move this object into a new instance.
-			 * @return Shared pointer to the moved object.
-			 */
-			Generic::PointerType Move() override {
-				return std::make_shared<X25519>(std::move(*this));
-			}
+					/**
+					 * @brief Move this object into a new instance.
+					 * @return Shared pointer to the moved object.
+					 */
+					Generic::PointerType Move() override {
+						return X25519::MakePointer<X25519>(std::move(*this));
+					}
 
-			/**
-			 * @brief Derive a shared secret.
-			 * @param peerPublicKey Peer public key as Base64.
-			 * @return Password on success, or empty.
-			 */
-			std::optional<Password> Share(const std::string& peerPublicKey) const noexcept override;
+					/**
+					 * @brief Derive a shared secret.
+					 * @param peerPublicKey Peer public key as Base64.
+					 * @return Password on success, or empty.
+					 */
+					std::optional<Password> Share(const std::string& peerPublicKey) const noexcept override;
 
-			/**
-			 * @brief Derive a shared secret without an instance.
-			 * @param keypair Local keypair (needs private key).
-			 * @param peerPublicKey Peer public key as Base64.
-			 * @return Password on success, or empty.
-			 */
-			static std::optional<Password> DeriveSharedSecret(
-				KeyPair::Generic::PointerType keypair,
-				const std::string& peerPublicKey) noexcept;
-	};
+					/**
+					 * @brief Derive a shared secret without an instance.
+					 * @param keypair Local keypair (needs private key).
+					 * @param peerPublicKey Peer public key as Base64.
+					 * @return Password on success, or empty.
+					 */
+					static std::optional<Password> DeriveSharedSecret(
+						KeyPair::Generic::PointerType keypair,
+						const std::string& peerPublicKey) noexcept;
+			};
+		}
+	}
 }

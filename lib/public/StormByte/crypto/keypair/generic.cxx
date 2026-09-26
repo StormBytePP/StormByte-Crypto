@@ -39,35 +39,32 @@
  */
 
 #include <StormByte/crypto/helpers/secure_wipe.hxx>
+#include <StormByte/crypto/implementation/keypair/api.hxx>
 #include <StormByte/crypto/keypair/dsa.hxx>
 #include <StormByte/crypto/keypair/ecc.hxx>
 #include <StormByte/crypto/keypair/ecdh.hxx>
 #include <StormByte/crypto/keypair/ecdsa.hxx>
 #include <StormByte/crypto/keypair/ed25519.hxx>
 #include <StormByte/crypto/keypair/generic.hxx>
-#include <StormByte/crypto/implementation/keypair/api.hxx>
 #include <StormByte/crypto/keypair/rsa.hxx>
 #include <StormByte/crypto/keypair/x25519.hxx>
 #include <StormByte/crypto/password.hxx>
 #include <StormByte/crypto/random.hxx>
+
+#include <aes.h>
 #include <algorithm>
 #include <array>
-#include <cctype>
-#include <fstream>
-#include <initializer_list>
-#include <iterator>
-#include <span>
-#include <string>
-#include <string_view>
-#include <vector>
-#include <aes.h>
 #include <asn.h>
 #include <base64.h>
+#include <cctype>
 #include <dsa.h>
 #include <eccrypto.h>
 #include <filters.h>
+#include <fstream>
 #include <hmac.h>
+#include <initializer_list>
 #include <integer.h>
+#include <iterator>
 #include <modes.h>
 #include <oids.h>
 #include <osrng.h>
@@ -76,18 +73,26 @@
 #include <rsa.h>
 #include <secblock.h>
 #include <sha.h>
+#include <span>
+#include <string>
+#include <string_view>
+#include <vector>
 #include <xed25519.h>
+
 using namespace StormByte::Crypto::KeyPair;
-using StormByte::Crypto::Password;
-using StormByte::Crypto::RNG;
 using StormByte::Crypto::Helpers::PasswordAccess;
 using StormByte::Crypto::Helpers::SecureWipe;
+using StormByte::Crypto::Password;
+using StormByte::Crypto::RNG;
+
 namespace {
 	constexpr unsigned int kPkcs8Pbkdf2Iterations = 10000;
+
 	struct PemBlock {
 		std::string label;
 		std::vector<CryptoPP::byte> der;
 	};
+
 	CryptoPP::OID MakeOid(std::initializer_list<CryptoPP::word32> arcs) {
 		CryptoPP::OID oid;
 		for (CryptoPP::word32 a : arcs)
@@ -101,6 +106,7 @@ namespace {
 	const CryptoPP::OID kOidAes128Cbc = MakeOid({2, 16, 840, 1, 101, 3, 4, 1, 2});
 	const CryptoPP::OID kOidAes192Cbc = MakeOid({2, 16, 840, 1, 101, 3, 4, 1, 22});
 	const CryptoPP::OID kOidAes256Cbc = MakeOid({2, 16, 840, 1, 101, 3, 4, 1, 42});
+
 	std::vector<CryptoPP::byte> ReadFileBytes(const std::filesystem::path& path) noexcept {
 		try {
 			std::ifstream ifs(path, std::ios::in | std::ios::binary);
@@ -117,8 +123,6 @@ namespace {
 
 	bool WriteFileBytes(const std::filesystem::path& path, const CryptoPP::byte* data, size_t len) noexcept {
 		try {
-			// Refuse to write through a pre-existing symlink: an attacker able to plant one at
-			// the target path could otherwise redirect the write to an arbitrary file.
 			std::error_code ec;
 			if (std::filesystem::is_symlink(std::filesystem::symlink_status(path, ec)))
 				return false;
@@ -133,13 +137,6 @@ namespace {
 		}
 	}
 
-	/**
-	 * @brief Restrict a just-written private key file to the owner only.
-	 *
-	 * Best-effort: some filesystems (e.g. FAT32) or Windows ACLs don't support the full
-	 * POSIX bit set, so failures here are not treated as a write failure.
-	 * @param path File to restrict.
-	 */
 	void RestrictToOwner(const std::filesystem::path& path) noexcept {
 		std::error_code ec;
 		std::filesystem::permissions(
@@ -375,7 +372,6 @@ namespace {
 		return TryLoadEcPrivateSec1(der, priv);
 	}
 
-	// Re-encode private keys to PKCS#8 so crypter/signer always see one format
 	std::vector<CryptoPP::byte> RsaPrivateToPkcs8Der(const CryptoPP::RSA::PrivateKey& priv) {
 		CryptoPP::ByteQueue q;
 		priv.Save(q);
@@ -456,7 +452,6 @@ namespace {
 			return true;
 		}
 
-		// PKCS#1 RSAPrivateKey (no AlgorithmIdentifier OID)
 		{
 			CryptoPP::RSA::PrivateKey rsaPriv;
 			if (TryLoadRsaPrivate(der, rsaPriv)) {
@@ -465,7 +460,6 @@ namespace {
 			}
 		}
 
-		// SEC1 / traditional EC private, or PKCS#8 EC without matching OID scan edge cases
 		{
 			CryptoPP::ECIES<CryptoPP::ECP>::PrivateKey ecPriv;
 			if (TryLoadEcPrivate(der, ecPriv)) {
@@ -487,10 +481,6 @@ namespace {
 	}
 
 	bool IsRaw32(std::span<const CryptoPP::byte> der) noexcept {
-		// Any 32-byte blob may be an X25519/Ed25519 raw key. Do NOT reject
-		// payloads whose first byte is 0x30 (ASN.1 SEQUENCE): that value is a
-		// valid random key byte and excluding it caused intermittent Load/Share
-		// failures (~1/256 key pairs).
 		return der.size() == 32;
 	}
 
@@ -825,18 +815,15 @@ namespace {
 				}
 
 				case Type::X25519: {
-					// Raw 32-byte private scalar (StormByte Generate / some PEM bodies).
 					if (privDer.size() == 32) {
 						CryptoPP::x25519 agreement;
 						CryptoPP::SecByteBlock pub(agreement.PublicKeyLength());
-						// Crypto++: GeneratePublicKey(rng, privateKey, publicKey)
 						agreement.GeneratePublicKey(RNG(), privDer.data(), pub.data());
 						pubQueue.Put(pub.data(), pub.size());
 						StormByte::Crypto::Helpers::SecureWipe(pub);
 						break;
 					}
 
-					// PKCS#8 / Crypto++ Load form
 					CryptoPP::ArraySource src(privDer.data(), privDer.size(), true);
 					CryptoPP::x25519 x;
 					x.Load(src);
@@ -860,19 +847,19 @@ namespace {
 	Generic::PointerType MakeKeyPair(Type type, std::string pubStored, std::optional<Password> priv) noexcept {
 		switch (type) {
 			case Type::DSA:
-				return std::make_shared<DSA>(std::move(pubStored), std::move(priv));
+				return DSA::MakePointer<DSA>(std::move(pubStored), std::move(priv));
 			case Type::ECC:
-				return std::make_shared<ECC>(std::move(pubStored), std::move(priv));
+				return ECC::MakePointer<ECC>(std::move(pubStored), std::move(priv));
 			case Type::ECDH:
-				return std::make_shared<ECDH>(std::move(pubStored), std::move(priv));
+				return ECDH::MakePointer<ECDH>(std::move(pubStored), std::move(priv));
 			case Type::ECDSA:
-				return std::make_shared<ECDSA>(std::move(pubStored), std::move(priv));
+				return ECDSA::MakePointer<ECDSA>(std::move(pubStored), std::move(priv));
 			case Type::ED25519:
-				return std::make_shared<ED25519>(std::move(pubStored), std::move(priv));
+				return ED25519::MakePointer<ED25519>(std::move(pubStored), std::move(priv));
 			case Type::RSA:
-				return std::make_shared<RSA>(std::move(pubStored), std::move(priv));
+				return RSA::MakePointer<RSA>(std::move(pubStored), std::move(priv));
 			case Type::X25519:
-				return std::make_shared<X25519>(std::move(pubStored), std::move(priv));
+				return X25519::MakePointer<X25519>(std::move(pubStored), std::move(priv));
 			default:
 				return nullptr;
 		}
@@ -980,7 +967,7 @@ namespace {
 					);
 					SecureWipe(privRaw);
 					SecureWipe(pubRaw);
-					return std::make_shared<X25519>(std::move(pubStored), std::move(privPwd));
+					return X25519::MakePointer<X25519>(std::move(pubStored), std::move(privPwd));
 				}
 
 				if (pubDer && !pubDer->empty()) {
@@ -994,7 +981,7 @@ namespace {
 						return nullptr;
 					std::string pubStored = Base64Encode(pubRaw.data(), pubRaw.size());
 					SecureWipe(pubRaw);
-					return std::make_shared<X25519>(std::move(pubStored), std::nullopt);
+					return X25519::MakePointer<X25519>(std::move(pubStored), std::nullopt);
 				}
 
 				return nullptr;
@@ -1023,10 +1010,10 @@ namespace {
 						}
 
 						if (type == Type::ECDSA)
-							return std::make_shared<ECDSA>(std::move(pubStored), std::move(privPwd));
+							return ECDSA::MakePointer<ECDSA>(std::move(pubStored), std::move(privPwd));
 						if (type == Type::ECDH)
-							return std::make_shared<ECDH>(std::move(pubStored), std::move(privPwd));
-						return std::make_shared<ECC>(std::move(pubStored), std::move(privPwd));
+							return ECDH::MakePointer<ECDH>(std::move(pubStored), std::move(privPwd));
+						return ECC::MakePointer<ECC>(std::move(pubStored), std::move(privPwd));
 					} catch (...) {
 						return nullptr;
 					}
@@ -1041,10 +1028,10 @@ namespace {
 							return nullptr;
 						std::string pubStored = PublicDerToStored(*pubDer);
 						if (type == Type::ECDSA)
-							return std::make_shared<ECDSA>(std::move(pubStored), std::nullopt);
+							return ECDSA::MakePointer<ECDSA>(std::move(pubStored), std::nullopt);
 						if (type == Type::ECDH)
-							return std::make_shared<ECDH>(std::move(pubStored), std::nullopt);
-						return std::make_shared<ECC>(std::move(pubStored), std::nullopt);
+							return ECDH::MakePointer<ECDH>(std::move(pubStored), std::nullopt);
+						return ECC::MakePointer<ECC>(std::move(pubStored), std::nullopt);
 					} catch (...) {
 						return nullptr;
 					}

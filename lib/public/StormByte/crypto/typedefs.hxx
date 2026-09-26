@@ -40,26 +40,33 @@
 
 #pragma once
 
-#include <StormByte/buffer/generic.hxx>
 #include <StormByte/crypto/exception.hxx>
 #include <StormByte/expected.hxx>
 
-#include <memory>
-
 /**
- * @brief Crypto module of the StormByte suite.
+ * @namespace StormByte
+ * @brief Root namespace of the StormByte suite.
  */
-namespace StormByte::Crypto {
-	class Password;
-
+namespace StormByte {
 	/**
-	 * @enum ReadMode
-	 * @brief How a source buffer is consumed.
+	 * @namespace StormByte::Crypto
+	 * @brief Crypto module of the StormByte suite.
 	 */
-	enum class ReadMode: unsigned short {
-		Copy,	///< Copy the input
-		Move	///< Consume the input
-	};
+	namespace Crypto {
+		class Password;
 
-	using ExpectedPassword = StormByte::Expected<Password, VaultException>;	///< Password or Vault exception
+		/**
+		 * @enum ReadMode
+		 * @brief How a source buffer is consumed.
+		 */
+		enum class ReadMode: unsigned short {
+			Copy,	///< Copy the input
+			Move	///< Consume the input
+		};
+
+		/**
+		 * @brief Password or a vault error.
+		 */
+		using ExpectedPassword = StormByte::Expected<Password, VaultException>;
+	}
 }

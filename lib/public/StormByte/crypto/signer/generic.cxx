@@ -41,27 +41,32 @@
 #include <StormByte/crypto/signer/dsa.hxx>
 #include <StormByte/crypto/signer/ecdsa.hxx>
 #include <StormByte/crypto/signer/ed25519.hxx>
+#include <StormByte/crypto/signer/generic.hxx>
 #include <StormByte/crypto/signer/rsa.hxx>
+
+#include <span>
+
 using namespace StormByte::Crypto::Signer;
+
 bool Generic::DoSign(Buffer::ReadOnly& input, Buffer::WriteOnly& output, ReadMode mode) const noexcept {
-	Buffer::DataType data;
+	StormByte::BinaryData data;
 	bool read_ok;
 	if (mode == ReadMode::Copy)
-		read_ok = input.Read(data);
+		read_ok = input.Read(StormByte::ByteSize{0}, data);
 	else
-		read_ok = input.Extract(data);
+		read_ok = input.Extract(StormByte::ByteSize{0}, data);
 	if (!read_ok)
 		return false;
 	return DoSign(std::span<const std::byte>(data.data(), data.size()), output);
 }
 
 bool Generic::DoVerify(Buffer::ReadOnly& input, const std::string& signature, ReadMode mode) const noexcept {
-	Buffer::DataType data;
+	StormByte::BinaryData data;
 	bool read_ok;
 	if (mode == ReadMode::Copy)
-		read_ok = input.Read(data);
+		read_ok = input.Read(StormByte::ByteSize{0}, data);
 	else
-		read_ok = input.Extract(data);
+		read_ok = input.Extract(StormByte::ByteSize{0}, data);
 	if (!read_ok)
 		return false;
 	return DoVerify(std::span<const std::byte>(data.data(), data.size()), signature);
@@ -75,19 +80,19 @@ namespace StormByte::Crypto::Signer {
 			case Type::DSA:
 				if (keypair->Type() != KeyPair::Type::DSA)
 					return nullptr;
-				return std::make_shared<DSA>(keypair);
+				return DSA::MakePointer<DSA>(keypair);
 			case Type::ECDSA:
 				if (keypair->Type() != KeyPair::Type::ECDSA)
 					return nullptr;
-				return std::make_shared<ECDSA>(keypair);
+				return ECDSA::MakePointer<ECDSA>(keypair);
 			case Type::ED25519:
 				if (keypair->Type() != KeyPair::Type::ED25519)
 					return nullptr;
-				return std::make_shared<ED25519>(keypair);
+				return ED25519::MakePointer<ED25519>(keypair);
 			case Type::RSA:
 				if (keypair->Type() != KeyPair::Type::RSA)
 					return nullptr;
-				return std::make_shared<RSA>(keypair);
+				return RSA::MakePointer<RSA>(keypair);
 			default:
 				return nullptr;
 		}

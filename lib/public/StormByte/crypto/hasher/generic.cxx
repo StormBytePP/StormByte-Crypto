@@ -40,18 +40,23 @@
 
 #include <StormByte/crypto/hasher/blake2b.hxx>
 #include <StormByte/crypto/hasher/blake2s.hxx>
+#include <StormByte/crypto/hasher/generic.hxx>
+#include <StormByte/crypto/hasher/sha256.hxx>
 #include <StormByte/crypto/hasher/sha3_256.hxx>
 #include <StormByte/crypto/hasher/sha3_512.hxx>
-#include <StormByte/crypto/hasher/sha256.hxx>
 #include <StormByte/crypto/hasher/sha512.hxx>
+
+#include <span>
+
 using namespace StormByte::Crypto::Hasher;
+
 bool Generic::DoHash(Buffer::ReadOnly& input, Buffer::WriteOnly& output, ReadMode mode) const noexcept {
-	Buffer::DataType data;
+	StormByte::BinaryData data;
 	bool read_ok;
 	if (mode == ReadMode::Copy)
-		read_ok = input.Read(data);
+		read_ok = input.Read(StormByte::ByteSize{0}, data);
 	else
-		read_ok = input.Extract(data);
+		read_ok = input.Extract(StormByte::ByteSize{0}, data);
 	if (!read_ok)
 		return false;
 	return DoHash(std::span<const std::byte>(data.data(), data.size()), output);
@@ -61,17 +66,17 @@ namespace StormByte::Crypto::Hasher {
 	Generic::PointerType Create(Type type) noexcept {
 		switch (type) {
 			case Type::Blake2b:
-				return std::make_shared<Blake2b>();
+				return Blake2b::MakePointer<Blake2b>();
 			case Type::Blake2s:
-				return std::make_shared<Blake2s>();
+				return Blake2s::MakePointer<Blake2s>();
 			case Type::SHA256:
-				return std::make_shared<SHA256>();
+				return SHA256::MakePointer<SHA256>();
 			case Type::SHA512:
-				return std::make_shared<SHA512>();
+				return SHA512::MakePointer<SHA512>();
 			case Type::SHA3_256:
-				return std::make_shared<SHA3_256>();
+				return SHA3_256::MakePointer<SHA3_256>();
 			case Type::SHA3_512:
-				return std::make_shared<SHA3_512>();
+				return SHA3_512::MakePointer<SHA3_512>();
 			default:
 				return nullptr;
 		}

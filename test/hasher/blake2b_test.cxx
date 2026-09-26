@@ -38,102 +38,105 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
+#include "helpers.hxx"
+
 #include <StormByte/buffer/fifo.hxx>
 #include <StormByte/buffer/producer.hxx>
 #include <StormByte/crypto/hasher/blake2b.hxx>
 #include <StormByte/test_handlers.h>
-#include "helpers.hxx"
-#include <thread>
+
 using StormByte::Buffer::FIFO;
 using namespace StormByte::Crypto;
-int TestBlake2bHashCorrectness() {
-	const std::string fn_name = "TestBlake2bHashCorrectness";
-	const std::string input_data = "HashThisString";
-	// Correct expected Blake2b hash value (uppercase, split into two lines for readability)
-	const std::string expected_hash = 
+
+namespace {
+	const std::string kExpectedHashThisString =
 		"66CCD3A78741E16F894F2FB20045A8678D12B73D9CBA95D3473B1029781D6587"
 		"648E839960BDA14F0FF075C0EC9E7ED1AA13197BEED8B027EEA32800453CC7F8";
+}
+
+// -------------------
+// Correctness
+// -------------------
+
+int test_blake2b_hash_correctness() {
+	const std::string fn_name = "test_blake2b_hash_correctness";
+	const std::string input_data = "HashThisString";
 	Hasher::Blake2b blake2b;
-	// Compute hash for the input string
 	FIFO hash;
-	auto hash_result = blake2b.Hash(std::span<const std::byte>(reinterpret_cast<const std::byte*>(input_data.data()), input_data.size()), hash);
-	ASSERT_TRUE(fn_name, hash_result);
-	std::string actual_hash = StormByte::String::FromByteVector(hash.Data());
-	// Validate the hash matches the expected value
-	ASSERT_EQUAL(fn_name, expected_hash, actual_hash);
+	ASSERT_TRUE(fn_name, blake2b.Hash(std::span<const std::byte>(
+		reinterpret_cast<const std::byte*>(input_data.data()), input_data.size()), hash));
+	ASSERT_EQUAL(fn_name, kExpectedHashThisString, DeserializeString(hash.Data()));
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestBlake2bCollisionResistance() {
-	const std::string fn_name = "TestBlake2bCollisionResistance";
-	const std::string input_data_1 = "Original Input Data";
-	const std::string input_data_2 = "Original Input Data!"; // Slightly different input
+// -------------------
+// Distinct inputs
+// -------------------
+
+int test_blake2b_collision_resistance() {
+	const std::string fn_name = "test_blake2b_collision_resistance";
 	Hasher::Blake2b blake2b;
-	// Compute hash for input_data_1
 	FIFO hash_1_fifo;
-	auto hash_result_1 = blake2b.Hash(std::span<const std::byte>(reinterpret_cast<const std::byte*>(input_data_1.data()), input_data_1.size()), hash_1_fifo);
-	ASSERT_TRUE(fn_name, hash_result_1);
-	std::string hash_1 = StormByte::String::FromByteVector(hash_1_fifo.Data());
-	// Compute hash for input_data_2
+	ASSERT_TRUE(fn_name, blake2b.Hash(std::span<const std::byte>(
+		reinterpret_cast<const std::byte*>("Original Input Data"), 19), hash_1_fifo));
 	FIFO hash_2_fifo;
-	auto hash_result_2 = blake2b.Hash(std::span<const std::byte>(reinterpret_cast<const std::byte*>(input_data_2.data()), input_data_2.size()), hash_2_fifo);
-	ASSERT_TRUE(fn_name, hash_result_2);
-	std::string hash_2 = StormByte::String::FromByteVector(hash_2_fifo.Data());
-	// Ensure the hashes are different
-	ASSERT_NOT_EQUAL(fn_name, StormByte::String::FromByteVector(hash_1_fifo.Data()), StormByte::String::FromByteVector(hash_2_fifo.Data()));
+	ASSERT_TRUE(fn_name, blake2b.Hash(std::span<const std::byte>(
+		reinterpret_cast<const std::byte*>("Original Input Data!"), 20), hash_2_fifo));
+	ASSERT_NOT_EQUAL(fn_name, DeserializeString(hash_1_fifo.Data()), DeserializeString(hash_2_fifo.Data()));
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestBlake2bProducesDifferentContent() {
-	const std::string fn_name = "TestBlake2bProducesDifferentContent";
+int test_blake2b_produces_different_content() {
+	const std::string fn_name = "test_blake2b_produces_different_content";
 	const std::string original_data = "Data to hash";
 	Hasher::Blake2b blake2b;
-	// Generate the hash
 	FIFO hash;
-	auto hash_result = blake2b.Hash(std::span<const std::byte>(reinterpret_cast<const std::byte*>(original_data.data()), original_data.size()), hash);
-	ASSERT_TRUE(fn_name, hash_result);
-	std::string hashed_data = StormByte::String::FromByteVector(hash.Data());
-	// Verify hashed content is different from original
-	ASSERT_NOT_EQUAL(fn_name, original_data, hashed_data);
+	ASSERT_TRUE(fn_name, blake2b.Hash(std::span<const std::byte>(
+		reinterpret_cast<const std::byte*>(original_data.data()), original_data.size()), hash));
+	ASSERT_NOT_EQUAL(fn_name, original_data, DeserializeString(hash.Data()));
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestBlake2bHashUsingConsumerProducer() {
-	const std::string fn_name = "TestBlake2bHashUsingConsumerProducer";
-	const std::string input_data = "HashThisString";
-	// Expected Blake2b hash value (from TestBlake2bHashCorrectness)
-	const std::string expected_hash = 
-		"66CCD3A78741E16F894F2FB20045A8678D12B73D9CBA95D3473B1029781D6587"
-		"648E839960BDA14F0FF075C0EC9E7ED1AA13197BEED8B027EEA32800453CC7F8";
+// -------------------
+// Stream
+// -------------------
+
+int test_blake2b_hash_using_consumer_producer() {
+	const std::string fn_name = "test_blake2b_hash_using_consumer_producer";
 	Hasher::Blake2b blake2b;
-	// Create a producer buffer and write the input data
 	StormByte::Buffer::Producer producer;
-	producer.Write(input_data);
+	producer.Write(std::string("HashThisString"));
 	producer.Close();
-	// Create a consumer buffer from the producer
-	StormByte::Buffer::Consumer consumer(producer.Consumer());
-	// Hash the data asynchronously
-	auto hash_consumer = blake2b.Hash(consumer);
+	auto hash_consumer = blake2b.Hash(producer.Consumer());
 	ASSERT_TRUE(fn_name, hash_consumer.IsWritable() || !hash_consumer.Empty());
-	// Read the hash result from the hash_consumer
 	auto hash_result = ReadAllFromConsumer(hash_consumer);
-	ASSERT_FALSE(fn_name, hash_result.Empty()); // Ensure hash result is not empty
-	std::string hashed_data = DeserializeString(hash_result);
-	ASSERT_EQUAL(fn_name, expected_hash, hashed_data);
+	ASSERT_FALSE(fn_name, hash_result.Empty());
+	ASSERT_EQUAL(fn_name, kExpectedHashThisString, DeserializeString(hash_result));
 	RETURN_TEST(fn_name, 0);
 }
 
 int main() {
 	int result = 0;
-	result += TestBlake2bHashCorrectness();
-	result += TestBlake2bCollisionResistance();
-	result += TestBlake2bProducesDifferentContent();
-	result += TestBlake2bHashUsingConsumerProducer();
-	if (result == 0) {
-		std::cout << "All tests passed!" << std::endl;
-	} else {
-		std::cout << result << " tests failed." << std::endl;
-	}
 
+	// -------------------
+	// Correctness
+	// -------------------
+	result += test_blake2b_hash_correctness();
+
+	// -------------------
+	// Distinct inputs
+	// -------------------
+	result += test_blake2b_collision_resistance();
+	result += test_blake2b_produces_different_content();
+
+	// -------------------
+	// Stream
+	// -------------------
+	result += test_blake2b_hash_using_consumer_producer();
+
+	if (result == 0)
+		std::cout << "All tests passed!" << std::endl;
+	else
+		std::cout << result << " tests failed." << std::endl;
 	return result;
 }

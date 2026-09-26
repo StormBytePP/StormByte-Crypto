@@ -38,13 +38,16 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
-#include <StormByte/crypto/keypair/ecc.hxx>
 #include <StormByte/crypto/implementation/keypair/api.hxx>
+#include <StormByte/crypto/keypair/ecc.hxx>
 #include <StormByte/crypto/password.hxx>
 #include <StormByte/crypto/random.hxx>
+
 #include <eccrypto.h>
 #include <oids.h>
+
 using namespace StormByte::Crypto::KeyPair;
+
 ECC::PointerType ECC::Generate(unsigned short bits) noexcept {
 	try {
 		CryptoPP::OID curve;
@@ -64,7 +67,7 @@ ECC::PointerType ECC::Generate(unsigned short bits) noexcept {
 
 		CryptoPP::ECIES<CryptoPP::ECP>::Decryptor decryptor(RNG(), curve);
 		CryptoPP::ECIES<CryptoPP::ECP>::Encryptor encryptor(decryptor);
-		return std::make_shared<ECC>(
+		return MakePointer<ECC>(
 			Implementation::KeyPair::SerializeKey(encryptor.GetPublicKey()),
 			Implementation::KeyPair::SerializeKeyBinary(decryptor.GetPrivateKey())
 		);

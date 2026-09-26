@@ -44,99 +44,112 @@
 #include <StormByte/crypto/secret/generic.hxx>
 
 /**
- * @brief Key agreement of the Crypto module.
+ * @namespace StormByte
+ * @brief Root namespace of the StormByte suite.
  */
-namespace StormByte::Crypto::Secret {
+namespace StormByte {
 	/**
-	 * @class ECDH
-	 * @brief ECDH shared-secret derivation.
+	 * @namespace StormByte::Crypto
+	 * @brief Crypto module of the StormByte suite.
 	 */
-	class STORMBYTE_CRYPTO_PUBLIC ECDH final: public Generic {
-		public:
+	namespace Crypto {
+		/**
+		 * @namespace StormByte::Crypto::Secret
+		 * @brief Key agreement of the Crypto module.
+		 */
+		namespace Secret {
 			/**
-			 * @name Construction
-			 * @{
+			 * @class ECDH
+			 * @brief ECDH shared-secret derivation.
 			 */
-			/**
-			 * @brief Construct from a keypair pointer.
-			 * @param keypair Must be @ref KeyPair::Type::ECDH.
-			 * @param bits Curve size in bits. Must match the keypair.
-			 */
-			inline ECDH(KeyPair::Generic::PointerType keypair, unsigned short bits = 256) noexcept:
-				Generic(Type::ECDH, keypair), m_bits(bits) {}
+			class STORMBYTE_CRYPTO_PUBLIC ECDH final: public Generic {
+				public:
+					/**
+					 * @name Construction
+					 * @{
+					 */
+					/**
+					 * @brief Construct from a keypair pointer.
+					 * @param keypair Must be @ref KeyPair::Type::ECDH.
+					 * @param bits Curve size in bits. Must match the keypair.
+					 */
+					inline ECDH(KeyPair::Generic::PointerType keypair, unsigned short bits = 256) noexcept:
+						Generic(Type::ECDH, keypair), m_bits(bits) {}
 
-			/**
-			 * @brief Construct by cloning an ECDH keypair.
-			 * @param keypair Keypair.
-			 * @param bits Curve size in bits.
-			 */
-			inline ECDH(const KeyPair::ECDH& keypair, unsigned short bits = 256) noexcept:
-				Generic(Type::ECDH, keypair.Clone()), m_bits(bits) {}
+					/**
+					 * @brief Construct by cloning an ECDH keypair.
+					 * @param keypair Keypair.
+					 * @param bits Curve size in bits.
+					 */
+					inline ECDH(const KeyPair::ECDH& keypair, unsigned short bits = 256) noexcept:
+						Generic(Type::ECDH, keypair.Clone()), m_bits(bits) {}
 
-			/**
-			 * @brief Construct by moving an ECDH keypair.
-			 * @param keypair Keypair.
-			 * @param bits Curve size in bits.
-			 */
-			inline ECDH(KeyPair::ECDH&& keypair, unsigned short bits = 256) noexcept:
-				Generic(Type::ECDH, keypair.Move()), m_bits(bits) {}
+					/**
+					 * @brief Construct by moving an ECDH keypair.
+					 * @param keypair Keypair.
+					 * @param bits Curve size in bits.
+					 */
+					inline ECDH(KeyPair::ECDH&& keypair, unsigned short bits = 256) noexcept:
+						Generic(Type::ECDH, keypair.Move()), m_bits(bits) {}
 
-			/**
-			 * @brief Copy constructor.
-			 * @param other Object to copy.
-			 */
-			ECDH(const ECDH& other) = default;
+					/**
+					 * @brief Copy constructor.
+					 * @param other Object to copy.
+					 */
+					ECDH(const ECDH& other) = default;
 
-			/**
-			 * @brief Move constructor.
-			 * @param other Object to move.
-			 */
-			ECDH(ECDH&& other) noexcept = default;
+					/**
+					 * @brief Move constructor.
+					 * @param other Object to move.
+					 */
+					ECDH(ECDH&& other) noexcept = default;
 
-			/**
-			 * @brief Destructor.
-			 */
-			~ECDH() noexcept override = default;
+					/**
+					 * @brief Destructor.
+					 */
+					~ECDH() noexcept override = default;
 
-			/**
-			 * @brief Copy assignment.
-			 * @param other Object to copy.
-			 * @return Reference to this object.
-			 */
-			ECDH& operator=(const ECDH& other) = default;
+					/**
+					 * @brief Copy assignment.
+					 * @param other Object to copy.
+					 * @return Reference to this object.
+					 */
+					ECDH& operator=(const ECDH& other) = default;
 
-			/**
-			 * @brief Move assignment.
-			 * @param other Object to move.
-			 * @return Reference to this object.
-			 */
-			ECDH& operator=(ECDH&& other) noexcept = default;
-			/** @} */
+					/**
+					 * @brief Move assignment.
+					 * @param other Object to move.
+					 * @return Reference to this object.
+					 */
+					ECDH& operator=(ECDH&& other) noexcept = default;
+					/** @} */
 
-			/**
-			 * @brief Clone this object.
-			 * @return Shared pointer to the clone.
-			 */
-			PointerType Clone() const noexcept override {
-				return std::make_shared<ECDH>(*this);
-			}
+					/**
+					 * @brief Clone this object.
+					 * @return Shared pointer to the clone.
+					 */
+					PointerType Clone() const noexcept override {
+						return ECDH::MakePointer<ECDH>(*this);
+					}
 
-			/**
-			 * @brief Move this object into a new instance.
-			 * @return Shared pointer to the moved object.
-			 */
-			PointerType Move() noexcept override {
-				return std::make_shared<ECDH>(std::move(*this));
-			}
+					/**
+					 * @brief Move this object into a new instance.
+					 * @return Shared pointer to the moved object.
+					 */
+					PointerType Move() noexcept override {
+						return ECDH::MakePointer<ECDH>(std::move(*this));
+					}
 
-			/**
-			 * @brief Derive a shared secret.
-			 * @param peerPublicKey Peer public key.
-			 * @return Password on success, or empty.
-			 */
-			std::optional<Password> Share(const std::string& peerPublicKey) const noexcept override;
+					/**
+					 * @brief Derive a shared secret.
+					 * @param peerPublicKey Peer public key.
+					 * @return Password on success, or empty.
+					 */
+					std::optional<Password> Share(const std::string& peerPublicKey) const noexcept override;
 
-		private:
-			unsigned short m_bits;	///< Curve size in bits
-	};
+				private:
+					unsigned short m_bits;	///< Curve size in bits
+			};
+		}
+	}
 }

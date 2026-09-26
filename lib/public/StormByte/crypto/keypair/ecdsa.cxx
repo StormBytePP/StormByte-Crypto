@@ -38,13 +38,16 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
-#include <StormByte/crypto/keypair/ecdsa.hxx>
 #include <StormByte/crypto/implementation/keypair/api.hxx>
+#include <StormByte/crypto/keypair/ecdsa.hxx>
 #include <StormByte/crypto/password.hxx>
 #include <StormByte/crypto/random.hxx>
+
 #include <eccrypto.h>
 #include <oids.h>
+
 using namespace StormByte::Crypto::KeyPair;
+
 ECDSA::PointerType ECDSA::Generate(unsigned short bits) noexcept {
 	try {
 		CryptoPP::OID curve;
@@ -66,7 +69,7 @@ ECDSA::PointerType ECDSA::Generate(unsigned short bits) noexcept {
 		privateKey.Initialize(RNG(), curve);
 		CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>::PublicKey publicKey;
 		privateKey.MakePublicKey(publicKey);
-		return std::make_shared<ECDSA>(
+		return MakePointer<ECDSA>(
 			Implementation::KeyPair::SerializeKey(publicKey),
 			Implementation::KeyPair::SerializeKeyBinary(privateKey)
 		);

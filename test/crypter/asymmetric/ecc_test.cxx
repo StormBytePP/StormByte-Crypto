@@ -38,275 +38,214 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
+#include "helpers.hxx"
+
 #include <StormByte/buffer/producer.hxx>
 #include <StormByte/crypto/crypter/asymmetric/ecc.hxx>
 #include <StormByte/test_handlers.h>
-#include "helpers.hxx"
-#include <thread>
+
 using StormByte::Buffer::FIFO;
 using namespace StormByte::Crypto;
-constexpr const unsigned short curve_bits = 256;
-int TestECCEncryptDecrypt() {
-	const std::string fn_name = "TestECCEncryptDecrypt";
-	const std::string message = "This is a test message.";
-	auto keypair_result = KeyPair::ECC::Generate(curve_bits);
-	ASSERT_TRUE(fn_name, keypair_result);
-	Crypter::ECC ecc(keypair_result);
-	FIFO encrypted_data;
-	auto encrypt_result = ecc.Encrypt(std::span<const std::byte>(reinterpret_cast<const std::byte*>(message.data()), message.size()), encrypted_data);
-	ASSERT_TRUE(fn_name, encrypt_result);
-	auto encrypted_string = StormByte::String::FromByteVector(encrypted_data.Data());
-	FIFO decrypted_data;
-	auto decrypt_result = ecc.Decrypt(std::span<const std::byte>(reinterpret_cast<const std::byte*>(encrypted_string.data()), encrypted_string.size()), decrypted_data);
-	ASSERT_TRUE(fn_name, decrypt_result);
-	std::string decrypted_message = StormByte::String::FromByteVector(decrypted_data.Data());
-	ASSERT_EQUAL(fn_name, decrypted_message, message);
-	RETURN_TEST(fn_name, 0);
-}
 
-int TestECCDecryptionWithCorruptedData() {
-	const std::string fn_name = "TestECCDecryptionWithCorruptedData";
-	const std::string message = "Important message!";
-	auto keypair_result = KeyPair::ECC::Generate(curve_bits);
-	ASSERT_TRUE(fn_name, keypair_result);
-	Crypter::ECC ecc(keypair_result);
-	FIFO encrypted_data;
-	auto encrypt_result = ecc.Encrypt(std::span<const std::byte>(reinterpret_cast<const std::byte*>(message.data()), message.size()), encrypted_data);
-	ASSERT_TRUE(fn_name, encrypt_result);
-	auto encrypted_string = StormByte::String::FromByteVector(encrypted_data.Data());
-	ASSERT_FALSE(fn_name, encrypted_string.empty());
-	auto corrupted_string = encrypted_string;
-	if (!corrupted_string.empty()) {
-		corrupted_string[0] = ~corrupted_string[0];
+namespace {
+	constexpr unsigned short kCurveBits = 256;
+
+	std::span<const std::byte> Bytes(const std::string& s) {
+		return { reinterpret_cast<const std::byte*>(s.data()), s.size() };
 	}
-
-	FIFO decrypted_data;
-	auto decrypt_result = ecc.Decrypt(std::span<const std::byte>(reinterpret_cast<const std::byte*>(corrupted_string.data()), corrupted_string.size()), decrypted_data);
-	ASSERT_FALSE(fn_name, decrypt_result);
-	RETURN_TEST(fn_name, 0);
+	std::span<const std::byte> Bytes(const FIFO& f) {
+		const auto& d = f.Data();
+		return { d.data(), static_cast<size_t>(d.size()) };
+	}
 }
 
-int TestECCDecryptWithMismatchedKey() {
-	const std::string fn_name = "TestECCDecryptWithMismatchedKey";
-	const std::string message = "Sensitive message.";
-	auto keypair_result = KeyPair::ECC::Generate(curve_bits);
-	ASSERT_TRUE(fn_name, keypair_result);
-	Crypter::ECC ecc(keypair_result);
-	auto keypair_result_2 = KeyPair::ECC::Generate(curve_bits);
-	ASSERT_TRUE(fn_name, keypair_result_2);
-	Crypter::ECC ecc2(keypair_result_2);
-	FIFO encrypted_data;
-	auto encrypt_result = ecc.Encrypt(std::span<const std::byte>(reinterpret_cast<const std::byte*>(message.data()), message.size()), encrypted_data);
-	ASSERT_TRUE(fn_name, encrypt_result);
-	auto encrypted_string = StormByte::String::FromByteVector(encrypted_data.Data());
-	FIFO decrypted_data;
-	auto decrypt_result = ecc2.Decrypt(std::span<const std::byte>(reinterpret_cast<const std::byte*>(encrypted_string.data()), encrypted_string.size()), decrypted_data);
-	ASSERT_FALSE(fn_name, decrypt_result);
-	RETURN_TEST(fn_name, 0);
-}
+// -------------------
+// Native
+// -------------------
 
-int TestECCWithCorruptedKeys() {
-	const std::string fn_name = "TestECCWithCorruptedKeys";
+int test_ecc_encrypt_decrypt() {
+	const std::string fn_name = "test_ecc_encrypt_decrypt";
 	const std::string message = "This is a test message.";
-	auto keypair_result = KeyPair::ECC::Generate(curve_bits);
-	ASSERT_TRUE(fn_name, keypair_result);
-	std::string corrupted_public_key = keypair_result->PublicKey();
-	if (!corrupted_public_key.empty())
-		corrupted_public_key[0] = static_cast<char>(~corrupted_public_key[0]);
-	auto badKp = std::make_shared<KeyPair::ECC>(
-		std::move(corrupted_public_key),
+	auto kp = KeyPair::ECC::Generate(kCurveBits);
+	ASSERT_TRUE(fn_name, static_cast<bool>(kp));
+	Crypter::ECC ecc(kp);
+	FIFO encrypted, decrypted;
+	ASSERT_TRUE(fn_name, ecc.Encrypt(Bytes(message), encrypted));
+	ASSERT_TRUE(fn_name, ecc.Decrypt(Bytes(encrypted), decrypted));
+	ASSERT_EQUAL(fn_name, DeserializeString(decrypted.Data()), message);
+	RETURN_TEST(fn_name, 0);
+}
+
+int test_ecc_encryption_produces_different_content() {
+	const std::string fn_name = "test_ecc_encryption_produces_different_content";
+	const std::string original = "ECC test message";
+	auto kp = KeyPair::ECC::Generate(kCurveBits);
+	ASSERT_TRUE(fn_name, static_cast<bool>(kp));
+	Crypter::ECC ecc(kp);
+	FIFO encrypted;
+	ASSERT_TRUE(fn_name, ecc.Encrypt(Bytes(original), encrypted));
+	ASSERT_NOT_EQUAL(fn_name, original, DeserializeString(encrypted.Data()));
+	RETURN_TEST(fn_name, 0);
+}
+
+int test_ecc_encrypt_decrypt_using_consumer_producer() {
+	const std::string fn_name = "test_ecc_encrypt_decrypt_using_consumer_producer";
+	const std::string input = "This is some data to encrypt using the Consumer/Producer model.";
+	auto kp = KeyPair::ECC::Generate(kCurveBits);
+	ASSERT_TRUE(fn_name, static_cast<bool>(kp));
+	Crypter::ECC ecc(kp);
+	StormByte::Buffer::Producer producer;
+	producer.Write(input);
+	producer.Close();
+	auto encrypted = ecc.Encrypt(producer.Consumer());
+	auto decrypted = ecc.Decrypt(encrypted);
+	auto data = ReadAllFromConsumer(decrypted);
+	ASSERT_FALSE(fn_name, data.Empty());
+	ASSERT_EQUAL(fn_name, input, DeserializeString(data));
+	RETURN_TEST(fn_name, 0);
+}
+
+int test_ecc_encrypt_decrypt_native_explicit() {
+	const std::string fn_name = "test_ecc_encrypt_decrypt_native_explicit";
+	const std::string message = "Explicit Native strategy round-trip for ECC.";
+	auto kp = KeyPair::ECC::Generate(kCurveBits);
+	ASSERT_TRUE(fn_name, static_cast<bool>(kp));
+	Crypter::ECC ecc(kp);
+	FIFO encrypted, decrypted;
+	ASSERT_TRUE(fn_name, ecc.Encrypt(Bytes(message), encrypted, Crypter::Asymmetric::Strategy::Native));
+	ASSERT_FALSE(fn_name, encrypted.Empty());
+	ASSERT_TRUE(fn_name, ecc.Decrypt(Bytes(encrypted), decrypted));
+	ASSERT_EQUAL(fn_name, DeserializeString(decrypted.Data()), message);
+	RETURN_TEST(fn_name, 0);
+}
+
+int test_ecc_encrypt_decrypt_native_explicit_streaming() {
+	const std::string fn_name = "test_ecc_encrypt_decrypt_native_explicit_streaming";
+	const std::string input = "Native explicit streaming with auto-detect decrypt.";
+	auto kp = KeyPair::ECC::Generate(kCurveBits);
+	ASSERT_TRUE(fn_name, static_cast<bool>(kp));
+	Crypter::ECC ecc(kp);
+	StormByte::Buffer::Producer producer;
+	producer.Write(input);
+	producer.Close();
+	auto encrypted = ecc.Encrypt(producer.Consumer(), Crypter::Asymmetric::Strategy::Native);
+	auto decrypted = ecc.Decrypt(encrypted);
+	auto data = ReadAllFromConsumer(decrypted);
+	ASSERT_FALSE(fn_name, data.Empty());
+	ASSERT_EQUAL(fn_name, input, DeserializeString(data));
+	RETURN_TEST(fn_name, 0);
+}
+
+// -------------------
+// Hybrid
+// -------------------
+
+int test_ecc_encrypt_decrypt_hybrid() {
+	const std::string fn_name = "test_ecc_encrypt_decrypt_hybrid";
+	const std::string message = "This is a hybrid envelope test message for ECC.";
+	auto kp = KeyPair::ECC::Generate(kCurveBits);
+	ASSERT_TRUE(fn_name, static_cast<bool>(kp));
+	Crypter::ECC ecc(kp);
+	FIFO encrypted, decrypted;
+	ASSERT_TRUE(fn_name, ecc.Encrypt(Bytes(message), encrypted, Crypter::Asymmetric::Strategy::Hybrid));
+	ASSERT_FALSE(fn_name, encrypted.Empty());
+	ASSERT_TRUE(fn_name, ecc.Decrypt(Bytes(encrypted), decrypted));
+	ASSERT_EQUAL(fn_name, DeserializeString(decrypted.Data()), message);
+	RETURN_TEST(fn_name, 0);
+}
+
+int test_ecc_encrypt_decrypt_hybrid_streaming() {
+	const std::string fn_name = "test_ecc_encrypt_decrypt_hybrid_streaming";
+	const std::string input = "This is some data to encrypt using Hybrid envelope with Consumer/Producer model.";
+	auto kp = KeyPair::ECC::Generate(kCurveBits);
+	ASSERT_TRUE(fn_name, static_cast<bool>(kp));
+	Crypter::ECC ecc(kp);
+	StormByte::Buffer::Producer producer;
+	producer.Write(input);
+	producer.Close();
+	auto encrypted = ecc.Encrypt(producer.Consumer(), Crypter::Asymmetric::Strategy::Hybrid);
+	auto decrypted = ecc.Decrypt(encrypted);
+	auto data = ReadAllFromConsumer(decrypted);
+	ASSERT_FALSE(fn_name, data.Empty());
+	ASSERT_EQUAL(fn_name, input, DeserializeString(data));
+	RETURN_TEST(fn_name, 0);
+}
+
+int test_ecc_hybrid_vs_native_different_output() {
+	const std::string fn_name = "test_ecc_hybrid_vs_native_different_output";
+	const std::string message = "Same message for both modes";
+	auto kp = KeyPair::ECC::Generate(kCurveBits);
+	ASSERT_TRUE(fn_name, static_cast<bool>(kp));
+	Crypter::ECC ecc(kp);
+	FIFO native_encrypted, hybrid_encrypted;
+	ASSERT_TRUE(fn_name, ecc.Encrypt(Bytes(message), native_encrypted, Crypter::Asymmetric::Strategy::Native));
+	ASSERT_TRUE(fn_name, ecc.Encrypt(Bytes(message), hybrid_encrypted, Crypter::Asymmetric::Strategy::Hybrid));
+	ASSERT_NOT_EQUAL(fn_name, DeserializeString(native_encrypted.Data()), DeserializeString(hybrid_encrypted.Data()));
+	RETURN_TEST(fn_name, 0);
+}
+
+// -------------------
+// Failure modes
+// -------------------
+
+int test_ecc_decryption_with_corrupted_data() {
+	const std::string fn_name = "test_ecc_decryption_with_corrupted_data";
+	const std::string message = "Important message!";
+	auto kp = KeyPair::ECC::Generate(kCurveBits);
+	ASSERT_TRUE(fn_name, static_cast<bool>(kp));
+	Crypter::ECC ecc(kp);
+	FIFO encrypted, decrypted;
+	ASSERT_TRUE(fn_name, ecc.Encrypt(Bytes(message), encrypted));
+	auto corrupted = DeserializeString(encrypted.Data());
+	ASSERT_FALSE(fn_name, corrupted.empty());
+	corrupted[0] = static_cast<char>(~corrupted[0]);
+	ASSERT_FALSE(fn_name, ecc.Decrypt(Bytes(corrupted), decrypted));
+	RETURN_TEST(fn_name, 0);
+}
+
+int test_ecc_decrypt_with_mismatched_key() {
+	const std::string fn_name = "test_ecc_decrypt_with_mismatched_key";
+	const std::string message = "Sensitive message.";
+	auto kp = KeyPair::ECC::Generate(kCurveBits);
+	auto kp2 = KeyPair::ECC::Generate(kCurveBits);
+	ASSERT_TRUE(fn_name, static_cast<bool>(kp));
+	ASSERT_TRUE(fn_name, static_cast<bool>(kp2));
+	Crypter::ECC ecc(kp);
+	Crypter::ECC ecc2(kp2);
+	FIFO encrypted, decrypted;
+	ASSERT_TRUE(fn_name, ecc.Encrypt(Bytes(message), encrypted));
+	ASSERT_FALSE(fn_name, ecc2.Decrypt(Bytes(encrypted), decrypted));
+	RETURN_TEST(fn_name, 0);
+}
+
+int test_ecc_with_corrupted_keys() {
+	const std::string fn_name = "test_ecc_with_corrupted_keys";
+	const std::string message = "This is a test message.";
+	auto kp = KeyPair::ECC::Generate(kCurveBits);
+	ASSERT_TRUE(fn_name, static_cast<bool>(kp));
+	std::string corrupted_public = kp->PublicKey();
+	if (!corrupted_public.empty())
+		corrupted_public[0] = static_cast<char>(~corrupted_public[0]);
+	auto badKp = KeyPair::ECC::MakePointer<KeyPair::ECC>(
+		std::move(corrupted_public),
 		Password("not-a-valid-ecc-private-key")
 	);
 	Crypter::ECC ecc(badKp);
-	FIFO encrypted_data;
-	auto encrypt_result = ecc.Encrypt(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(message.data()), message.size()),
-		encrypted_data
-	);
-	ASSERT_FALSE(fn_name, encrypt_result);
+	FIFO encrypted;
+	ASSERT_FALSE(fn_name, ecc.Encrypt(Bytes(message), encrypted));
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestECCEncryptionProducesDifferentContent() {
-	const std::string fn_name = "TestECCEncryptionProducesDifferentContent";
-	const std::string original_data = "ECC test message";
-	auto keypair_result = KeyPair::ECC::Generate(curve_bits);
-	ASSERT_TRUE(fn_name, keypair_result);
-	Crypter::ECC ecc(keypair_result);
-	FIFO encrypted_data;
-	auto encrypt_result = ecc.Encrypt(std::span<const std::byte>(reinterpret_cast<const std::byte*>(original_data.data()), original_data.size()), encrypted_data);
-	ASSERT_TRUE(fn_name, encrypt_result);
-	auto encrypted_string = StormByte::String::FromByteVector(encrypted_data.Data());
-	ASSERT_NOT_EQUAL(fn_name, original_data, encrypted_string);
-	RETURN_TEST(fn_name, 0);
-}
-
-int TestECCEncryptDecryptUsingConsumerProducer() {
-	const std::string fn_name = "TestECCEncryptDecryptUsingConsumerProducer";
-	const std::string input_data = "This is some data to encrypt using the Consumer/Producer model.";
-	auto keypair_result = KeyPair::ECC::Generate(curve_bits);
-	ASSERT_TRUE(fn_name, keypair_result);
-	Crypter::ECC ecc(keypair_result);
-	StormByte::Buffer::Producer producer;
-	producer.Write(input_data);
-	producer.Close();
-	StormByte::Buffer::Consumer consumer(producer.Consumer());
-	auto encrypted_consumer = ecc.Encrypt(consumer);
-	ASSERT_TRUE(fn_name, encrypted_consumer.IsWritable() || !encrypted_consumer.Empty());
-	auto decrypted_consumer = ecc.Decrypt(encrypted_consumer);
-	ASSERT_TRUE(fn_name, decrypted_consumer.IsWritable() || !decrypted_consumer.Empty());
-	StormByte::Buffer::FIFO decrypted_data = ReadAllFromConsumer(decrypted_consumer);
-	ASSERT_FALSE(fn_name, decrypted_data.Empty());
-	std::string decrypt_result = DeserializeString(decrypted_data);
-	ASSERT_EQUAL(fn_name, input_data, decrypt_result);
-	RETURN_TEST(fn_name, 0);
-}
-
-// =========================================================================
-// Hybrid (Envelope) tests
-// =========================================================================
-int TestECCEncryptDecryptHybrid() {
-	const std::string fn_name = "TestECCEncryptDecryptHybrid";
-	const std::string message = "This is a hybrid envelope test message for ECC.";
-	auto keypair_result = KeyPair::ECC::Generate(curve_bits);
-	ASSERT_TRUE(fn_name, keypair_result);
-	Crypter::ECC ecc(keypair_result);
-	FIFO encrypted_data;
-	auto encrypt_result = ecc.Encrypt(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(message.data()), message.size()),
-		encrypted_data,
-		Crypter::Asymmetric::Strategy::Hybrid
-	);
-	ASSERT_TRUE(fn_name, encrypt_result);
-	ASSERT_FALSE(fn_name, encrypted_data.Empty());
-	FIFO decrypted_data;
-	auto decrypt_result = ecc.Decrypt(
-		std::span<const std::byte>(encrypted_data.Data().data(), encrypted_data.Data().size()),
-		decrypted_data
-	);
-	ASSERT_TRUE(fn_name, decrypt_result);
-	std::string decrypted_message = StormByte::String::FromByteVector(decrypted_data.Data());
-	ASSERT_EQUAL(fn_name, decrypted_message, message);
-	RETURN_TEST(fn_name, 0);
-}
-
-int TestECCEncryptDecryptHybridStreaming() {
-	const std::string fn_name = "TestECCEncryptDecryptHybridStreaming";
-	const std::string input_data = "This is some data to encrypt using Hybrid envelope with Consumer/Producer model.";
-	auto keypair_result = KeyPair::ECC::Generate(curve_bits);
-	ASSERT_TRUE(fn_name, keypair_result);
-	Crypter::ECC ecc(keypair_result);
-	StormByte::Buffer::Producer producer;
-	producer.Write(input_data);
-	producer.Close();
-	StormByte::Buffer::Consumer consumer(producer.Consumer());
-	auto encrypted_consumer = ecc.Encrypt(consumer, Crypter::Asymmetric::Strategy::Hybrid);
-	ASSERT_TRUE(fn_name, encrypted_consumer.IsWritable() || !encrypted_consumer.Empty());
-	auto decrypted_consumer = ecc.Decrypt(encrypted_consumer);
-	ASSERT_TRUE(fn_name, decrypted_consumer.IsWritable() || !decrypted_consumer.Empty());
-	StormByte::Buffer::FIFO decrypted_data = ReadAllFromConsumer(decrypted_consumer);
-	ASSERT_FALSE(fn_name, decrypted_data.Empty());
-	std::string decrypt_result = DeserializeString(decrypted_data);
-	ASSERT_EQUAL(fn_name, input_data, decrypt_result);
-	RETURN_TEST(fn_name, 0);
-}
-
-int TestECCHybridVsNativeDifferentOutput() {
-	const std::string fn_name = "TestECCHybridVsNativeDifferentOutput";
-	const std::string message = "Same message for both modes";
-	auto keypair_result = KeyPair::ECC::Generate(curve_bits);
-	ASSERT_TRUE(fn_name, keypair_result);
-	Crypter::ECC ecc(keypair_result);
-	FIFO native_encrypted;
-	auto native_ok = ecc.Encrypt(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(message.data()), message.size()),
-		native_encrypted,
-		Crypter::Asymmetric::Strategy::Native
-	);
-	ASSERT_TRUE(fn_name, native_ok);
-	FIFO hybrid_encrypted;
-	auto hybrid_ok = ecc.Encrypt(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(message.data()), message.size()),
-		hybrid_encrypted,
-		Crypter::Asymmetric::Strategy::Hybrid
-	);
-	ASSERT_TRUE(fn_name, hybrid_ok);
-	ASSERT_NOT_EQUAL(fn_name,
-		StormByte::String::FromByteVector(native_encrypted.Data()),
-		StormByte::String::FromByteVector(hybrid_encrypted.Data())
-	);
-	RETURN_TEST(fn_name, 0);
-}
-
-// =========================================================================
-// Explicit Native + auto-detect
-// =========================================================================
-int TestECCEncryptDecryptNativeExplicit() {
-	const std::string fn_name = "TestECCEncryptDecryptNativeExplicit";
-	const std::string message = "Explicit Native strategy round-trip for ECC.";
-	auto keypair_result = KeyPair::ECC::Generate(curve_bits);
-	ASSERT_TRUE(fn_name, keypair_result);
-	Crypter::ECC ecc(keypair_result);
-	FIFO encrypted_data;
-	auto encrypt_result = ecc.Encrypt(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(message.data()), message.size()),
-		encrypted_data,
-		Crypter::Asymmetric::Strategy::Native
-	);
-	ASSERT_TRUE(fn_name, encrypt_result);
-	ASSERT_FALSE(fn_name, encrypted_data.Empty());
-	// Decrypt without strategy → auto-detect (Hybrid fails, Native succeeds)
-	FIFO decrypted_data;
-	auto decrypt_result = ecc.Decrypt(
-		std::span<const std::byte>(encrypted_data.Data().data(), encrypted_data.Data().size()),
-		decrypted_data
-	);
-	ASSERT_TRUE(fn_name, decrypt_result);
-	std::string decrypted_message = StormByte::String::FromByteVector(decrypted_data.Data());
-	ASSERT_EQUAL(fn_name, decrypted_message, message);
-	RETURN_TEST(fn_name, 0);
-}
-
-int TestECCEncryptDecryptNativeExplicitStreaming() {
-	const std::string fn_name = "TestECCEncryptDecryptNativeExplicitStreaming";
-	const std::string input_data = "Native explicit streaming with auto-detect decrypt.";
-	auto keypair_result = KeyPair::ECC::Generate(curve_bits);
-	ASSERT_TRUE(fn_name, keypair_result);
-	Crypter::ECC ecc(keypair_result);
-	StormByte::Buffer::Producer producer;
-	producer.Write(input_data);
-	producer.Close();
-	StormByte::Buffer::Consumer consumer(producer.Consumer());
-	auto encrypted_consumer = ecc.Encrypt(consumer, Crypter::Asymmetric::Strategy::Native);
-	ASSERT_TRUE(fn_name, encrypted_consumer.IsWritable() || !encrypted_consumer.Empty());
-	auto decrypted_consumer = ecc.Decrypt(encrypted_consumer);
-	ASSERT_TRUE(fn_name, decrypted_consumer.IsWritable() || !decrypted_consumer.Empty());
-	StormByte::Buffer::FIFO decrypted_data = ReadAllFromConsumer(decrypted_consumer);
-	ASSERT_FALSE(fn_name, decrypted_data.Empty());
-	std::string decrypt_result = DeserializeString(decrypted_data);
-	ASSERT_EQUAL(fn_name, input_data, decrypt_result);
-	RETURN_TEST(fn_name, 0);
-}
-
-// =========================================================================
-// Corruption / mismatch edge cases for auto-detect
-// =========================================================================
-int TestECCCorruptedHybridEnvelopeFails() {
-	const std::string fn_name = "TestECCCorruptedHybridEnvelopeFails";
+int test_ecc_corrupted_hybrid_envelope_fails() {
+	const std::string fn_name = "test_ecc_corrupted_hybrid_envelope_fails";
 	const std::string message = "Hybrid envelope that will be corrupted.";
-	auto keypair_result = KeyPair::ECC::Generate(curve_bits);
-	ASSERT_TRUE(fn_name, keypair_result);
-	Crypter::ECC ecc(keypair_result);
-	FIFO encrypted_data;
-	auto encrypt_result = ecc.Encrypt(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(message.data()), message.size()),
-		encrypted_data,
-		Crypter::Asymmetric::Strategy::Hybrid
-	);
-	ASSERT_TRUE(fn_name, encrypt_result);
-	auto corrupted = StormByte::String::FromByteVector(encrypted_data.Data());
+	auto kp = KeyPair::ECC::Generate(kCurveBits);
+	ASSERT_TRUE(fn_name, static_cast<bool>(kp));
+	Crypter::ECC ecc(kp);
+	FIFO encrypted, decrypted;
+	ASSERT_TRUE(fn_name, ecc.Encrypt(Bytes(message), encrypted, Crypter::Asymmetric::Strategy::Hybrid));
+	auto corrupted = DeserializeString(encrypted.Data());
 	ASSERT_FALSE(fn_name, corrupted.empty());
-	// Flip several bytes across the envelope (header / ESK / payload / tag region)
 	if (corrupted.size() > 8) {
 		corrupted[0] = static_cast<char>(~corrupted[0]);
 		corrupted[corrupted.size() / 3] = static_cast<char>(corrupted[corrupted.size() / 3] ^ 0x5A);
@@ -314,94 +253,74 @@ int TestECCCorruptedHybridEnvelopeFails() {
 	} else {
 		corrupted[0] = static_cast<char>(~corrupted[0]);
 	}
-
-	FIFO decrypted_data;
-	auto decrypt_result = ecc.Decrypt(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(corrupted.data()), corrupted.size()),
-		decrypted_data
-	);
-	// Hybrid fails; Native fallback on a Hybrid blob must also fail
-	ASSERT_FALSE(fn_name, decrypt_result);
+	ASSERT_FALSE(fn_name, ecc.Decrypt(Bytes(corrupted), decrypted));
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestECCCorruptedNativeFailsAutoDetect() {
-	const std::string fn_name = "TestECCCorruptedNativeFailsAutoDetect";
+int test_ecc_corrupted_native_fails_auto_detect() {
+	const std::string fn_name = "test_ecc_corrupted_native_fails_auto_detect";
 	const std::string message = "Native ciphertext that will be corrupted.";
-	auto keypair_result = KeyPair::ECC::Generate(curve_bits);
-	ASSERT_TRUE(fn_name, keypair_result);
-	Crypter::ECC ecc(keypair_result);
-	FIFO encrypted_data;
-	auto encrypt_result = ecc.Encrypt(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(message.data()), message.size()),
-		encrypted_data,
-		Crypter::Asymmetric::Strategy::Native
-	);
-	ASSERT_TRUE(fn_name, encrypt_result);
-	auto corrupted = StormByte::String::FromByteVector(encrypted_data.Data());
+	auto kp = KeyPair::ECC::Generate(kCurveBits);
+	ASSERT_TRUE(fn_name, static_cast<bool>(kp));
+	Crypter::ECC ecc(kp);
+	FIFO encrypted, decrypted;
+	ASSERT_TRUE(fn_name, ecc.Encrypt(Bytes(message), encrypted, Crypter::Asymmetric::Strategy::Native));
+	auto corrupted = DeserializeString(encrypted.Data());
 	ASSERT_FALSE(fn_name, corrupted.empty());
-	if (!corrupted.empty()) {
-		corrupted[0] = static_cast<char>(~corrupted[0]);
-		if (corrupted.size() > 2) {
-			corrupted[corrupted.size() / 2] = static_cast<char>(corrupted[corrupted.size() / 2] ^ 0xFF);
-		}
-	}
-
-	FIFO decrypted_data;
-	auto decrypt_result = ecc.Decrypt(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(corrupted.data()), corrupted.size()),
-		decrypted_data
-	);
-	ASSERT_FALSE(fn_name, decrypt_result);
+	corrupted[0] = static_cast<char>(~corrupted[0]);
+	if (corrupted.size() > 2)
+		corrupted[corrupted.size() / 2] = static_cast<char>(corrupted[corrupted.size() / 2] ^ 0xFF);
+	ASSERT_FALSE(fn_name, ecc.Decrypt(Bytes(corrupted), decrypted));
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestECCHybridDecryptWithMismatchedKey() {
-	const std::string fn_name = "TestECCHybridDecryptWithMismatchedKey";
+int test_ecc_hybrid_decrypt_with_mismatched_key() {
+	const std::string fn_name = "test_ecc_hybrid_decrypt_with_mismatched_key";
 	const std::string message = "Hybrid ciphertext, wrong private key.";
-	auto keypair_result = KeyPair::ECC::Generate(curve_bits);
-	ASSERT_TRUE(fn_name, keypair_result);
-	Crypter::ECC ecc(keypair_result);
-	auto keypair_result_2 = KeyPair::ECC::Generate(curve_bits);
-	ASSERT_TRUE(fn_name, keypair_result_2);
-	Crypter::ECC ecc2(keypair_result_2);
-	FIFO encrypted_data;
-	auto encrypt_result = ecc.Encrypt(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(message.data()), message.size()),
-		encrypted_data,
-		Crypter::Asymmetric::Strategy::Hybrid
-	);
-	ASSERT_TRUE(fn_name, encrypt_result);
-	FIFO decrypted_data;
-	auto decrypt_result = ecc2.Decrypt(
-		std::span<const std::byte>(encrypted_data.Data().data(), encrypted_data.Data().size()),
-		decrypted_data
-	);
-	ASSERT_FALSE(fn_name, decrypt_result);
+	auto kp = KeyPair::ECC::Generate(kCurveBits);
+	auto kp2 = KeyPair::ECC::Generate(kCurveBits);
+	ASSERT_TRUE(fn_name, static_cast<bool>(kp));
+	ASSERT_TRUE(fn_name, static_cast<bool>(kp2));
+	Crypter::ECC ecc(kp);
+	Crypter::ECC ecc2(kp2);
+	FIFO encrypted, decrypted;
+	ASSERT_TRUE(fn_name, ecc.Encrypt(Bytes(message), encrypted, Crypter::Asymmetric::Strategy::Hybrid));
+	ASSERT_FALSE(fn_name, ecc2.Decrypt(Bytes(encrypted), decrypted));
 	RETURN_TEST(fn_name, 0);
 }
 
 int main() {
 	int result = 0;
-	result += TestECCEncryptDecrypt();
-	result += TestECCDecryptionWithCorruptedData();
-	result += TestECCDecryptWithMismatchedKey();
-	result += TestECCWithCorruptedKeys();
-	result += TestECCEncryptionProducesDifferentContent();
-	result += TestECCEncryptDecryptUsingConsumerProducer();
-	result += TestECCEncryptDecryptHybrid();
-	result += TestECCEncryptDecryptHybridStreaming();
-	result += TestECCHybridVsNativeDifferentOutput();
-	result += TestECCEncryptDecryptNativeExplicit();
-	result += TestECCEncryptDecryptNativeExplicitStreaming();
-	result += TestECCCorruptedHybridEnvelopeFails();
-	result += TestECCCorruptedNativeFailsAutoDetect();
-	result += TestECCHybridDecryptWithMismatchedKey();
-	if (result == 0) {
-		std::cout << "All tests passed!" << std::endl;
-	} else {
-		std::cout << result << " tests failed." << std::endl;
-	}
 
+	// -------------------
+	// Native
+	// -------------------
+	result += test_ecc_encrypt_decrypt();
+	result += test_ecc_encryption_produces_different_content();
+	result += test_ecc_encrypt_decrypt_using_consumer_producer();
+	result += test_ecc_encrypt_decrypt_native_explicit();
+	result += test_ecc_encrypt_decrypt_native_explicit_streaming();
+
+	// -------------------
+	// Hybrid
+	// -------------------
+	result += test_ecc_encrypt_decrypt_hybrid();
+	result += test_ecc_encrypt_decrypt_hybrid_streaming();
+	result += test_ecc_hybrid_vs_native_different_output();
+
+	// -------------------
+	// Failure modes
+	// -------------------
+	result += test_ecc_decryption_with_corrupted_data();
+	result += test_ecc_decrypt_with_mismatched_key();
+	result += test_ecc_with_corrupted_keys();
+	result += test_ecc_corrupted_hybrid_envelope_fails();
+	result += test_ecc_corrupted_native_fails_auto_detect();
+	result += test_ecc_hybrid_decrypt_with_mismatched_key();
+
+	if (result == 0)
+		std::cout << "All tests passed!" << std::endl;
+	else
+		std::cout << result << " tests failed." << std::endl;
 	return result;
 }

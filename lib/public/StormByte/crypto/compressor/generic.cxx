@@ -39,39 +39,44 @@
  */
 
 #include <StormByte/crypto/compressor/bzip2.hxx>
+#include <StormByte/crypto/compressor/generic.hxx>
 #include <StormByte/crypto/compressor/zlib.hxx>
+
+#include <span>
+
 using namespace StormByte::Crypto::Compressor;
+
 bool Generic::DoCompress(Buffer::ReadOnly& input, Buffer::WriteOnly& output, ReadMode mode) const noexcept {
-	Buffer::DataType data;
+	StormByte::BinaryData data;
 	bool read_ok;
 	if (mode == ReadMode::Copy)
-		read_ok = input.Read(data);
+		read_ok = input.Read(StormByte::ByteSize{0}, data);
 	else
-		read_ok = input.Extract(data);
+		read_ok = input.Extract(StormByte::ByteSize{0}, data);
 	if (!read_ok)
 		return false;
 	return DoCompress(std::span<const std::byte>(data.data(), data.size()), output);
 }
 
 bool Generic::DoDecompress(Buffer::ReadOnly& input, Buffer::WriteOnly& output, ReadMode mode) const noexcept {
-	Buffer::DataType data;
+	StormByte::BinaryData data;
 	bool read_ok;
 	if (mode == ReadMode::Copy)
-		read_ok = input.Read(data);
+		read_ok = input.Read(StormByte::ByteSize{0}, data);
 	else
-		read_ok = input.Extract(data);
+		read_ok = input.Extract(StormByte::ByteSize{0}, data);
 	if (!read_ok)
 		return false;
-	return DoDecompress(std::span<const std::byte>(data.data(), data.size()), output);	
+	return DoDecompress(std::span<const std::byte>(data.data(), data.size()), output);
 }
 
 namespace StormByte::Crypto::Compressor {
 	Generic::PointerType Create(Type type, unsigned short level) noexcept {
 		switch (type) {
 			case Type::Bzip2:
-				return std::make_shared<Bzip2>(level);
+				return Bzip2::MakePointer<Bzip2>(level);
 			case Type::Zlib:
-				return std::make_shared<Zlib>(level);
+				return Zlib::MakePointer<Zlib>(level);
 			default:
 				return nullptr;
 		}

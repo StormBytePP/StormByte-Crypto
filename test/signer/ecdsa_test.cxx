@@ -38,89 +38,90 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
+#include "helpers.hxx"
+
 #include <StormByte/buffer/fifo.hxx>
-#include <StormByte/buffer/producer.hxx>
 #include <StormByte/crypto/signer/ecdsa.hxx>
 #include <StormByte/test_handlers.h>
-#include <thread>
-#include <iostream>
+
 using StormByte::Buffer::FIFO;
 using namespace StormByte::Crypto;
-int TestECDSASignAndVerify() {
-	const std::string fn_name = "TestECDSASignAndVerify";
+
+// -------------------
+// Sign / verify
+// -------------------
+
+int test_ecdsa_sign_and_verify() {
+	const std::string fn_name = "test_ecdsa_sign_and_verify";
 	const std::string message = "This is a test message.";
-	constexpr const unsigned short curve_bits = 256;
-	// Generate a key pair
-	auto keypair_result = KeyPair::ECDSA::Generate(curve_bits);
-	ASSERT_TRUE(fn_name, keypair_result);
-	Signer::ECDSA ecdsa(keypair_result);
-	// Sign the message
+	auto kp = KeyPair::ECDSA::Generate(256);
+	ASSERT_TRUE(fn_name, static_cast<bool>(kp));
+	Signer::ECDSA ecdsa(kp);
 	FIFO signed_data;
-	auto sign_result = ecdsa.Sign(std::span<const std::byte>(reinterpret_cast<const std::byte*>(message.data()), message.size()), signed_data);
-	ASSERT_TRUE(fn_name, sign_result);
-	std::string signature = StormByte::String::FromByteVector(signed_data.Data());
-	// Verify the signature
-	bool verify_result = ecdsa.Verify(std::span<const std::byte>(reinterpret_cast<const std::byte*>(message.data()), message.size()), signature);
-	ASSERT_TRUE(fn_name, verify_result);
+	ASSERT_TRUE(fn_name, ecdsa.Sign(std::span<const std::byte>(
+		reinterpret_cast<const std::byte*>(message.data()), message.size()), signed_data));
+	const std::string signature = DeserializeString(signed_data.Data());
+	ASSERT_TRUE(fn_name, ecdsa.Verify(std::span<const std::byte>(
+		reinterpret_cast<const std::byte*>(message.data()), message.size()), signature));
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestECDSAVerifyWithCorruptedSignature() {
-	const std::string fn_name = "TestECDSAVerifyWithCorruptedSignature";
+// -------------------
+// Failure modes
+// -------------------
+
+int test_ecdsa_verify_with_corrupted_signature() {
+	const std::string fn_name = "test_ecdsa_verify_with_corrupted_signature";
 	const std::string message = "This is a test message.";
-	constexpr const unsigned short curve_bits = 256;
-	// Generate a key pair
-	auto keypair_result = KeyPair::ECDSA::Generate(curve_bits);
-	ASSERT_TRUE(fn_name, keypair_result);
-	Signer::ECDSA ecdsa(keypair_result);
-	// Sign the message
+	auto kp = KeyPair::ECDSA::Generate(256);
+	ASSERT_TRUE(fn_name, static_cast<bool>(kp));
+	Signer::ECDSA ecdsa(kp);
 	FIFO signed_data;
-	auto sign_result = ecdsa.Sign(std::span<const std::byte>(reinterpret_cast<const std::byte*>(message.data()), message.size()), signed_data);
-	ASSERT_TRUE(fn_name, sign_result);
-	std::string signature = StormByte::String::FromByteVector(signed_data.Data());
-	// Corrupt the signature
-	if (!signature.empty()) {
+	ASSERT_TRUE(fn_name, ecdsa.Sign(std::span<const std::byte>(
+		reinterpret_cast<const std::byte*>(message.data()), message.size()), signed_data));
+	std::string signature = DeserializeString(signed_data.Data());
+	if (!signature.empty())
 		signature[0] = static_cast<char>(~signature[0]);
-	}
-
-	// Verify the corrupted signature
-	bool verify_result = ecdsa.Verify(std::span<const std::byte>(reinterpret_cast<const std::byte*>(message.data()), message.size()), signature);
-	ASSERT_FALSE(fn_name, verify_result);
+	ASSERT_FALSE(fn_name, ecdsa.Verify(std::span<const std::byte>(
+		reinterpret_cast<const std::byte*>(message.data()), message.size()), signature));
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestECDSAVerifyWithMismatchedKey() {
-	const std::string fn_name = "TestECDSAVerifyWithMismatchedKey";
+int test_ecdsa_verify_with_mismatched_key() {
+	const std::string fn_name = "test_ecdsa_verify_with_mismatched_key";
 	const std::string message = "This is a test message.";
-	constexpr const unsigned short curve_bits = 256;
-	// Generate two key pairs
-	auto keypair_result = KeyPair::ECDSA::Generate(curve_bits);
-	ASSERT_TRUE(fn_name, keypair_result);
-	Signer::ECDSA ecdsa(keypair_result);
-	auto keypair_result_2 = KeyPair::ECDSA::Generate(curve_bits);
-	ASSERT_TRUE(fn_name, keypair_result_2);
-	Signer::ECDSA ecdsa2(keypair_result_2);
-	// Sign the message with the first private key
+	auto kp = KeyPair::ECDSA::Generate(256);
+	ASSERT_TRUE(fn_name, static_cast<bool>(kp));
+	Signer::ECDSA ecdsa(kp);
+	auto kp2 = KeyPair::ECDSA::Generate(256);
+	ASSERT_TRUE(fn_name, static_cast<bool>(kp2));
+	Signer::ECDSA ecdsa2(kp2);
 	FIFO signed_data;
-	auto sign_result = ecdsa.Sign(std::span<const std::byte>(reinterpret_cast<const std::byte*>(message.data()), message.size()), signed_data);
-	ASSERT_TRUE(fn_name, sign_result);
-	std::string signature = StormByte::String::FromByteVector(signed_data.Data());
-	// Verify the signature with the second public key
-	bool verify_result = ecdsa2.Verify(std::span<const std::byte>(reinterpret_cast<const std::byte*>(message.data()), message.size()), signature);
-	ASSERT_FALSE(fn_name, verify_result);
+	ASSERT_TRUE(fn_name, ecdsa.Sign(std::span<const std::byte>(
+		reinterpret_cast<const std::byte*>(message.data()), message.size()), signed_data));
+	const std::string signature = DeserializeString(signed_data.Data());
+	ASSERT_FALSE(fn_name, ecdsa2.Verify(std::span<const std::byte>(
+		reinterpret_cast<const std::byte*>(message.data()), message.size()), signature));
 	RETURN_TEST(fn_name, 0);
 }
 
 int main() {
 	int result = 0;
-	result += TestECDSASignAndVerify();
-	result += TestECDSAVerifyWithCorruptedSignature();
-	result += TestECDSAVerifyWithMismatchedKey();
-	if (result == 0) {
-		std::cout << "All tests passed!" << std::endl;
-	} else {
-		std::cout << result << " tests failed." << std::endl;
-	}
 
+	// -------------------
+	// Sign / verify
+	// -------------------
+	result += test_ecdsa_sign_and_verify();
+
+	// -------------------
+	// Failure modes
+	// -------------------
+	result += test_ecdsa_verify_with_corrupted_signature();
+	result += test_ecdsa_verify_with_mismatched_key();
+
+	if (result == 0)
+		std::cout << "All tests passed!" << std::endl;
+	else
+		std::cout << result << " tests failed." << std::endl;
 	return result;
 }

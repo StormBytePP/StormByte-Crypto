@@ -54,336 +54,316 @@
 #include <string>
 
 /**
- * @brief Private signer implementation.
+ * @namespace StormByte
+ * @brief Root namespace of the StormByte suite.
  */
-namespace StormByte::Crypto::Implementation::Signer {
-	namespace {
+namespace StormByte {
+	/**
+	 * @namespace StormByte::Crypto
+	 * @brief Crypto module of the StormByte suite.
+	 */
+	namespace Crypto {
 		/**
-		 * @struct ConcreteSignBox
-		 * @brief Crypto++ SignerFilter wrapped as SignBox.
-		 * @tparam SignerT Crypto++ signer type.
-		 * @tparam PrivateKeyT Crypto++ private key type.
+		 * @namespace StormByte::Crypto::Implementation
+		 * @brief Private implementation of the Crypto module.
 		 */
-		template<typename SignerT, typename PrivateKeyT>
-		struct ConcreteSignBox final : SignBox {
-			std::unique_ptr<PrivateKeyT> key;					///< Loaded private key
-			std::unique_ptr<SignerT> signer;					///< Crypto++ signer
-			Buffer::DataType signature;							///< Accumulated signature
-			std::unique_ptr<CryptoPP::SignerFilter> filter;		///< Filter writing into signature
-
+		namespace Implementation {
 			/**
-			 * @brief Load the private key and build the filter.
-			 * @param privKey DER private key.
+			 * @namespace StormByte::Crypto::Implementation::Signer
+			 * @brief Private signer implementation.
 			 */
-			explicit ConcreteSignBox(const Password& privKey)
-			{
-				auto keyRes = KeyPair::DeserializeKey<PrivateKeyT>(privKey);
-				if (!keyRes)
-					return;
-				key = std::make_unique<PrivateKeyT>(std::move(*keyRes));
-				if (!key->Validate(RNG(), 3)) {
-					key.reset();
-					return;
+			namespace Signer {
+				namespace {
+					/**
+					 * @struct ConcreteSignBox
+					 * @brief Crypto++ SignerFilter wrapped as SignBox.
+					 * @tparam SignerT Crypto++ signer type.
+					 * @tparam PrivateKeyT Crypto++ private key type.
+					 */
+					template<typename SignerT, typename PrivateKeyT>
+					struct ConcreteSignBox final : SignBox {
+						std::unique_ptr<PrivateKeyT> key;					///< Loaded private key
+						std::unique_ptr<SignerT> signer;					///< Crypto++ signer
+						StormByte::BinaryData signature;					///< Accumulated signature
+						std::unique_ptr<CryptoPP::SignerFilter> filter;		///< Filter writing into signature
+
+						/**
+						 * @brief Load the private key and build the filter.
+						 * @param privKey DER private key.
+						 */
+						explicit ConcreteSignBox(const Password& privKey) {
+							auto keyRes = KeyPair::DeserializeKey<PrivateKeyT>(privKey);
+							if (!keyRes)
+								return;
+							key = std::make_unique<PrivateKeyT>(std::move(*keyRes));
+							if (!key->Validate(RNG(), 3)) {
+								key.reset();
+								return;
+							}
+							signer = std::make_unique<SignerT>(*key);
+							filter = std::make_unique<CryptoPP::SignerFilter>(
+								RNG(), *signer,
+								new CryptoPP::StringSinkTemplate<StormByte::BinaryData>(signature)
+							);
+						}
+
+						/**
+						 * @brief Feed one message chunk.
+						 * @param in Input bytes.
+						 * @return true on success.
+						 */
+						bool Update(std::span<const std::byte> in) override {
+							if (!filter)
+								return false;
+							try {
+								filter->Put(reinterpret_cast<const CryptoPP::byte*>(in.data()), in.size_bytes());
+								return true;
+							} catch (...) {
+								return false;
+							}
+						}
+
+						/**
+						 * @brief Finish signing and move the signature out.
+						 * @param out Destination.
+						 * @return true on success.
+						 */
+						bool Finalize(StormByte::BinaryData& out) override {
+							if (!filter)
+								return false;
+							try {
+								filter->MessageEnd();
+								out = std::move(signature);
+								filter.reset();
+								return true;
+							} catch (...) {
+								return false;
+							}
+						}
+					};
+
+					/**
+					 * @struct ConcreteVerifyBox
+					 * @brief Crypto++ SignatureVerificationFilter wrapped as VerifyBox.
+					 * @tparam VerifierT Crypto++ verifier type.
+					 * @tparam PublicKeyT Crypto++ public key type.
+					 */
+					template<typename VerifierT, typename PublicKeyT>
+					struct ConcreteVerifyBox final : VerifyBox {
+						std::unique_ptr<PublicKeyT> key;								///< Loaded public key
+						std::unique_ptr<VerifierT> verifier;							///< Crypto++ verifier
+						bool result = false;											///< PUT_RESULT sink
+						std::unique_ptr<CryptoPP::SignatureVerificationFilter> filter;	///< Filter
+
+						/**
+						 * @brief Load the public key.
+						 * @param pubKey Base64 public key.
+						 */
+						explicit ConcreteVerifyBox(const std::string& pubKey) {
+							auto keyRes = KeyPair::DeserializeKey<PublicKeyT>(pubKey);
+							if (!keyRes)
+								return;
+							key = std::make_unique<PublicKeyT>(std::move(*keyRes));
+							if (!key->Validate(RNG(), 3)) {
+								key.reset();
+								return;
+							}
+							verifier = std::make_unique<VerifierT>(*key);
+						}
+
+						/**
+						 * @brief Push the signature before message bytes.
+						 * @param signature Signature.
+						 * @return true on success.
+						 */
+						bool Begin(const std::string& signature) override {
+							if (!verifier)
+								return false;
+							try {
+								filter = std::make_unique<CryptoPP::SignatureVerificationFilter>(
+									*verifier,
+									new CryptoPP::ArraySink(
+										reinterpret_cast<CryptoPP::byte*>(&result),
+										sizeof(result)),
+									CryptoPP::SignatureVerificationFilter::PUT_RESULT |
+										CryptoPP::SignatureVerificationFilter::SIGNATURE_AT_BEGIN
+								);
+								filter->Put(
+									reinterpret_cast<const CryptoPP::byte*>(signature.data()),
+									signature.size());
+								return true;
+							} catch (...) {
+								return false;
+							}
+						}
+
+						/**
+						 * @brief Feed one message chunk.
+						 * @param in Input bytes.
+						 * @return true on success.
+						 */
+						bool Update(std::span<const std::byte> in) override {
+							if (!filter)
+								return false;
+							try {
+								filter->Put(reinterpret_cast<const CryptoPP::byte*>(in.data()), in.size_bytes());
+								return true;
+							} catch (...) {
+								return false;
+							}
+						}
+
+						/**
+						 * @brief Finish verification.
+						 * @return true if the signature is valid.
+						 */
+						bool Finalize() override {
+							if (!filter)
+								return false;
+							try {
+								filter->MessageEnd();
+								filter.reset();
+								return result;
+							} catch (...) {
+								return false;
+							}
+						}
+					};
 				}
-				signer = std::make_unique<SignerT>(*key);
-				filter = std::make_unique<CryptoPP::SignerFilter>(
-					RNG(), *signer,
-					new CryptoPP::StringSinkTemplate<Buffer::DataType>(signature)
-				);
-			}
 
-			/**
-			 * @brief Feed one message chunk.
-			 * @param in Input bytes.
-			 * @return true on success.
-			 */
-			bool Update(std::span<const std::byte> in) override
-			{
-				if (!filter)
-					return false;
-				try {
-					filter->Put(
-						reinterpret_cast<const CryptoPP::byte*>(in.data()),
-						in.size_bytes());
-					return true;
-				} catch (...) {
-					return false;
+				/**
+				 * @brief One-shot sign from a Password.
+				 * @tparam SignerT Crypto++ signer type.
+				 * @tparam PrivateKeyT Crypto++ private key type.
+				 * @param data Input.
+				 * @param privKey Private key.
+				 * @param output Signature destination.
+				 * @return true on success.
+				 */
+				template<typename SignerT, typename PrivateKeyT>
+				bool Sign(std::span<const std::byte> data, const Password& privKey, Buffer::WriteOnly& output) noexcept {
+					return SignSpan(
+						data, output,
+						std::make_unique<ConcreteSignBox<SignerT, PrivateKeyT>>(privKey));
+				}
+
+				/**
+				 * @brief One-shot sign from a KeyPair.
+				 * @tparam SignerT Crypto++ signer type.
+				 * @tparam PrivateKeyT Crypto++ private key type.
+				 * @param data Input.
+				 * @param keypair Key pair with private key.
+				 * @param output Signature destination.
+				 * @return true on success.
+				 */
+				template<typename SignerT, typename PrivateKeyT>
+				bool Sign(std::span<const std::byte> data, const StormByte::Crypto::KeyPair::Generic::PointerType keypair, Buffer::WriteOnly& output) noexcept {
+					if (!keypair || !keypair->HasPrivateKey())
+						return false;
+					return Sign<SignerT, PrivateKeyT>(data, *keypair->PrivateKey(), output);
+				}
+
+				/**
+				 * @brief Streaming sign from a Password.
+				 * @tparam SignerT Crypto++ signer type.
+				 * @tparam PrivateKeyT Crypto++ private key type.
+				 * @param consumer Input consumer.
+				 * @param privKey Private key.
+				 * @param mode Copy or move.
+				 * @return Consumer with the signature.
+				 */
+				template<typename SignerT, typename PrivateKeyT>
+				Buffer::Consumer Sign(Buffer::Consumer consumer, Password privKey, ReadMode mode) noexcept {
+					return SignStream(
+						std::move(consumer), mode,
+						std::make_unique<ConcreteSignBox<SignerT, PrivateKeyT>>(std::move(privKey)));
+				}
+
+				/**
+				 * @brief Streaming sign from a KeyPair.
+				 * @tparam SignerT Crypto++ signer type.
+				 * @tparam PrivateKeyT Crypto++ private key type.
+				 * @param consumer Input consumer.
+				 * @param keypair Key pair with private key.
+				 * @param mode Copy or move.
+				 * @return Consumer with the signature, or error if no private key.
+				 */
+				template<typename SignerT, typename PrivateKeyT>
+				Buffer::Consumer Sign(Buffer::Consumer consumer, const StormByte::Crypto::KeyPair::Generic::PointerType keypair, ReadMode mode) noexcept {
+					if (!keypair || !keypair->HasPrivateKey()) {
+						Buffer::Producer producer;
+						producer.SetError();
+						return producer.Consumer();
+					}
+					return Sign<SignerT, PrivateKeyT>(std::move(consumer), *keypair->PrivateKey(), mode);
+				}
+
+				/**
+				 * @brief One-shot verify from a public key string.
+				 * @tparam VerifierT Crypto++ verifier type.
+				 * @tparam PublicKeyT Crypto++ public key type.
+				 * @param data Input.
+				 * @param signature Signature.
+				 * @param pubKey Base64 public key.
+				 * @return true if valid.
+				 */
+				template<typename VerifierT, typename PublicKeyT>
+				bool Verify(std::span<const std::byte> data, const std::string& signature, const std::string& pubKey) noexcept {
+					return VerifySpan(
+						data, signature,
+						std::make_unique<ConcreteVerifyBox<VerifierT, PublicKeyT>>(pubKey));
+				}
+
+				/**
+				 * @brief One-shot verify from a KeyPair.
+				 * @tparam VerifierT Crypto++ verifier type.
+				 * @tparam PublicKeyT Crypto++ public key type.
+				 * @param data Input.
+				 * @param signature Signature.
+				 * @param keypair Key pair.
+				 * @return true if valid.
+				 */
+				template<typename VerifierT, typename PublicKeyT>
+				bool Verify(std::span<const std::byte> data, const std::string& signature, const StormByte::Crypto::KeyPair::Generic::PointerType keypair) noexcept {
+					if (!keypair)
+						return false;
+					return Verify<VerifierT, PublicKeyT>(data, signature, keypair->PublicKey());
+				}
+
+				/**
+				 * @brief Streaming verify from a public key string.
+				 * @tparam VerifierT Crypto++ verifier type.
+				 * @tparam PublicKeyT Crypto++ public key type.
+				 * @param consumer Input consumer.
+				 * @param signature Signature.
+				 * @param pubKey Base64 public key.
+				 * @param mode Copy or move.
+				 * @return true if valid.
+				 */
+				template<typename VerifierT, typename PublicKeyT>
+				bool Verify(Buffer::Consumer consumer, const std::string& signature, const std::string& pubKey, ReadMode mode) noexcept {
+					return VerifyStream(
+						std::move(consumer), mode, signature,
+						std::make_unique<ConcreteVerifyBox<VerifierT, PublicKeyT>>(pubKey));
+				}
+
+				/**
+				 * @brief Streaming verify from a KeyPair.
+				 * @tparam VerifierT Crypto++ verifier type.
+				 * @tparam PublicKeyT Crypto++ public key type.
+				 * @param consumer Input consumer.
+				 * @param signature Signature.
+				 * @param keypair Key pair.
+				 * @param mode Copy or move.
+				 * @return true if valid.
+				 */
+				template<typename VerifierT, typename PublicKeyT>
+				bool Verify(Buffer::Consumer consumer, const std::string& signature, const StormByte::Crypto::KeyPair::Generic::PointerType keypair, ReadMode mode) noexcept {
+					if (!keypair)
+						return false;
+					return Verify<VerifierT, PublicKeyT>(std::move(consumer), signature, keypair->PublicKey(), mode);
 				}
 			}
-
-			/**
-			 * @brief Finish signing and move the signature out.
-			 * @param out Destination.
-			 * @return true on success.
-			 */
-			bool Finalize(Buffer::DataType& out) override
-			{
-				if (!filter)
-					return false;
-				try {
-					filter->MessageEnd();
-					out = std::move(signature);
-					filter.reset();
-					return true;
-				} catch (...) {
-					return false;
-				}
-			}
-		};
-
-		/**
-		 * @struct ConcreteVerifyBox
-		 * @brief Crypto++ SignatureVerificationFilter wrapped as VerifyBox.
-		 * @tparam VerifierT Crypto++ verifier type.
-		 * @tparam PublicKeyT Crypto++ public key type.
-		 */
-		template<typename VerifierT, typename PublicKeyT>
-		struct ConcreteVerifyBox final : VerifyBox {
-			std::unique_ptr<PublicKeyT> key;										///< Loaded public key
-			std::unique_ptr<VerifierT> verifier;									///< Crypto++ verifier
-			bool result = false;													///< PUT_RESULT sink
-			std::unique_ptr<CryptoPP::SignatureVerificationFilter> filter;			///< Filter
-
-			/**
-			 * @brief Load the public key.
-			 * @param pubKey Base64 public key.
-			 */
-			explicit ConcreteVerifyBox(const std::string& pubKey)
-			{
-				auto keyRes = KeyPair::DeserializeKey<PublicKeyT>(pubKey);
-				if (!keyRes)
-					return;
-				key = std::make_unique<PublicKeyT>(std::move(*keyRes));
-				if (!key->Validate(RNG(), 3)) {
-					key.reset();
-					return;
-				}
-				verifier = std::make_unique<VerifierT>(*key);
-			}
-
-			/**
-			 * @brief Push the signature before message bytes.
-			 * @param signature Signature.
-			 * @return true on success.
-			 */
-			bool Begin(const std::string& signature) override
-			{
-				if (!verifier)
-					return false;
-				try {
-					filter = std::make_unique<CryptoPP::SignatureVerificationFilter>(
-						*verifier,
-						new CryptoPP::ArraySink(
-							reinterpret_cast<CryptoPP::byte*>(&result),
-							sizeof(result)),
-						CryptoPP::SignatureVerificationFilter::PUT_RESULT |
-							CryptoPP::SignatureVerificationFilter::SIGNATURE_AT_BEGIN
-					);
-					filter->Put(
-						reinterpret_cast<const CryptoPP::byte*>(signature.data()),
-						signature.size());
-					return true;
-				} catch (...) {
-					return false;
-				}
-			}
-
-			/**
-			 * @brief Feed one message chunk.
-			 * @param in Input bytes.
-			 * @return true on success.
-			 */
-			bool Update(std::span<const std::byte> in) override
-			{
-				if (!filter)
-					return false;
-				try {
-					filter->Put(
-						reinterpret_cast<const CryptoPP::byte*>(in.data()),
-						in.size_bytes());
-					return true;
-				} catch (...) {
-					return false;
-				}
-			}
-
-			/**
-			 * @brief Finish verification.
-			 * @return true if the signature is valid.
-			 */
-			bool Finalize() override
-			{
-				if (!filter)
-					return false;
-				try {
-					filter->MessageEnd();
-					filter.reset();
-					return result;
-				} catch (...) {
-					return false;
-				}
-			}
-		};
-	}
-
-	/**
-	 * @brief One-shot sign from a Password.
-	 * @tparam SignerT Crypto++ signer type.
-	 * @tparam PrivateKeyT Crypto++ private key type.
-	 * @param data Input.
-	 * @param privKey Private key.
-	 * @param output Signature destination.
-	 * @return true on success.
-	 */
-	template<typename SignerT, typename PrivateKeyT>
-	bool Sign(std::span<const std::byte> data,
-			const Password& privKey,
-			Buffer::WriteOnly& output) noexcept
-	{
-		return SignSpan(
-			data, output,
-			std::make_unique<ConcreteSignBox<SignerT, PrivateKeyT>>(privKey));
-	}
-
-	/**
-	 * @brief One-shot sign from a KeyPair.
-	 * @tparam SignerT Crypto++ signer type.
-	 * @tparam PrivateKeyT Crypto++ private key type.
-	 * @param data Input.
-	 * @param keypair Key pair with private key.
-	 * @param output Signature destination.
-	 * @return true on success.
-	 */
-	template<typename SignerT, typename PrivateKeyT>
-	bool Sign(std::span<const std::byte> data,
-			const StormByte::Crypto::KeyPair::Generic::PointerType keypair,
-			Buffer::WriteOnly& output) noexcept
-	{
-		if (!keypair || !keypair->HasPrivateKey())
-			return false;
-		return Sign<SignerT, PrivateKeyT>(data, *keypair->PrivateKey(), output);
-	}
-
-	/**
-	 * @brief Streaming sign from a Password.
-	 * @tparam SignerT Crypto++ signer type.
-	 * @tparam PrivateKeyT Crypto++ private key type.
-	 * @param consumer Input consumer.
-	 * @param privKey Private key.
-	 * @param mode Copy or move.
-	 * @return Consumer with the signature.
-	 */
-	template<typename SignerT, typename PrivateKeyT>
-	Buffer::Consumer Sign(Buffer::Consumer consumer,
-						Password privKey,
-						ReadMode mode) noexcept
-	{
-		return SignStream(
-			std::move(consumer), mode,
-			std::make_unique<ConcreteSignBox<SignerT, PrivateKeyT>>(std::move(privKey)));
-	}
-
-	/**
-	 * @brief Streaming sign from a KeyPair.
-	 * @tparam SignerT Crypto++ signer type.
-	 * @tparam PrivateKeyT Crypto++ private key type.
-	 * @param consumer Input consumer.
-	 * @param keypair Key pair with private key.
-	 * @param mode Copy or move.
-	 * @return Consumer with the signature, or error if no private key.
-	 */
-	template<typename SignerT, typename PrivateKeyT>
-	Buffer::Consumer Sign(Buffer::Consumer consumer,
-						const StormByte::Crypto::KeyPair::Generic::PointerType keypair,
-						ReadMode mode) noexcept
-	{
-		if (!keypair || !keypair->HasPrivateKey()) {
-			Buffer::Producer producer;
-			producer.SetError();
-			return producer.Consumer();
 		}
-		return Sign<SignerT, PrivateKeyT>(
-			std::move(consumer), *keypair->PrivateKey(), mode);
-	}
-
-	/**
-	 * @brief One-shot verify from a public key string.
-	 * @tparam VerifierT Crypto++ verifier type.
-	 * @tparam PublicKeyT Crypto++ public key type.
-	 * @param data Input.
-	 * @param signature Signature.
-	 * @param pubKey Base64 public key.
-	 * @return true if valid.
-	 */
-	template<typename VerifierT, typename PublicKeyT>
-	bool Verify(std::span<const std::byte> data,
-				const std::string& signature,
-				const std::string& pubKey) noexcept
-	{
-		return VerifySpan(
-			data, signature,
-			std::make_unique<ConcreteVerifyBox<VerifierT, PublicKeyT>>(pubKey));
-	}
-
-	/**
-	 * @brief One-shot verify from a KeyPair.
-	 * @tparam VerifierT Crypto++ verifier type.
-	 * @tparam PublicKeyT Crypto++ public key type.
-	 * @param data Input.
-	 * @param signature Signature.
-	 * @param keypair Key pair.
-	 * @return true if valid.
-	 */
-	template<typename VerifierT, typename PublicKeyT>
-	bool Verify(std::span<const std::byte> data,
-				const std::string& signature,
-				const StormByte::Crypto::KeyPair::Generic::PointerType keypair) noexcept
-	{
-		if (!keypair)
-			return false;
-		return Verify<VerifierT, PublicKeyT>(data, signature, keypair->PublicKey());
-	}
-
-	/**
-	 * @brief Streaming verify from a public key string.
-	 * @tparam VerifierT Crypto++ verifier type.
-	 * @tparam PublicKeyT Crypto++ public key type.
-	 * @param consumer Input consumer.
-	 * @param signature Signature.
-	 * @param pubKey Base64 public key.
-	 * @param mode Copy or move.
-	 * @return true if valid.
-	 */
-	template<typename VerifierT, typename PublicKeyT>
-	bool Verify(Buffer::Consumer consumer,
-				const std::string& signature,
-				const std::string& pubKey,
-				ReadMode mode) noexcept
-	{
-		return VerifyStream(
-			std::move(consumer), mode, signature,
-			std::make_unique<ConcreteVerifyBox<VerifierT, PublicKeyT>>(pubKey));
-	}
-
-	/**
-	 * @brief Streaming verify from a KeyPair.
-	 * @tparam VerifierT Crypto++ verifier type.
-	 * @tparam PublicKeyT Crypto++ public key type.
-	 * @param consumer Input consumer.
-	 * @param signature Signature.
-	 * @param keypair Key pair.
-	 * @param mode Copy or move.
-	 * @return true if valid.
-	 */
-	template<typename VerifierT, typename PublicKeyT>
-	bool Verify(Buffer::Consumer consumer,
-				const std::string& signature,
-				const StormByte::Crypto::KeyPair::Generic::PointerType keypair,
-				ReadMode mode) noexcept
-	{
-		if (!keypair)
-			return false;
-		return Verify<VerifierT, PublicKeyT>(
-			std::move(consumer), signature, keypair->PublicKey(), mode);
 	}
 }

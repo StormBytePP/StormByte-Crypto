@@ -39,13 +39,16 @@
  */
 
 #include <StormByte/crypto/helpers/secure_wipe.hxx>
-#include <StormByte/crypto/keypair/ecdh.hxx>
 #include <StormByte/crypto/implementation/keypair/api.hxx>
+#include <StormByte/crypto/keypair/ecdh.hxx>
 #include <StormByte/crypto/password.hxx>
 #include <StormByte/crypto/random.hxx>
+
 #include <eccrypto.h>
 #include <oids.h>
+
 using namespace StormByte::Crypto::KeyPair;
+
 ECDH::PointerType ECDH::Generate(unsigned short bits) noexcept {
 	try {
 		CryptoPP::OID curve;
@@ -80,7 +83,7 @@ ECDH::PointerType ECDH::Generate(unsigned short bits) noexcept {
 		privateKey.MakePublicKey(publicKey);
 		Helpers::SecureWipe(privRaw);
 		Helpers::SecureWipe(pubRaw);
-		return std::make_shared<ECDH>(
+		return MakePointer<ECDH>(
 			Implementation::KeyPair::SerializeKey(publicKey),
 			Implementation::KeyPair::SerializeKeyBinary(privateKey)
 		);

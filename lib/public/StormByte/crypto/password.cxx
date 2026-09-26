@@ -38,11 +38,14 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
-#include <StormByte/crypto/password.hxx>
 #include <StormByte/crypto/helpers/secure_content.hxx>
 #include <StormByte/crypto/helpers/secure_wipe.hxx>
+#include <StormByte/crypto/password.hxx>
+
 #include <cstring>
+
 using namespace StormByte::Crypto;
+
 namespace {
 	struct SecureContentDeleter {
 		void operator()(Helpers::SecureContent* ptr) const noexcept {
@@ -55,29 +58,29 @@ namespace {
 }
 
 Password::Password(std::string value) noexcept {
-	const std::size_t n = value.size();
-	auto* content = new Helpers::SecureContent(value.data(), n);
+	const StormByte::ByteSize n { value.size() };
+	auto* content = new Helpers::SecureContent(value.data(), static_cast<std::size_t>(n));
 	Helpers::SecureWipe(value);
 	m_data.reset(content, SecureContentDeleter{});
 }
 
 Password::Password(const char* value) noexcept {
-	const std::size_t n = value ? std::strlen(value) : 0;
-	auto* content = new Helpers::SecureContent(value, n);
+	const StormByte::ByteSize n { value ? std::strlen(value) : 0 };
+	auto* content = new Helpers::SecureContent(value, static_cast<std::size_t>(n));
 	m_data.reset(content, SecureContentDeleter{});
 }
 
-Password::Password(const void* data, std::size_t size) noexcept {
-	auto* content = new Helpers::SecureContent(data, size);
+Password::Password(const void* data, StormByte::ByteSize size) noexcept {
+	auto* content = new Helpers::SecureContent(data, static_cast<std::size_t>(size));
 	m_data.reset(content, SecureContentDeleter{});
 }
 
-std::size_t Password::Size() const noexcept {
-	return m_data ? m_data->Size() : 0;
+StormByte::ByteSize Password::Size() const noexcept {
+	return m_data ? StormByte::ByteSize { m_data->Size() } : StormByte::ByteSize { 0 };
 }
 
 bool Password::Empty() const noexcept {
-	return Size() == 0;
+	return Size() == StormByte::ByteSize { 0 };
 }
 
 Password::operator bool() const noexcept {

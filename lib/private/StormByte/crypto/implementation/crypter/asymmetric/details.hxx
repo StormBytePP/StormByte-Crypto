@@ -51,110 +51,120 @@
 #include <span>
 
 /**
- * @brief Private asymmetric crypter implementation.
+ * @namespace StormByte
+ * @brief Root namespace of the StormByte suite.
  */
-namespace StormByte::Crypto::Implementation::Crypter::Asymmetric {
-	inline constexpr std::size_t kSymKeyLen = 32;	///< AES-256 key in hybrid envelopes
-	inline constexpr std::size_t kIvLen = 12;		///< GCM IV in hybrid envelopes
-
+namespace StormByte {
 	/**
-	 * @struct PkBox
-	 * @brief Type-erased public/private transform.
+	 * @namespace StormByte::Crypto
+	 * @brief Crypto module of the StormByte suite.
 	 */
-	struct PkBox {
-		virtual ~PkBox() = default;
-
+	namespace Crypto {
 		/**
-		 * @brief Transform raw bytes with the key.
-		 * @param in Input.
-		 * @param out Destination.
-		 * @return true on success.
+		 * @namespace StormByte::Crypto::Implementation
+		 * @brief Private implementation of the Crypto module.
 		 */
-		virtual bool Transform(std::span<const std::byte> in,
-							Buffer::DataType& out) = 0;
-	};
+		namespace Implementation {
+			/**
+			 * @namespace StormByte::Crypto::Implementation::Crypter
+			 * @brief Private crypter implementation.
+			 */
+			namespace Crypter {
+				/**
+				 * @namespace StormByte::Crypto::Implementation::Crypter::Asymmetric
+				 * @brief Private asymmetric crypter implementation.
+				 */
+				namespace Asymmetric {
+					inline constexpr std::size_t kSymKeyLen = 32;	///< AES-256 key in hybrid envelopes
+					inline constexpr std::size_t kIvLen = 12;		///< GCM IV in hybrid envelopes
 
-	/**
-	 * @brief Write hybrid header: eskLen(4 BE) || esk || iv.
-	 * @param esk Encrypted session key.
-	 * @param iv IV.
-	 * @param out Destination.
-	 * @return true on success.
-	 */
-	bool WriteEnvelopeHeader(const Buffer::DataType& esk,
-							const CryptoPP::SecByteBlock& iv,
-							Buffer::DataType& out) noexcept;
+					/**
+					 * @struct PkBox
+					 * @brief Type-erased public/private transform.
+					 */
+					struct PkBox {
+						virtual ~PkBox() = default;
 
-	/**
-	 * @brief Parse eskLen (4 bytes, big-endian).
-	 * @param lenBytes Length field.
-	 * @return Length, or 0 if size is not 4.
-	 */
-	std::uint32_t ParseEskLength(const Buffer::DataType& lenBytes) noexcept;
+						/**
+						 * @brief Transform raw bytes with the key.
+						 * @param in Input.
+						 * @param out Destination.
+						 * @return true on success.
+						 */
+						virtual bool Transform(std::span<const std::byte> in, StormByte::BinaryData& out) = 0;
+					};
 
-	/**
-	 * @brief One-shot native PK transform.
-	 * @param data Input.
-	 * @param output Destination.
-	 * @param box Engine.
-	 * @return true on success.
-	 */
-	bool NativeProcessSpan(std::span<const std::byte> data,
-						Buffer::WriteOnly& output,
-						std::unique_ptr<PkBox> box) noexcept;
+					/**
+					 * @brief Write hybrid header: eskLen(4 BE) || esk || iv.
+					 * @param esk Encrypted session key.
+					 * @param iv IV.
+					 * @param out Destination.
+					 * @return true on success.
+					 */
+					bool WriteEnvelopeHeader(const StormByte::BinaryData& esk, const CryptoPP::SecByteBlock& iv, StormByte::BinaryData& out) noexcept;
 
-	/**
-	 * @brief Streaming native PK. Each chunk is independent.
-	 * @param consumer Input consumer.
-	 * @param mode Copy or move.
-	 * @param box Engine.
-	 * @return Consumer with the result.
-	 */
-	Buffer::Consumer NativeProcessStream(Buffer::Consumer consumer,
-										ReadMode mode,
-										std::unique_ptr<PkBox> box) noexcept;
+					/**
+					 * @brief Parse eskLen (4 bytes, big-endian).
+					 * @param lenBytes Length field.
+					 * @return Length, or 0 if size is not 4.
+					 */
+					std::uint32_t ParseEskLength(const StormByte::BinaryData& lenBytes) noexcept;
 
-	/**
-	 * @brief One-shot hybrid encrypt. box wraps the session key.
-	 * @param data Input.
-	 * @param output Destination.
-	 * @param box Public-key box.
-	 * @return true on success.
-	 */
-	bool HybridEncryptSpan(std::span<const std::byte> data,
-						Buffer::WriteOnly& output,
-						std::unique_ptr<PkBox> box) noexcept;
+					/**
+					 * @brief One-shot native PK transform.
+					 * @param data Input.
+					 * @param output Destination.
+					 * @param box Engine.
+					 * @return true on success.
+					 */
+					bool NativeProcessSpan(std::span<const std::byte> data, Buffer::WriteOnly& output, std::unique_ptr<PkBox> box) noexcept;
 
-	/**
-	 * @brief Streaming hybrid encrypt.
-	 * @param consumer Input consumer.
-	 * @param mode Copy or move.
-	 * @param box Public-key box.
-	 * @return Consumer with the envelope.
-	 */
-	Buffer::Consumer HybridEncryptStream(Buffer::Consumer consumer,
-										ReadMode mode,
-										std::unique_ptr<PkBox> box) noexcept;
+					/**
+					 * @brief Streaming native PK. Each chunk is independent.
+					 * @param consumer Input consumer.
+					 * @param mode Copy or move.
+					 * @param box Engine.
+					 * @return Consumer with the result.
+					 */
+					Buffer::Consumer NativeProcessStream(Buffer::Consumer consumer, ReadMode mode, std::unique_ptr<PkBox> box) noexcept;
 
-	/**
-	 * @brief One-shot hybrid decrypt. box unwraps the session key.
-	 * @param data Input.
-	 * @param output Destination.
-	 * @param box Private-key box.
-	 * @return true on success.
-	 */
-	bool HybridDecryptSpan(std::span<const std::byte> data,
-						Buffer::WriteOnly& output,
-						std::unique_ptr<PkBox> box) noexcept;
+					/**
+					 * @brief One-shot hybrid encrypt. box wraps the session key.
+					 * @param data Input.
+					 * @param output Destination.
+					 * @param box Public-key box.
+					 * @return true on success.
+					 */
+					bool HybridEncryptSpan(std::span<const std::byte> data, Buffer::WriteOnly& output, std::unique_ptr<PkBox> box) noexcept;
 
-	/**
-	 * @brief Streaming hybrid decrypt.
-	 * @param consumer Input consumer.
-	 * @param mode Copy or move.
-	 * @param box Private-key box.
-	 * @return Consumer with the plaintext.
-	 */
-	Buffer::Consumer HybridDecryptStream(Buffer::Consumer consumer,
-										ReadMode mode,
-										std::unique_ptr<PkBox> box) noexcept;
+					/**
+					 * @brief Streaming hybrid encrypt.
+					 * @param consumer Input consumer.
+					 * @param mode Copy or move.
+					 * @param box Public-key box.
+					 * @return Consumer with the envelope.
+					 */
+					Buffer::Consumer HybridEncryptStream(Buffer::Consumer consumer, ReadMode mode, std::unique_ptr<PkBox> box) noexcept;
+
+					/**
+					 * @brief One-shot hybrid decrypt. box unwraps the session key.
+					 * @param data Input.
+					 * @param output Destination.
+					 * @param box Private-key box.
+					 * @return true on success.
+					 */
+					bool HybridDecryptSpan(std::span<const std::byte> data, Buffer::WriteOnly& output, std::unique_ptr<PkBox> box) noexcept;
+
+					/**
+					 * @brief Streaming hybrid decrypt.
+					 * @param consumer Input consumer.
+					 * @param mode Copy or move.
+					 * @param box Private-key box.
+					 * @return Consumer with the plaintext.
+					 */
+					Buffer::Consumer HybridDecryptStream(Buffer::Consumer consumer, ReadMode mode, std::unique_ptr<PkBox> box) noexcept;
+				}
+			}
+		}
+	}
 }

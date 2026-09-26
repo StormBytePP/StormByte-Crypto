@@ -38,28 +38,31 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
-#include <StormByte/crypto/crypter/asymmetric/rsa.hxx>
 #include <StormByte/crypto/keypair/dsa.hxx>
 #include <StormByte/crypto/keypair/generic.hxx>
 #include <StormByte/crypto/keypair/rsa.hxx>
 #include <StormByte/crypto/password.hxx>
-#include <StormByte/string.hxx>
 #include <StormByte/test_handlers.h>
+
 #include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <string>
 #include <vector>
+
 using namespace StormByte::Crypto;
 namespace fs = std::filesystem;
+
 #ifndef STORMBYTE_TEST_KEYS_DIR
-#error "STORMBYTE_TEST_KEYS_DIR must be defined by CMake"
+#	error "STORMBYTE_TEST_KEYS_DIR must be defined by CMake"
 #endif
+
 static fs::path KeysDir() {
 	const fs::path dir{STORMBYTE_TEST_KEYS_DIR};
 	fs::create_directories(dir);
 	return dir;
 }
+
 #ifdef STORMBYTE_TEST_KEYS_PASSWORD
 static Password TestKeysPassword() {
 	return Password(STORMBYTE_TEST_KEYS_PASSWORD);
@@ -69,24 +72,25 @@ static Password TestKeysPassword() {
 	return Password("StormByteTestPassphrase!");
 }
 #endif
-// ---------------------------------------------------------------------------
-// Garbage / invalid key material: Load must reject, never succeed
-// ---------------------------------------------------------------------------
-int TestLoadEmptyFileFails() {
-	const std::string fn_name = "TestLoadEmptyFileFails";
+
+// -------------------
+// Garbage input
+// -------------------
+
+int test_load_empty_file_fails() {
+	const std::string fn_name = "test_load_empty_file_fails";
 	const auto path = KeysDir() / "empty.pem";
 	{
 		std::ofstream ofs(path, std::ios::binary | std::ios::trunc);
 		ASSERT_TRUE(fn_name, static_cast<bool>(ofs));
 	}
-
-	ASSERT_FALSE(fn_name, KeyPair::Load(path));
-	ASSERT_FALSE(fn_name, KeyPair::Load(path, path));
+	ASSERT_FALSE(fn_name, static_cast<bool>(KeyPair::Load(path)));
+	ASSERT_FALSE(fn_name, static_cast<bool>(KeyPair::Load(path, path)));
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestLoadRandomGarbageFails() {
-	const std::string fn_name = "TestLoadRandomGarbageFails";
+int test_load_random_garbage_fails() {
+	const std::string fn_name = "test_load_random_garbage_fails";
 	const auto path = KeysDir() / "garbage.bin";
 	{
 		std::ofstream ofs(path, std::ios::binary | std::ios::trunc);
@@ -94,13 +98,12 @@ int TestLoadRandomGarbageFails() {
 		ofs.write(junk, static_cast<std::streamsize>(sizeof(junk) - 1));
 		ASSERT_TRUE(fn_name, static_cast<bool>(ofs));
 	}
-
-	ASSERT_FALSE(fn_name, KeyPair::Load(path));
+	ASSERT_FALSE(fn_name, static_cast<bool>(KeyPair::Load(path)));
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestLoadMalformedPemHeaderFails() {
-	const std::string fn_name = "TestLoadMalformedPemHeaderFails";
+int test_load_malformed_pem_header_fails() {
+	const std::string fn_name = "test_load_malformed_pem_header_fails";
 	const auto path = KeysDir() / "bad_pem.pem";
 	{
 		std::ofstream ofs(path);
@@ -109,13 +112,12 @@ int TestLoadMalformedPemHeaderFails() {
 			<< "-----END NOT A KEY-----\n";
 		ASSERT_TRUE(fn_name, static_cast<bool>(ofs));
 	}
-
-	ASSERT_FALSE(fn_name, KeyPair::Load(path));
+	ASSERT_FALSE(fn_name, static_cast<bool>(KeyPair::Load(path)));
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestLoadPemMissingEndFails() {
-	const std::string fn_name = "TestLoadPemMissingEndFails";
+int test_load_pem_missing_end_fails() {
+	const std::string fn_name = "test_load_pem_missing_end_fails";
 	const auto path = KeysDir() / "pem_no_end.pem";
 	{
 		std::ofstream ofs(path);
@@ -123,13 +125,12 @@ int TestLoadPemMissingEndFails() {
 			<< "MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC7\n";
 		ASSERT_TRUE(fn_name, static_cast<bool>(ofs));
 	}
-
-	ASSERT_FALSE(fn_name, KeyPair::Load(path));
+	ASSERT_FALSE(fn_name, static_cast<bool>(KeyPair::Load(path)));
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestLoadPemInvalidBase64Fails() {
-	const std::string fn_name = "TestLoadPemInvalidBase64Fails";
+int test_load_pem_invalid_base64_fails() {
+	const std::string fn_name = "test_load_pem_invalid_base64_fails";
 	const auto path = KeysDir() / "pem_bad_b64.pem";
 	{
 		std::ofstream ofs(path);
@@ -138,32 +139,35 @@ int TestLoadPemInvalidBase64Fails() {
 			<< "-----END PRIVATE KEY-----\n";
 		ASSERT_TRUE(fn_name, static_cast<bool>(ofs));
 	}
-
-	ASSERT_FALSE(fn_name, KeyPair::Load(path));
+	ASSERT_FALSE(fn_name, static_cast<bool>(KeyPair::Load(path)));
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestLoadNonexistentPathFails() {
-	const std::string fn_name = "TestLoadNonexistentPathFails";
+int test_load_nonexistent_path_fails() {
+	const std::string fn_name = "test_load_nonexistent_path_fails";
 	const auto path = KeysDir() / "no_such_file.pem";
 	ASSERT_FALSE(fn_name, fs::exists(path));
-	ASSERT_FALSE(fn_name, KeyPair::Load(path));
-	ASSERT_FALSE(fn_name, KeyPair::Load(path, path));
+	ASSERT_FALSE(fn_name, static_cast<bool>(KeyPair::Load(path)));
+	ASSERT_FALSE(fn_name, static_cast<bool>(KeyPair::Load(path, path)));
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestLoadDirectoryAsPathFails() {
-	const std::string fn_name = "TestLoadDirectoryAsPathFails";
+int test_load_directory_as_path_fails() {
+	const std::string fn_name = "test_load_directory_as_path_fails";
 	const auto dir = KeysDir() / "as_dir";
 	fs::create_directories(dir);
-	ASSERT_FALSE(fn_name, KeyPair::Load(dir));
+	ASSERT_FALSE(fn_name, static_cast<bool>(KeyPair::Load(dir)));
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestLoadTruncatedDerFails() {
-	const std::string fn_name = "TestLoadTruncatedDerFails";
+// -------------------
+// Truncated / mismatched
+// -------------------
+
+int test_load_truncated_der_fails() {
+	const std::string fn_name = "test_load_truncated_der_fails";
 	auto kp = KeyPair::RSA::Generate(2048);
-	ASSERT_TRUE(fn_name, kp);
+	ASSERT_TRUE(fn_name, static_cast<bool>(kp));
 	const auto out = KeysDir() / "trunc_der";
 	fs::create_directories(out);
 	ASSERT_TRUE(fn_name, kp->Save(out, "rsa", KeyPair::StorageFormat::DER));
@@ -173,9 +177,7 @@ int TestLoadTruncatedDerFails() {
 		std::ifstream ifs(privPath, std::ios::binary);
 		bytes.assign(std::istreambuf_iterator<char>(ifs), std::istreambuf_iterator<char>());
 	}
-
 	ASSERT_FALSE(fn_name, bytes.empty());
-	// Too short for any complete ASN.1 private key; must not Load
 	bytes.resize(std::min<size_t>(bytes.size(), 8));
 	const auto truncPath = out / "rsa_trunc.der";
 	{
@@ -183,35 +185,34 @@ int TestLoadTruncatedDerFails() {
 		ofs.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
 		ASSERT_TRUE(fn_name, static_cast<bool>(ofs));
 	}
-
-	ASSERT_FALSE(fn_name, KeyPair::Load(truncPath));
-	ASSERT_FALSE(fn_name, KeyPair::Load(out / "rsa.pub.der", truncPath));
+	ASSERT_FALSE(fn_name, static_cast<bool>(KeyPair::Load(truncPath)));
+	ASSERT_FALSE(fn_name, static_cast<bool>(KeyPair::Load(out / "rsa.pub.der", truncPath)));
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestLoadMismatchedRsaPubDsaPrivFails() {
-	const std::string fn_name = "TestLoadMismatchedRsaPubDsaPrivFails";
+int test_load_mismatched_rsa_pub_dsa_priv_fails() {
+	const std::string fn_name = "test_load_mismatched_rsa_pub_dsa_priv_fails";
 	auto rsa = KeyPair::RSA::Generate(2048);
 	auto dsa = KeyPair::DSA::Generate(2048);
-	ASSERT_TRUE(fn_name, rsa);
-	ASSERT_TRUE(fn_name, dsa);
+	ASSERT_TRUE(fn_name, static_cast<bool>(rsa));
+	ASSERT_TRUE(fn_name, static_cast<bool>(dsa));
 	const auto out = KeysDir() / "mismatch_rsa_dsa";
 	fs::create_directories(out);
 	ASSERT_TRUE(fn_name, rsa->SavePublic(out / "rsa.pub.pem"));
 	ASSERT_TRUE(fn_name, dsa->SavePrivate(out / "dsa.pem"));
-	ASSERT_FALSE(fn_name, KeyPair::Load(out / "rsa.pub.pem", out / "dsa.pem"));
+	ASSERT_FALSE(fn_name, static_cast<bool>(KeyPair::Load(out / "rsa.pub.pem", out / "dsa.pem")));
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestLoadEncryptedWithoutPasswordFails() {
-	const std::string fn_name = "TestLoadEncryptedWithoutPasswordFails";
+int test_load_encrypted_without_password_fails() {
+	const std::string fn_name = "test_load_encrypted_without_password_fails";
 	auto kp = KeyPair::RSA::Generate(2048);
-	ASSERT_TRUE(fn_name, kp);
+	ASSERT_TRUE(fn_name, static_cast<bool>(kp));
 	const auto out = KeysDir() / "enc_no_pass";
 	fs::create_directories(out);
 	ASSERT_TRUE(fn_name, kp->Save(out, "rsa", TestKeysPassword()));
-	ASSERT_FALSE(fn_name, KeyPair::Load(out / "rsa.pub.pem", out / "rsa.pem"));
-	ASSERT_FALSE(fn_name, KeyPair::Load(out / "rsa.pem"));
+	ASSERT_FALSE(fn_name, static_cast<bool>(KeyPair::Load(out / "rsa.pub.pem", out / "rsa.pem")));
+	ASSERT_FALSE(fn_name, static_cast<bool>(KeyPair::Load(out / "rsa.pem")));
 	RETURN_TEST(fn_name, 0);
 }
 
@@ -219,21 +220,28 @@ int main() {
 	fs::remove_all(KeysDir());
 	fs::create_directories(KeysDir());
 	int result = 0;
-	result += TestLoadEmptyFileFails();
-	result += TestLoadRandomGarbageFails();
-	result += TestLoadMalformedPemHeaderFails();
-	result += TestLoadPemMissingEndFails();
-	result += TestLoadPemInvalidBase64Fails();
-	result += TestLoadNonexistentPathFails();
-	result += TestLoadDirectoryAsPathFails();
-	result += TestLoadTruncatedDerFails();
-	result += TestLoadMismatchedRsaPubDsaPrivFails();
-	result += TestLoadEncryptedWithoutPasswordFails();
-	if (result == 0) {
-		std::cout << "All tests passed!" << std::endl;
-	} else {
-		std::cout << result << " tests failed." << std::endl;
-	}
 
+	// -------------------
+	// Garbage input
+	// -------------------
+	result += test_load_empty_file_fails();
+	result += test_load_random_garbage_fails();
+	result += test_load_malformed_pem_header_fails();
+	result += test_load_pem_missing_end_fails();
+	result += test_load_pem_invalid_base64_fails();
+	result += test_load_nonexistent_path_fails();
+	result += test_load_directory_as_path_fails();
+
+	// -------------------
+	// Truncated / mismatched
+	// -------------------
+	result += test_load_truncated_der_fails();
+	result += test_load_mismatched_rsa_pub_dsa_priv_fails();
+	result += test_load_encrypted_without_password_fails();
+
+	if (result == 0)
+		std::cout << "All tests passed!" << std::endl;
+	else
+		std::cout << result << " tests failed." << std::endl;
 	return result;
 }

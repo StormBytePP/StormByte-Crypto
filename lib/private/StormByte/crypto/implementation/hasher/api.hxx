@@ -51,94 +51,99 @@
 #include <span>
 
 /**
- * @brief Private hasher implementation.
+ * @namespace StormByte
+ * @brief Root namespace of the StormByte suite.
  */
-namespace StormByte::Crypto::Implementation::Hasher {
+namespace StormByte {
 	/**
-	 * @brief One-shot hash. Builds Ops and delegates.
-	 * @tparam HasherT Crypto++ hash type.
-	 * @param dataSpan Input.
-	 * @param output Hex digest destination.
-	 * @return true on success.
+	 * @namespace StormByte::Crypto
+	 * @brief Crypto module of the StormByte suite.
 	 */
-	template<class HasherT>
-	STORMBYTE_CRYPTO_PRIVATE bool Hash(
-		std::span<const std::byte> dataSpan,
-		Buffer::WriteOnly& output) noexcept
-	{
-		struct ConcreteOps final : Ops {
-			HasherT hash;
+	namespace Crypto {
+		/**
+		 * @namespace StormByte::Crypto::Implementation
+		 * @brief Private implementation of the Crypto module.
+		 */
+		namespace Implementation {
+			/**
+			 * @namespace StormByte::Crypto::Implementation::Hasher
+			 * @brief Private hasher implementation.
+			 */
+			namespace Hasher {
+				/**
+				 * @brief One-shot hash. Builds Ops and delegates.
+				 * @tparam HasherT Crypto++ hash type.
+				 * @param dataSpan Input.
+				 * @param output Hex digest destination.
+				 * @return true on success.
+				 */
+				template<class HasherT>
+				STORMBYTE_CRYPTO_PRIVATE bool Hash(std::span<const std::byte> dataSpan, Buffer::WriteOnly& output) noexcept {
+					struct ConcreteOps final : Ops {
+						HasherT hash;
 
-			void Update(std::span<const std::byte> in) override
-			{
-				hash.Update(
-					reinterpret_cast<const CryptoPP::byte*>(in.data()),
-					in.size_bytes());
-			}
+						void Update(std::span<const std::byte> in) override {
+							hash.Update(reinterpret_cast<const CryptoPP::byte*>(in.data()), in.size_bytes());
+						}
 
-			bool Finalize(Buffer::DataType& out) override
-			{
-				try {
-					const size_t digestSize = hash.DigestSize();
-					CryptoPP::SecByteBlock digest(digestSize);
-					hash.Final(digest);
+						bool Finalize(StormByte::BinaryData& out) override {
+							try {
+								const size_t digestSize = hash.DigestSize();
+								CryptoPP::SecByteBlock digest(digestSize);
+								hash.Final(digest);
 
-					CryptoPP::HexEncoder encoder(
-						new CryptoPP::StringSinkTemplate<Buffer::DataType>(out)
-					);
-					encoder.Put(digest, digestSize);
-					encoder.MessageEnd();
-					return true;
-				} catch (...) {
-					return false;
+								CryptoPP::HexEncoder encoder(
+									new CryptoPP::StringSinkTemplate<StormByte::BinaryData>(out)
+								);
+								encoder.Put(digest, digestSize);
+								encoder.MessageEnd();
+								return true;
+							} catch (...) {
+								return false;
+							}
+						}
+					};
+
+					return ProcessSpan(dataSpan, output, std::make_unique<ConcreteOps>());
+				}
+
+				/**
+				 * @brief Streaming hash. Builds Ops and delegates.
+				 * @tparam HasherT Crypto++ hash type.
+				 * @param consumer Input consumer.
+				 * @param mode Copy or move.
+				 * @return Consumer with the hex digest.
+				 */
+				template<class HasherT>
+				STORMBYTE_CRYPTO_PRIVATE Buffer::Consumer Hash(Buffer::Consumer consumer, ReadMode mode) noexcept {
+					struct ConcreteOps final : Ops {
+						HasherT hash;
+
+						void Update(std::span<const std::byte> in) override {
+							hash.Update(reinterpret_cast<const CryptoPP::byte*>(in.data()), in.size_bytes());
+						}
+
+						bool Finalize(StormByte::BinaryData& out) override {
+							try {
+								const size_t digestSize = hash.DigestSize();
+								CryptoPP::SecByteBlock digest(digestSize);
+								hash.Final(digest);
+
+								CryptoPP::HexEncoder encoder(
+									new CryptoPP::StringSinkTemplate<StormByte::BinaryData>(out)
+								);
+								encoder.Put(digest, digestSize);
+								encoder.MessageEnd();
+								return true;
+							} catch (...) {
+								return false;
+							}
+						}
+					};
+
+					return Stream(std::move(consumer), mode, std::make_unique<ConcreteOps>());
 				}
 			}
-		};
-
-		return ProcessSpan(dataSpan, output, std::make_unique<ConcreteOps>());
-	}
-
-	/**
-	 * @brief Streaming hash. Builds Ops and delegates.
-	 * @tparam HasherT Crypto++ hash type.
-	 * @param consumer Input consumer.
-	 * @param mode Copy or move.
-	 * @return Consumer with the hex digest.
-	 */
-	template<class HasherT>
-	STORMBYTE_CRYPTO_PRIVATE Buffer::Consumer Hash(
-		Buffer::Consumer consumer,
-		ReadMode mode) noexcept
-	{
-		struct ConcreteOps final : Ops {
-			HasherT hash;
-
-			void Update(std::span<const std::byte> in) override
-			{
-				hash.Update(
-					reinterpret_cast<const CryptoPP::byte*>(in.data()),
-					in.size_bytes());
-			}
-
-			bool Finalize(Buffer::DataType& out) override
-			{
-				try {
-					const size_t digestSize = hash.DigestSize();
-					CryptoPP::SecByteBlock digest(digestSize);
-					hash.Final(digest);
-
-					CryptoPP::HexEncoder encoder(
-						new CryptoPP::StringSinkTemplate<Buffer::DataType>(out)
-					);
-					encoder.Put(digest, digestSize);
-					encoder.MessageEnd();
-					return true;
-				} catch (...) {
-					return false;
-				}
-			}
-		};
-
-		return Stream(std::move(consumer), mode, std::make_unique<ConcreteOps>());
+		}
 	}
 }

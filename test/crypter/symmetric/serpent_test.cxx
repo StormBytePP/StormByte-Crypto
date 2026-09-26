@@ -38,80 +38,86 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
+#include "helpers.hxx"
+
 #include <StormByte/crypto/crypter/symmetric/serpent.hxx>
 #include <StormByte/crypto/password.hxx>
 #include <StormByte/test_handlers.h>
-#include "helpers.hxx"
-#include <iostream>
+
 using StormByte::Buffer::FIFO;
 using namespace StormByte::Crypto;
-int TestSerpentEncryptDecryptConsistency() {
-	const std::string fn_name = "TestSerpentEncryptDecryptConsistency";
+
+// -------------------
+// Round trip
+// -------------------
+
+int test_serpent_encrypt_decrypt_consistency() {
+	const std::string fn_name = "test_serpent_encrypt_decrypt_consistency";
 	const std::string original = "The quick brown fox jumps over the lazy dog";
 	Password password("SecurePassword123!");
 	Crypter::Serpent serpent(password);
-	// Encrypt
 	FIFO encrypted_d;
-	auto encrypt_result = serpent.Encrypt(std::span<const std::byte>(reinterpret_cast<const std::byte*>(original.data()), original.size()), encrypted_d);
-	ASSERT_TRUE(fn_name, encrypt_result);
-	ASSERT_FALSE(fn_name, encrypted_d.Data().empty());
-	// Decrypt
+	ASSERT_TRUE(fn_name, serpent.Encrypt(std::span<const std::byte>(
+		reinterpret_cast<const std::byte*>(original.data()), original.size()), encrypted_d));
+	ASSERT_FALSE(fn_name, encrypted_d.Empty());
 	FIFO decrypted_d;
-	auto decrypt_result = serpent.Decrypt(std::span<const std::byte>(reinterpret_cast<const std::byte*>(encrypted_d.Data().data()), encrypted_d.Data().size()), decrypted_d);
-	ASSERT_TRUE(fn_name, decrypt_result);
-	ASSERT_FALSE(fn_name, decrypted_d.Data().empty());
-	ASSERT_EQUAL(fn_name, std::string(reinterpret_cast<const char*>(decrypted_d.Data().data()), decrypted_d.Data().size()), original);
+	ASSERT_TRUE(fn_name, serpent.Decrypt(encrypted_d.Data(), decrypted_d));
+	ASSERT_FALSE(fn_name, decrypted_d.Empty());
+	ASSERT_EQUAL(fn_name, DeserializeString(decrypted_d.Data()), original);
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestSerpentWrongDecryptionPassword() {
-	const std::string fn_name = "TestSerpentWrongDecryptionPassword";
-	const std::string original = "Serpent is an AES finalist block cipher";
-	Password password("CorrectPassword");
-	Password wrongPassword("WrongPassword");
-	Crypter::Serpent serpent(password);
-	Crypter::Serpent wrongSerpent(wrongPassword);
-	// Encrypt with correct password
-	FIFO encrypted_d;
-	auto encrypt_result = serpent.Encrypt(std::span<const std::byte>(reinterpret_cast<const std::byte*>(original.data()), original.size()), encrypted_d);
-	ASSERT_TRUE(fn_name, encrypt_result);
-	// Decrypt with wrong password
-	// Note: PKCS#7 padding validation will typically detect wrong password
-	FIFO decrypted_d;
-	[[maybe_unused]] auto decrypt_result = wrongSerpent.Decrypt(std::span<const std::byte>(reinterpret_cast<const std::byte*>(encrypted_d.Data().data()), encrypted_d.Data().size()), decrypted_d);
-	// Either decryption fails (padding error) or succeeds with garbage data
-	// If decryption succeeds, verify the data does NOT match the original
-	ASSERT_NOT_EQUAL(fn_name, std::string(reinterpret_cast<const char*>(decrypted_d.Data().data()), decrypted_d.Data().size()), original);
-	RETURN_TEST(fn_name, 0);
-}
-
-int TestSerpentEncryptionProducesDifferentContent() {
-	const std::string fn_name = "TestSerpentEncryptionProducesDifferentContent";
+int test_serpent_encryption_produces_different_content() {
+	const std::string fn_name = "test_serpent_encryption_produces_different_content";
 	Password password("SecurePassword123!");
 	const std::string original_data = "Important data to encrypt";
 	Crypter::Serpent serpent(password);
 	FIFO encrypted_data;
-	auto encrypt_result = serpent.Encrypt(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(original_data.data()), original_data.size()),
-		encrypted_data
-	);
-	ASSERT_TRUE(fn_name, encrypt_result);
-	auto encrypted_string = StormByte::String::FromByteVector(encrypted_data.Data());
+	ASSERT_TRUE(fn_name, serpent.Encrypt(std::span<const std::byte>(
+		reinterpret_cast<const std::byte*>(original_data.data()), original_data.size()), encrypted_data));
+	const std::string encrypted_string = DeserializeString(encrypted_data.Data());
 	ASSERT_FALSE(fn_name, encrypted_string.empty());
 	ASSERT_NOT_EQUAL(fn_name, encrypted_string, original_data);
 	RETURN_TEST(fn_name, 0);
 }
 
+// -------------------
+// Failure modes
+// -------------------
+
+int test_serpent_wrong_decryption_password() {
+	const std::string fn_name = "test_serpent_wrong_decryption_password";
+	const std::string original = "Serpent is an AES finalist block cipher";
+	Password password("CorrectPassword");
+	Password wrongPassword("WrongPassword");
+	Crypter::Serpent serpent(password);
+	Crypter::Serpent wrongSerpent(wrongPassword);
+	FIFO encrypted_d;
+	ASSERT_TRUE(fn_name, serpent.Encrypt(std::span<const std::byte>(
+		reinterpret_cast<const std::byte*>(original.data()), original.size()), encrypted_d));
+	FIFO decrypted_d;
+	(void)wrongSerpent.Decrypt(encrypted_d.Data(), decrypted_d);
+	ASSERT_NOT_EQUAL(fn_name, DeserializeString(decrypted_d.Data()), original);
+	RETURN_TEST(fn_name, 0);
+}
+
 int main() {
 	int result = 0;
-	result += TestSerpentEncryptDecryptConsistency();
-	result += TestSerpentWrongDecryptionPassword();
-	result += TestSerpentEncryptionProducesDifferentContent();
-	if (result == 0) {
-		std::cout << "Serpent tests passed" << std::endl;
-	} else {
-		std::cout << "Serpent tests failed" << std::endl;
-	}
 
+	// -------------------
+	// Round trip
+	// -------------------
+	result += test_serpent_encrypt_decrypt_consistency();
+	result += test_serpent_encryption_produces_different_content();
+
+	// -------------------
+	// Failure modes
+	// -------------------
+	result += test_serpent_wrong_decryption_password();
+
+	if (result == 0)
+		std::cout << "All tests passed!" << std::endl;
+	else
+		std::cout << result << " tests failed." << std::endl;
 	return result;
 }

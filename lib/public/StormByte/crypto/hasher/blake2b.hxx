@@ -43,88 +43,101 @@
 #include <StormByte/crypto/hasher/generic.hxx>
 
 /**
- * @brief Hash algorithms of the Crypto module.
+ * @namespace StormByte
+ * @brief Root namespace of the StormByte suite.
  */
-namespace StormByte::Crypto::Hasher {
+namespace StormByte {
 	/**
-	 * @class Blake2b
-	 * @brief BLAKE2b hasher.
+	 * @namespace StormByte::Crypto
+	 * @brief Crypto module of the StormByte suite.
 	 */
-	class STORMBYTE_CRYPTO_PUBLIC Blake2b final: public Generic {
-		public:
+	namespace Crypto {
+		/**
+		 * @namespace StormByte::Crypto::Hasher
+		 * @brief Hash algorithms of the Crypto module.
+		 */
+		namespace Hasher {
 			/**
-			 * @name Construction
-			 * @{
+			 * @class Blake2b
+			 * @brief BLAKE2b hasher.
 			 */
-			/**
-			 * @brief Default constructor.
-			 */
-			inline Blake2b():
-				Generic(Type::Blake2b) {}
+			class STORMBYTE_CRYPTO_PUBLIC Blake2b final: public Generic {
+				public:
+					/**
+					 * @name Construction
+					 * @{
+					 */
+					/**
+					 * @brief Default constructor.
+					 */
+					inline Blake2b():
+						Generic(Type::Blake2b) {}
 
-			/**
-			 * @brief Copy constructor.
-			 * @param other Hasher to copy.
-			 */
-			Blake2b(const Blake2b& other) = default;
+					/**
+					 * @brief Copy constructor.
+					 * @param other Hasher to copy.
+					 */
+					Blake2b(const Blake2b& other) = default;
 
-			/**
-			 * @brief Move constructor.
-			 * @param other Hasher to move.
-			 */
-			Blake2b(Blake2b&& other) noexcept = default;
+					/**
+					 * @brief Move constructor.
+					 * @param other Hasher to move.
+					 */
+					Blake2b(Blake2b&& other) noexcept = default;
 
-			/**
-			 * @brief Destructor.
-			 */
-			~Blake2b() noexcept = default;
+					/**
+					 * @brief Destructor.
+					 */
+					~Blake2b() noexcept = default;
 
-			/**
-			 * @brief Copy assignment.
-			 * @param other Hasher to copy.
-			 * @return Reference to this hasher.
-			 */
-			Blake2b& operator=(const Blake2b& other) = default;
+					/**
+					 * @brief Copy assignment.
+					 * @param other Hasher to copy.
+					 * @return Reference to this hasher.
+					 */
+					Blake2b& operator=(const Blake2b& other) = default;
 
-			/**
-			 * @brief Move assignment.
-			 * @param other Hasher to move.
-			 * @return Reference to this hasher.
-			 */
-			Blake2b& operator=(Blake2b&& other) noexcept = default;
-			/** @} */
+					/**
+					 * @brief Move assignment.
+					 * @param other Hasher to move.
+					 * @return Reference to this hasher.
+					 */
+					Blake2b& operator=(Blake2b&& other) noexcept = default;
+					/** @} */
 
-			/**
-			 * @brief Clone this hasher.
-			 * @return Shared pointer to the clone.
-			 */
-			inline PointerType Clone() const noexcept override {
-				return std::make_shared<Blake2b>(*this);
-			}
+					/**
+					 * @brief Clone this hasher.
+					 * @return Shared pointer to the clone.
+					 */
+					inline PointerType Clone() const noexcept override {
+						return MakePointer<Blake2b>(*this);
+					}
 
-			/**
-			 * @brief Move this hasher into a new instance.
-			 * @return Shared pointer to the moved hasher.
-			 */
-			inline PointerType Move() noexcept override {
-				return std::make_shared<Blake2b>(std::move(*this));
-			}
+					/**
+					 * @brief Move this hasher into a new instance.
+					 * @return Shared pointer to the moved hasher.
+					 */
+					inline PointerType Move() noexcept override {
+						return MakePointer<Blake2b>(std::move(*this));
+					}
 
-		private:
-			/**
-			 * @brief Hash a byte span.
-			 * @param input Input bytes.
-			 * @param output Destination buffer.
-			 * @return true on success.
-			 */
-			bool DoHash(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
+				private:
+					/**
+					 * @brief Hash a byte span.
+					 * @param input Input bytes.
+					 * @param output Destination buffer.
+					 * @return true on success.
+					 */
+					bool DoHash(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
 
-			/**
-			 * @brief Hash a Consumer.
-			 * @param consumer Input consumer.
-			 * @param mode Copy or move.
-			 * @return Consumer with the digest.
-			 */
-			Buffer::Consumer DoHash(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
-	};
+					/**
+					 * @brief Hash a Consumer.
+					 * @param consumer Input consumer.
+					 * @param mode Copy or move.
+					 * @return Consumer with the digest.
+					 */
+					Buffer::Consumer DoHash(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
+			};
+		}
+	}
 }

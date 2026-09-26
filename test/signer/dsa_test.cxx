@@ -38,90 +38,91 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
+#include "helpers.hxx"
+
 #include <StormByte/buffer/fifo.hxx>
-#include <StormByte/buffer/producer.hxx>
 #include <StormByte/crypto/signer/dsa.hxx>
 #include <StormByte/test_handlers.h>
-#include <thread>
+
 #include <iostream>
+
 using StormByte::Buffer::FIFO;
 using namespace StormByte::Crypto;
-int TestDSASignAndVerify(KeyPair::Generic::PointerType kp) {
-	const std::string fn_name = "TestDSASignAndVerify";
+
+// -------------------
+// Sign / verify
+// -------------------
+
+int test_dsa_sign_and_verify(KeyPair::Generic::PointerType kp) {
+	const std::string fn_name = "test_dsa_sign_and_verify";
 	const std::string message = "This is a test message.";
 	Signer::DSA dsa(kp);
-	// Sign the message
 	FIFO signed_data;
-	auto sign_result = dsa.Sign(std::span<const std::byte>(reinterpret_cast<const std::byte*>(message.data()), message.size()), signed_data);
-	ASSERT_TRUE(fn_name, sign_result);
-	std::string signature = StormByte::String::FromByteVector(signed_data.Data());
-	// Verify the signature
-	bool verify_result = dsa.Verify(std::span<const std::byte>(reinterpret_cast<const std::byte*>(message.data()), message.size()), signature);
-	ASSERT_TRUE(fn_name, verify_result);
+	ASSERT_TRUE(fn_name, dsa.Sign(std::span<const std::byte>(
+		reinterpret_cast<const std::byte*>(message.data()), message.size()), signed_data));
+	const std::string signature = DeserializeString(signed_data.Data());
+	ASSERT_TRUE(fn_name, dsa.Verify(std::span<const std::byte>(
+		reinterpret_cast<const std::byte*>(message.data()), message.size()), signature));
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestDSAVerifyWithCorruptedSignature(KeyPair::Generic::PointerType kp) {
-	const std::string fn_name = "TestDSAVerifyWithCorruptedSignature";
+// -------------------
+// Failure modes
+// -------------------
+
+int test_dsa_verify_with_corrupted_signature(KeyPair::Generic::PointerType kp) {
+	const std::string fn_name = "test_dsa_verify_with_corrupted_signature";
 	const std::string message = "This is a test message.";
 	Signer::DSA dsa(kp);
-	// Sign the message
 	FIFO signed_data;
-	auto sign_result = dsa.Sign(std::span<const std::byte>(reinterpret_cast<const std::byte*>(message.data()), message.size()), signed_data);
-	ASSERT_TRUE(fn_name, sign_result);
-	std::string signature = StormByte::String::FromByteVector(signed_data.Data());
-	// Corrupt the signature
-	if (!signature.empty()) {
+	ASSERT_TRUE(fn_name, dsa.Sign(std::span<const std::byte>(
+		reinterpret_cast<const std::byte*>(message.data()), message.size()), signed_data));
+	std::string signature = DeserializeString(signed_data.Data());
+	if (!signature.empty())
 		signature[0] = static_cast<char>(~signature[0]);
-	}
-
-	// Verify the corrupted signature
-	bool verify_result = dsa.Verify(std::span<const std::byte>(reinterpret_cast<const std::byte*>(message.data()), message.size()), signature);
-	ASSERT_FALSE(fn_name, verify_result);
+	ASSERT_FALSE(fn_name, dsa.Verify(std::span<const std::byte>(
+		reinterpret_cast<const std::byte*>(message.data()), message.size()), signature));
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestDSAVerifyWithMismatchedKey(KeyPair::Generic::PointerType kp) {
-	const std::string fn_name = "TestDSAVerifyWithMismatchedKey";
+int test_dsa_verify_with_mismatched_key(KeyPair::Generic::PointerType kp) {
+	const std::string fn_name = "test_dsa_verify_with_mismatched_key";
 	const std::string message = "This is a test message.";
 	Signer::DSA dsa(kp);
 	auto kp2 = KeyPair::DSA::Generate(2048);
-	ASSERT_TRUE(fn_name, kp2);
+	ASSERT_TRUE(fn_name, static_cast<bool>(kp2));
 	Signer::DSA dsa2(kp2);
 	FIFO signed_data;
-	auto sign_result = dsa.Sign(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(message.data()), message.size()),
-		signed_data
-	);
-	ASSERT_TRUE(fn_name, sign_result);
-	std::string signature = StormByte::String::FromByteVector(signed_data.Data());
-	bool verify_result = dsa2.Verify(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(message.data()), message.size()),
-		signature
-	);
-	ASSERT_FALSE(fn_name, verify_result);
+	ASSERT_TRUE(fn_name, dsa.Sign(std::span<const std::byte>(
+		reinterpret_cast<const std::byte*>(message.data()), message.size()), signed_data));
+	const std::string signature = DeserializeString(signed_data.Data());
+	ASSERT_FALSE(fn_name, dsa2.Verify(std::span<const std::byte>(
+		reinterpret_cast<const std::byte*>(message.data()), message.size()), signature));
 	RETURN_TEST(fn_name, 0);
 }
 
 int main() {
 	int result = 0;
-	const int key_strength = 2048;
-	// Generate a single DSA keypair for all tests (key generation is expensive)
-	auto keypair_result = KeyPair::DSA::Generate(key_strength);
-	if (!keypair_result) {
+	auto kp = KeyPair::DSA::Generate(2048);
+	if (!kp) {
 		std::cerr << "Failed to generate DSA keypair" << std::endl;
 		return 1;
 	}
 
-	auto kp = keypair_result;
-	result += TestDSASignAndVerify(kp);
-	result += TestDSAVerifyWithCorruptedSignature(kp);
-	result += TestDSAVerifyWithMismatchedKey(kp);
-	if (result == 0) {
-		std::cout << "All tests passed!" << std::endl;
-	} else {
-		std::cout << result << " tests failed." << std::endl;
-	}
+	// -------------------
+	// Sign / verify
+	// -------------------
+	result += test_dsa_sign_and_verify(kp);
 
+	// -------------------
+	// Failure modes
+	// -------------------
+	result += test_dsa_verify_with_corrupted_signature(kp);
+	result += test_dsa_verify_with_mismatched_key(kp);
+
+	if (result == 0)
+		std::cout << "All tests passed!" << std::endl;
+	else
+		std::cout << result << " tests failed." << std::endl;
 	return result;
 }

@@ -48,52 +48,66 @@
 #include <span>
 
 /**
- * @brief Private compressor implementation.
+ * @namespace StormByte
+ * @brief Root namespace of the StormByte suite.
  */
-namespace StormByte::Crypto::Implementation::Compressor {
+namespace StormByte {
 	/**
-	 * @struct StreamOps
-	 * @brief Type-erased chunk compress/decompress engine.
+	 * @namespace StormByte::Crypto
+	 * @brief Crypto module of the StormByte suite.
 	 */
-	struct StreamOps {
-		virtual ~StreamOps() = default;
-
+	namespace Crypto {
 		/**
-		 * @brief Feed one chunk and append output.
-		 * @param in Input bytes.
-		 * @param out Accumulated output.
-		 * @return true on success.
+		 * @namespace StormByte::Crypto::Implementation
+		 * @brief Private implementation of the Crypto module.
 		 */
-		virtual bool Process(std::span<const std::byte> in,
-							Buffer::DataType& out) = 0;
+		namespace Implementation {
+			/**
+			 * @namespace StormByte::Crypto::Implementation::Compressor
+			 * @brief Private compressor implementation.
+			 */
+			namespace Compressor {
+				/**
+				 * @struct StreamOps
+				 * @brief Type-erased chunk compress/decompress engine.
+				 */
+				struct StreamOps {
+					virtual ~StreamOps() = default;
 
-		/**
-		 * @brief Finish the stream and append remaining bytes.
-		 * @param out Accumulated output.
-		 * @return true on success.
-		 */
-		virtual bool Finalize(Buffer::DataType& out) = 0;
-	};
+					/**
+					 * @brief Feed one chunk and append output.
+					 * @param in Input bytes.
+					 * @param out Accumulated output.
+					 * @return true on success.
+					 */
+					virtual bool Process(std::span<const std::byte> in, StormByte::BinaryData& out) = 0;
 
-	/**
-	 * @brief One-shot Process + Finalize into a buffer.
-	 * @param data Input.
-	 * @param output Destination.
-	 * @param ops Engine.
-	 * @return true on success.
-	 */
-	bool ProcessSpan(std::span<const std::byte> data,
-					Buffer::WriteOnly& output,
-					std::unique_ptr<StreamOps> ops) noexcept;
+					/**
+					 * @brief Finish the stream and append remaining bytes.
+					 * @param out Accumulated output.
+					 * @return true on success.
+					 */
+					virtual bool Finalize(StormByte::BinaryData& out) = 0;
+				};
 
-	/**
-	 * @brief Streaming compress/decompress.
-	 * @param consumer Input consumer.
-	 * @param mode Copy or move.
-	 * @param ops Engine.
-	 * @return Consumer with the result.
-	 */
-	Buffer::Consumer Stream(Buffer::Consumer consumer,
-							ReadMode mode,
-							std::unique_ptr<StreamOps> ops) noexcept;
+				/**
+				 * @brief One-shot Process + Finalize into a buffer.
+				 * @param data Input.
+				 * @param output Destination.
+				 * @param ops Engine.
+				 * @return true on success.
+				 */
+				bool ProcessSpan(std::span<const std::byte> data, Buffer::WriteOnly& output, std::unique_ptr<StreamOps> ops) noexcept;
+
+				/**
+				 * @brief Streaming compress/decompress.
+				 * @param consumer Input consumer.
+				 * @param mode Copy or move.
+				 * @param ops Engine.
+				 * @return Consumer with the result.
+				 */
+				Buffer::Consumer Stream(Buffer::Consumer consumer, ReadMode mode, std::unique_ptr<StreamOps> ops) noexcept;
+			}
+		}
+	}
 }

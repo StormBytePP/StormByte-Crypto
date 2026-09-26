@@ -117,7 +117,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			 * @param outChunk Header bytes.
 			 * @return true on success.
 			 */
-			bool WriteHeader(Buffer::DataType& outChunk) override
+			bool WriteHeader(StormByte::BinaryData& outChunk) override
 			{
 				try {
 					RNG().GenerateBlock(salt, salt.size());
@@ -144,7 +144,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			 * @param outChunk Output.
 			 * @return true on success.
 			 */
-			bool Process(std::span<const std::byte> in, Buffer::DataType& outChunk) override
+			bool Process(std::span<const std::byte> in, StormByte::BinaryData& outChunk) override
 			{
 				if (!encryption)
 					return false;
@@ -155,7 +155,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 						true,
 						new CryptoPP::StreamTransformationFilter(
 							*encryption,
-							new CryptoPP::StringSinkTemplate<Buffer::DataType>(outChunk)
+							new CryptoPP::StringSinkTemplate<StormByte::BinaryData>(outChunk)
 						)
 					);
 					(void)ss;
@@ -169,7 +169,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			 * @brief Nothing left after the last Process.
 			 * @return true.
 			 */
-			bool Finalize(Buffer::DataType& /*outChunk*/) override
+			bool Finalize(StormByte::BinaryData& /*outChunk*/) override
 			{
 				return true;
 			}
@@ -210,7 +210,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			std::size_t salt_size, iv_size, key_size;	///< Sizes
 			CryptoPP::SecByteBlock salt, iv, key;	///< Salt, IV, derived key
 			std::unique_ptr<CryptorT> encryption;	///< Cipher
-			Buffer::DataType buffer;				///< Filter sink
+			StormByte::BinaryData buffer;				///< Filter sink
 			std::unique_ptr<CryptoPP::StreamTransformationFilter> filter;	///< Live filter
 
 			/**
@@ -238,7 +238,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			 * @param outChunk Header bytes.
 			 * @return true on success.
 			 */
-			bool WriteHeader(Buffer::DataType& outChunk) override
+			bool WriteHeader(StormByte::BinaryData& outChunk) override
 			{
 				try {
 					RNG().GenerateBlock(salt, salt.size());
@@ -256,7 +256,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 
 					filter = std::make_unique<CryptoPP::StreamTransformationFilter>(
 						*encryption,
-						new CryptoPP::StringSinkTemplate<Buffer::DataType>(buffer)
+						new CryptoPP::StringSinkTemplate<StormByte::BinaryData>(buffer)
 					);
 					return true;
 				} catch (...) {
@@ -270,7 +270,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			 * @param outChunk Output.
 			 * @return true on success.
 			 */
-			bool Process(std::span<const std::byte> in, Buffer::DataType& outChunk) override
+			bool Process(std::span<const std::byte> in, StormByte::BinaryData& outChunk) override
 			{
 				try {
 					filter->Put(reinterpret_cast<const uint8_t*>(in.data()), in.size_bytes());
@@ -287,7 +287,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			 * @param outChunk Remaining output.
 			 * @return true on success.
 			 */
-			bool Finalize(Buffer::DataType& outChunk) override
+			bool Finalize(StormByte::BinaryData& outChunk) override
 			{
 				try {
 					filter->MessageEnd();
@@ -385,7 +385,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			 * @param outChunk Output.
 			 * @return true on success.
 			 */
-			bool Process(std::span<const std::byte> in, Buffer::DataType& outChunk) override
+			bool Process(std::span<const std::byte> in, StormByte::BinaryData& outChunk) override
 			{
 				if (!decryption)
 					return false;
@@ -396,7 +396,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 						true,
 						new CryptoPP::StreamTransformationFilter(
 							*decryption,
-							new CryptoPP::StringSinkTemplate<Buffer::DataType>(outChunk)
+							new CryptoPP::StringSinkTemplate<StormByte::BinaryData>(outChunk)
 						)
 					);
 					(void)ss;
@@ -410,7 +410,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			 * @brief Nothing left after the last Process.
 			 * @return true.
 			 */
-			bool Finalize(Buffer::DataType& /*outChunk*/) override
+			bool Finalize(StormByte::BinaryData& /*outChunk*/) override
 			{
 				return true;
 			}
@@ -451,7 +451,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			std::size_t salt_size, iv_size, key_size;	///< Sizes
 			CryptoPP::SecByteBlock salt, iv, key;	///< Salt, IV, derived key
 			std::unique_ptr<DecryptorT> decryption;	///< Cipher
-			Buffer::DataType buffer;				///< Filter sink
+			StormByte::BinaryData buffer;				///< Filter sink
 			std::unique_ptr<CryptoPP::StreamTransformationFilter> filter;	///< Live filter
 
 			/**
@@ -482,14 +482,14 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			bool ReadHeader(Buffer::Consumer& consumer) override
 			{
 				try {
-					Buffer::DataType saltData;
-					if (!consumer.Extract(salt.size(), saltData))
+					StormByte::BinaryData saltData;
+					if (!consumer.Extract(StormByte::ByteSize{salt.size()}, saltData))
 						return false;
 					std::copy_n(reinterpret_cast<const uint8_t*>(saltData.data()),
 								salt.size(), salt.data());
 
-					Buffer::DataType ivData;
-					if (!consumer.Extract(iv.size(), ivData))
+					StormByte::BinaryData ivData;
+					if (!consumer.Extract(StormByte::ByteSize{iv.size()}, ivData))
 						return false;
 					std::copy_n(reinterpret_cast<const uint8_t*>(ivData.data()),
 								iv.size(), iv.data());
@@ -499,7 +499,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 
 					filter = std::make_unique<CryptoPP::StreamTransformationFilter>(
 						*decryption,
-						new CryptoPP::StringSinkTemplate<Buffer::DataType>(buffer)
+						new CryptoPP::StringSinkTemplate<StormByte::BinaryData>(buffer)
 					);
 					return true;
 				} catch (...) {
@@ -513,7 +513,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			 * @param outChunk Output.
 			 * @return true on success.
 			 */
-			bool Process(std::span<const std::byte> in, Buffer::DataType& outChunk) override
+			bool Process(std::span<const std::byte> in, StormByte::BinaryData& outChunk) override
 			{
 				try {
 					filter->Put(reinterpret_cast<const uint8_t*>(in.data()), in.size_bytes());
@@ -530,7 +530,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			 * @param outChunk Remaining output.
 			 * @return true on success.
 			 */
-			bool Finalize(Buffer::DataType& outChunk) override
+			bool Finalize(StormByte::BinaryData& outChunk) override
 			{
 				try {
 					filter->MessageEnd();
@@ -612,7 +612,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			 * @param outChunk Header bytes.
 			 * @return true on success.
 			 */
-			bool WriteHeader(Buffer::DataType& outChunk) override
+			bool WriteHeader(StormByte::BinaryData& outChunk) override
 			{
 				try {
 					RNG().GenerateBlock(salt, salt.size());
@@ -640,14 +640,14 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			 * @param outChunk Output.
 			 * @return true on success.
 			 */
-			bool Process(std::span<const std::byte> in, Buffer::DataType& outChunk) override
+			bool Process(std::span<const std::byte> in, StormByte::BinaryData& outChunk) override
 			{
 				if (!ready)
 					return false;
 				try {
 					CryptoPP::AuthenticatedEncryptionFilter ef(
 						encryption,
-						new CryptoPP::StringSinkTemplate<Buffer::DataType>(outChunk)
+						new CryptoPP::StringSinkTemplate<StormByte::BinaryData>(outChunk)
 					);
 					if (!aad.empty()) {
 						ef.ChannelPut2("AAD",
@@ -666,7 +666,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			 * @brief Tag already emitted in Process.
 			 * @return true.
 			 */
-			bool Finalize(Buffer::DataType& /*outChunk*/) override
+			bool Finalize(StormByte::BinaryData& /*outChunk*/) override
 			{
 				return true;
 			}
@@ -710,7 +710,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			std::vector<std::byte> aad;				///< AAD copy
 			CryptoPP::SecByteBlock salt, iv, key;	///< Salt, IV, derived key
 			CryptorT encryption;					///< Cipher
-			Buffer::DataType buffer;				///< Filter sink
+			StormByte::BinaryData buffer;				///< Filter sink
 			std::unique_ptr<CryptoPP::AuthenticatedEncryptionFilter> filter;	///< Live filter
 
 			/**
@@ -741,7 +741,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			 * @param outChunk Header bytes.
 			 * @return true on success.
 			 */
-			bool WriteHeader(Buffer::DataType& outChunk) override
+			bool WriteHeader(StormByte::BinaryData& outChunk) override
 			{
 				try {
 					RNG().GenerateBlock(salt, salt.size());
@@ -759,7 +759,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 
 					filter = std::make_unique<CryptoPP::AuthenticatedEncryptionFilter>(
 						encryption,
-						new CryptoPP::StringSinkTemplate<Buffer::DataType>(buffer)
+						new CryptoPP::StringSinkTemplate<StormByte::BinaryData>(buffer)
 					);
 					if (!aad.empty()) {
 						filter->ChannelPut2("AAD",
@@ -778,7 +778,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			 * @param outChunk Output.
 			 * @return true on success.
 			 */
-			bool Process(std::span<const std::byte> in, Buffer::DataType& outChunk) override
+			bool Process(std::span<const std::byte> in, StormByte::BinaryData& outChunk) override
 			{
 				try {
 					filter->Put(reinterpret_cast<const uint8_t*>(in.data()), in.size_bytes());
@@ -795,7 +795,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			 * @param outChunk Remaining output.
 			 * @return true on success.
 			 */
-			bool Finalize(Buffer::DataType& outChunk) override
+			bool Finalize(StormByte::BinaryData& outChunk) override
 			{
 				try {
 					filter->MessageEnd();
@@ -895,14 +895,14 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			 * @param outChunk Output.
 			 * @return true on success.
 			 */
-			bool Process(std::span<const std::byte> in, Buffer::DataType& outChunk) override
+			bool Process(std::span<const std::byte> in, StormByte::BinaryData& outChunk) override
 			{
 				if (!ready)
 					return false;
 				try {
 					CryptoPP::AuthenticatedDecryptionFilter df(
 						decryption,
-						new CryptoPP::StringSinkTemplate<Buffer::DataType>(outChunk),
+						new CryptoPP::StringSinkTemplate<StormByte::BinaryData>(outChunk),
 						CryptoPP::AuthenticatedDecryptionFilter::DEFAULT_FLAGS
 					);
 					df.Put(reinterpret_cast<const uint8_t*>(in.data()), in.size_bytes());
@@ -917,7 +917,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			 * @brief Tag already verified in Process.
 			 * @return true.
 			 */
-			bool Finalize(Buffer::DataType& /*outChunk*/) override
+			bool Finalize(StormByte::BinaryData& /*outChunk*/) override
 			{
 				return true;
 			}
@@ -961,7 +961,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			std::vector<std::byte> aad;				///< AAD copy
 			CryptoPP::SecByteBlock salt, iv, key;	///< Salt, IV, derived key
 			DecryptorT decryption;					///< Cipher
-			Buffer::DataType buffer;				///< Filter sink
+			StormByte::BinaryData buffer;				///< Filter sink
 			std::unique_ptr<CryptoPP::AuthenticatedDecryptionFilter> filter;	///< Live filter
 
 			/**
@@ -995,14 +995,14 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			bool ReadHeader(Buffer::Consumer& consumer) override
 			{
 				try {
-					Buffer::DataType saltData;
-					if (!consumer.Extract(salt.size(), saltData))
+					StormByte::BinaryData saltData;
+					if (!consumer.Extract(StormByte::ByteSize{salt.size()}, saltData))
 						return false;
 					std::copy_n(reinterpret_cast<const uint8_t*>(saltData.data()),
 								salt.size(), salt.data());
 
-					Buffer::DataType ivData;
-					if (!consumer.Extract(iv.size(), ivData))
+					StormByte::BinaryData ivData;
+					if (!consumer.Extract(StormByte::ByteSize{iv.size()}, ivData))
 						return false;
 					std::copy_n(reinterpret_cast<const uint8_t*>(ivData.data()),
 								iv.size(), iv.data());
@@ -1012,7 +1012,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 
 					filter = std::make_unique<CryptoPP::AuthenticatedDecryptionFilter>(
 						decryption,
-						new CryptoPP::StringSinkTemplate<Buffer::DataType>(buffer),
+						new CryptoPP::StringSinkTemplate<StormByte::BinaryData>(buffer),
 						CryptoPP::AuthenticatedDecryptionFilter::DEFAULT_FLAGS
 					);
 					if (!aad.empty()) {
@@ -1032,7 +1032,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			 * @param outChunk Output.
 			 * @return true on success.
 			 */
-			bool Process(std::span<const std::byte> in, Buffer::DataType& outChunk) override
+			bool Process(std::span<const std::byte> in, StormByte::BinaryData& outChunk) override
 			{
 				try {
 					filter->Put(reinterpret_cast<const uint8_t*>(in.data()), in.size_bytes());
@@ -1049,7 +1049,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			 * @param outChunk Remaining output.
 			 * @return true if the tag matches.
 			 */
-			bool Finalize(Buffer::DataType& outChunk) override
+			bool Finalize(StormByte::BinaryData& outChunk) override
 			{
 				try {
 					filter->MessageEnd();
@@ -1212,14 +1212,14 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			 * @param outChunk Output.
 			 * @return true on success.
 			 */
-			bool Process(std::span<const std::byte> in, Buffer::DataType& outChunk) override
+			bool Process(std::span<const std::byte> in, StormByte::BinaryData& outChunk) override
 			{
 				if (!ready)
 					return false;
 				try {
 					CryptoPP::AuthenticatedDecryptionFilter df(
 						decryption,
-						new CryptoPP::StringSinkTemplate<Buffer::DataType>(outChunk),
+						new CryptoPP::StringSinkTemplate<StormByte::BinaryData>(outChunk),
 						CryptoPP::AuthenticatedDecryptionFilter::DEFAULT_FLAGS
 					);
 					if (!aad.empty()) {
@@ -1239,7 +1239,7 @@ namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
 			 * @brief Tag already verified in Process.
 			 * @return true.
 			 */
-			bool Finalize(Buffer::DataType& /*outChunk*/) override
+			bool Finalize(StormByte::BinaryData& /*outChunk*/) override
 			{
 				return true;
 			}

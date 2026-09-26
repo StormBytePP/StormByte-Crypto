@@ -48,31 +48,37 @@
 #include <StormByte/crypto/helpers/secure_wipe.hxx>
 #include <StormByte/crypto/password.hxx>
 #include <StormByte/crypto/random.hxx>
+
 using namespace StormByte::Crypto::Crypter;
+using StormByte::Crypto::Helpers::SecureWipe;
+
 Symmetric::~Symmetric() noexcept = default;
+
 StormByte::Crypto::Password Symmetric::RandomPassword(std::size_t length) noexcept {
 	CryptoPP::SecByteBlock raw(length);
 	RNG().GenerateBlock(raw, length);
-	class Password result(raw.data(), raw.size());
-	Helpers::SecureWipe(raw);
+	StormByte::Crypto::Password result(raw.data(), StormByte::ByteSize{raw.size()});
+	SecureWipe(raw);
 	return result;
 }
 
-Generic::PointerType Create(enum Type type, StormByte::Crypto::Password password) noexcept {
-	switch (type) {
-		case Type::AES:
-			return std::make_shared<AES>(std::move(password));
-		case Type::AES_GCM:
-			return std::make_shared<AES_GCM>(std::move(password));
-		case Type::ChaChaPoly:
-			return std::make_shared<ChaChaPoly>(std::move(password));
-		case Type::Camellia:
-			return std::make_shared<Camellia>(std::move(password));
-		case Type::Serpent:
-			return std::make_shared<Serpent>(std::move(password));
-		case Type::TwoFish:
-			return std::make_shared<TwoFish>(std::move(password));
-		default:
-			return nullptr;
+namespace StormByte::Crypto::Crypter {
+	Generic::PointerType Create(enum Type type, StormByte::Crypto::Password password) noexcept {
+		switch (type) {
+			case Type::AES:
+				return AES::MakePointer<AES>(std::move(password));
+			case Type::AES_GCM:
+				return AES_GCM::MakePointer<AES_GCM>(std::move(password));
+			case Type::ChaChaPoly:
+				return ChaChaPoly::MakePointer<ChaChaPoly>(std::move(password));
+			case Type::Camellia:
+				return Camellia::MakePointer<Camellia>(std::move(password));
+			case Type::Serpent:
+				return Serpent::MakePointer<Serpent>(std::move(password));
+			case Type::TwoFish:
+				return TwoFish::MakePointer<TwoFish>(std::move(password));
+			default:
+				return nullptr;
+		}
 	}
 }

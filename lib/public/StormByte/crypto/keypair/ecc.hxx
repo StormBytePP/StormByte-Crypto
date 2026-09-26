@@ -47,80 +47,93 @@
 #include <string>
 
 /**
- * @brief Keypairs of the Crypto module.
+ * @namespace StormByte
+ * @brief Root namespace of the StormByte suite.
  */
-namespace StormByte::Crypto::KeyPair {
+namespace StormByte {
 	/**
-	 * @class ECC
-	 * @brief Elliptic-curve encryption keypair.
+	 * @namespace StormByte::Crypto
+	 * @brief Crypto module of the StormByte suite.
 	 */
-	class STORMBYTE_CRYPTO_PUBLIC ECC final: public Generic {
-		public:
+	namespace Crypto {
+		/**
+		 * @namespace StormByte::Crypto::KeyPair
+		 * @brief Keypairs of the Crypto module.
+		 */
+		namespace KeyPair {
 			/**
-			 * @name Construction
-			 * @{
+			 * @class ECC
+			 * @brief Elliptic-curve encryption keypair.
 			 */
-			/**
-			 * @brief Construct from public material and optional private Password.
-			 * @param publicKey Public key.
-			 * @param privateKey Optional private key.
-			 */
-			inline ECC(std::string publicKey, std::optional<Password> privateKey = std::nullopt):
-				Generic(Type::ECC, std::move(publicKey), std::move(privateKey)) {}
+			class STORMBYTE_CRYPTO_PUBLIC ECC final: public Generic {
+				public:
+					/**
+					 * @name Construction
+					 * @{
+					 */
+					/**
+					 * @brief Construct from public material and optional private Password.
+					 * @param publicKey Public key.
+					 * @param privateKey Optional private key.
+					 */
+					inline ECC(std::string publicKey, std::optional<Password> privateKey = std::nullopt):
+						Generic(Type::ECC, std::move(publicKey), std::move(privateKey)) {}
 
-			/**
-			 * @brief Copy constructor.
-			 * @param other Keypair to copy.
-			 */
-			ECC(const ECC& other) = default;
+					/**
+					 * @brief Copy constructor.
+					 * @param other Keypair to copy.
+					 */
+					ECC(const ECC& other) = default;
 
-			/**
-			 * @brief Move constructor.
-			 * @param other Keypair to move.
-			 */
-			ECC(ECC&& other) noexcept = default;
+					/**
+					 * @brief Move constructor.
+					 * @param other Keypair to move.
+					 */
+					ECC(ECC&& other) noexcept = default;
 
-			/**
-			 * @brief Destructor.
-			 */
-			~ECC() noexcept override = default;
+					/**
+					 * @brief Destructor.
+					 */
+					~ECC() noexcept override = default;
 
-			/**
-			 * @brief Copy assignment.
-			 * @param other Keypair to copy.
-			 * @return Reference to this keypair.
-			 */
-			ECC& operator=(const ECC& other) = default;
+					/**
+					 * @brief Copy assignment.
+					 * @param other Keypair to copy.
+					 * @return Reference to this keypair.
+					 */
+					ECC& operator=(const ECC& other) = default;
 
-			/**
-			 * @brief Move assignment.
-			 * @param other Keypair to move.
-			 * @return Reference to this keypair.
-			 */
-			ECC& operator=(ECC&& other) noexcept = default;
-			/** @} */
+					/**
+					 * @brief Move assignment.
+					 * @param other Keypair to move.
+					 * @return Reference to this keypair.
+					 */
+					ECC& operator=(ECC&& other) noexcept = default;
+					/** @} */
 
-			/**
-			 * @brief Clone this keypair.
-			 * @return Shared pointer to the clone.
-			 */
-			PointerType Clone() const override {
-				return std::make_shared<ECC>(*this);
-			}
+					/**
+					 * @brief Clone this keypair.
+					 * @return Shared pointer to the clone.
+					 */
+					PointerType Clone() const override {
+						return MakePointer<ECC>(*this);
+					}
 
-			/**
-			 * @brief Move this keypair into a new instance.
-			 * @return Shared pointer to the moved keypair.
-			 */
-			PointerType Move() override {
-				return std::make_shared<ECC>(std::move(*this));
-			}
+					/**
+					 * @brief Move this keypair into a new instance.
+					 * @return Shared pointer to the moved keypair.
+					 */
+					PointerType Move() override {
+						return MakePointer<ECC>(std::move(*this));
+					}
 
-			/**
-			 * @brief Generate an ECC keypair.
-			 * @param bits Curve size in bits (e.g. 256).
-			 * @return Keypair pointer, or nullptr.
-			 */
-			static PointerType Generate(unsigned short bits) noexcept;
-	};
+					/**
+					 * @brief Generate an ECC keypair.
+					 * @param bits Curve size in bits (e.g. 256).
+					 * @return Keypair pointer, or nullptr.
+					 */
+					static PointerType Generate(unsigned short bits) noexcept;
+			};
+		}
+	}
 }

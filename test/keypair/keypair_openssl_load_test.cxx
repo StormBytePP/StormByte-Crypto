@@ -38,6 +38,9 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
+#include "helpers.hxx"
+
+#include <StormByte/buffer/fifo.hxx>
 #include <StormByte/crypto/crypter/asymmetric/ecc.hxx>
 #include <StormByte/crypto/crypter/asymmetric/rsa.hxx>
 #include <StormByte/crypto/keypair/dsa.hxx>
@@ -48,27 +51,32 @@
 #include <StormByte/crypto/keypair/generic.hxx>
 #include <StormByte/crypto/keypair/rsa.hxx>
 #include <StormByte/crypto/keypair/x25519.hxx>
+#include <StormByte/crypto/password.hxx>
 #include <StormByte/crypto/secret/ecdh.hxx>
 #include <StormByte/crypto/secret/x25519.hxx>
 #include <StormByte/crypto/signer/dsa.hxx>
 #include <StormByte/crypto/signer/ecdsa.hxx>
 #include <StormByte/crypto/signer/ed25519.hxx>
 #include <StormByte/crypto/signer/rsa.hxx>
-#include <StormByte/buffer/fifo.hxx>
 #include <StormByte/test_handlers.h>
+
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <vector>
+
 using namespace StormByte::Crypto;
 using StormByte::Buffer::FIFO;
 namespace fs = std::filesystem;
+
 #ifndef STORMBYTE_TEST_KEYS_DIR
-#error "STORMBYTE_TEST_KEYS_DIR must be defined by CMake"
+#	error "STORMBYTE_TEST_KEYS_DIR must be defined by CMake"
 #endif
 #ifndef STORMBYTE_TEST_KEYS_PASSWORD
-#error "STORMBYTE_TEST_KEYS_PASSWORD must be defined by CMake"
+#	error "STORMBYTE_TEST_KEYS_PASSWORD must be defined by CMake"
 #endif
+
 namespace {
 	fs::path KeysDir() {
 		return fs::path(STORMBYTE_TEST_KEYS_DIR);
@@ -82,12 +90,22 @@ namespace {
 		return fs::exists(p) && fs::is_regular_file(p);
 	}
 
-	const std::string kPlainText = "StormByte OpenSSL key interop test payload";
 	Password TestKeysPassword() {
 		return Password(STORMBYTE_TEST_KEYS_PASSWORD);
 	}
 
-	static bool WriteBytes(const fs::path& path, const std::vector<unsigned char>& data) {
+	const std::string kPlainText = "StormByte OpenSSL key interop test payload";
+
+	std::span<const std::byte> Bytes(const std::string& s) {
+		return { reinterpret_cast<const std::byte*>(s.data()), s.size() };
+	}
+
+	std::span<const std::byte> Bytes(const FIFO& f) {
+		const auto& d = f.Data();
+		return { d.data(), static_cast<size_t>(d.size()) };
+	}
+
+	bool WriteBytes(const fs::path& path, const std::vector<unsigned char>& data) {
 		std::ofstream ofs(path, std::ios::binary | std::ios::trunc);
 		if (!ofs)
 			return false;
@@ -96,7 +114,7 @@ namespace {
 		return static_cast<bool>(ofs);
 	}
 
-	static bool WriteText(const fs::path& path, const std::string& text) {
+	bool WriteText(const fs::path& path, const std::string& text) {
 		std::ofstream ofs(path, std::ios::binary | std::ios::trunc);
 		if (!ofs)
 			return false;
@@ -104,7 +122,7 @@ namespace {
 		return static_cast<bool>(ofs);
 	}
 
-	static std::vector<unsigned char> ReadAllBytes(const fs::path& path) {
+	std::vector<unsigned char> ReadAllBytes(const fs::path& path) {
 		std::ifstream ifs(path, std::ios::binary);
 		if (!ifs)
 			return {};
@@ -114,7 +132,7 @@ namespace {
 		);
 	}
 
-	static std::string ReadAllText(const fs::path& path) {
+	std::string ReadAllText(const fs::path& path) {
 		std::ifstream ifs(path, std::ios::binary);
 		if (!ifs)
 			return {};
@@ -123,258 +141,196 @@ namespace {
 			std::istreambuf_iterator<char>()
 		);
 	}
-}
 
-// ---------------------------------------------------------------------------
-// Helpers: load OpenSSL fixtures
-// ---------------------------------------------------------------------------
-int AssertLoadPair(const std::string& fn_name, const std::string& pubName, const std::string& privName,
-		KeyPair::Generic::PointerType& out, KeyPair::Type expectedType, bool checkTypeStrict = true) {
-	const auto pub = KeyFile(pubName);
-	const auto priv = KeyFile(privName);
-	ASSERT_TRUE(fn_name, FileExists(pub));
-	ASSERT_TRUE(fn_name, FileExists(priv));
-	out = KeyPair::Load(pub, priv);
-	ASSERT_TRUE(fn_name, out);
-	ASSERT_TRUE(fn_name, out->HasPrivateKey());
-	ASSERT_TRUE(fn_name, !out->PublicKey().empty());
-	if (checkTypeStrict) {
-		ASSERT_TRUE(fn_name, out->Type() == expectedType);
+	int AssertLoadPair(const std::string& fn_name, const std::string& pubName, const std::string& privName,
+			KeyPair::Generic::PointerType& out, KeyPair::Type expectedType, bool checkTypeStrict = true) {
+		const auto pub = KeyFile(pubName);
+		const auto priv = KeyFile(privName);
+		ASSERT_TRUE(fn_name, FileExists(pub));
+		ASSERT_TRUE(fn_name, FileExists(priv));
+		out = KeyPair::Load(pub, priv);
+		ASSERT_TRUE(fn_name, static_cast<bool>(out));
+		ASSERT_TRUE(fn_name, out->HasPrivateKey());
+		ASSERT_TRUE(fn_name, !out->PublicKey().empty());
+		if (checkTypeStrict)
+			ASSERT_TRUE(fn_name, out->Type() == expectedType);
+		return 0;
 	}
 
-	return 0;
+	template<typename K>
+	KeyPair::Generic::PointerType PubOnly(const KeyPair::Generic::PointerType& kp) {
+		return K::template MakePointer<K>(kp->PublicKey(), std::nullopt);
+	}
+
+	int EncryptRoundTripRsa(const std::string& fn_name, KeyPair::Generic::PointerType encKp,
+			KeyPair::Generic::PointerType decKp, Crypter::Asymmetric::Strategy strategy,
+			const std::string& text = kPlainText) {
+		Crypter::RSA enc(encKp);
+		Crypter::RSA dec(decKp);
+		FIFO cipher;
+		FIFO plain;
+		ASSERT_TRUE(fn_name, enc.Encrypt(Bytes(text), cipher, strategy));
+		ASSERT_TRUE(fn_name, dec.Decrypt(Bytes(cipher), plain));
+		ASSERT_EQUAL(fn_name, DeserializeString(plain.Data()), text);
+		return 0;
+	}
+
+	int EncryptRoundTripEcc(const std::string& fn_name, KeyPair::Generic::PointerType encKp,
+			KeyPair::Generic::PointerType decKp, Crypter::Asymmetric::Strategy strategy) {
+		Crypter::ECC enc(encKp);
+		Crypter::ECC dec(decKp);
+		FIFO cipher;
+		FIFO plain;
+		ASSERT_TRUE(fn_name, enc.Encrypt(Bytes(kPlainText), cipher, strategy));
+		ASSERT_TRUE(fn_name, dec.Decrypt(Bytes(cipher), plain));
+		ASSERT_EQUAL(fn_name, DeserializeString(plain.Data()), kPlainText);
+		return 0;
+	}
+
+	template<typename SignerT, typename KeyT>
+	int SignRoundTrip(const std::string& fn_name, KeyPair::Generic::PointerType signKp,
+			KeyPair::Generic::PointerType verifyKp) {
+		SignerT signer(signKp);
+		SignerT verifier(PubOnly<KeyT>(verifyKp));
+		FIFO signature;
+		ASSERT_TRUE(fn_name, signer.Sign(Bytes(kPlainText), signature));
+		ASSERT_TRUE(fn_name, verifier.Verify(Bytes(kPlainText), DeserializeString(signature.Data())));
+		return 0;
+	}
 }
 
 // ---------------------------------------------------------------------------
 // RSA: Load → Encrypt/Decrypt → Sign/Verify
 // ---------------------------------------------------------------------------
-int TestOpenSslRsaEncryptDecrypt() {
-	const std::string fn_name = "TestOpenSslRsaEncryptDecrypt";
+int test_openssl_rsa_encrypt_decrypt() {
+	const std::string fn_name = "test_openssl_rsa_encrypt_decrypt";
 	KeyPair::Generic::PointerType kp;
 	if (AssertLoadPair(fn_name, "rsa_test.pub.pem", "rsa_test.priv.pem", kp, KeyPair::Type::RSA) != 0)
 		return 1;
 	Crypter::RSA crypter(kp);
 	FIFO encrypted;
-	ASSERT_TRUE(fn_name, crypter.Encrypt(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		encrypted,
-		Crypter::Asymmetric::Strategy::Native
-	));
-	ASSERT_TRUE(fn_name, !encrypted.Data().empty());
-	auto encStr = std::string(reinterpret_cast<const char*>(encrypted.Data().data()), encrypted.Data().size());
-	ASSERT_NOT_EQUAL(fn_name, encStr, kPlainText);
+	ASSERT_TRUE(fn_name, crypter.Encrypt(Bytes(kPlainText), encrypted, Crypter::Asymmetric::Strategy::Native));
+	ASSERT_FALSE(fn_name, encrypted.Empty());
+	ASSERT_NOT_EQUAL(fn_name, DeserializeString(encrypted.Data()), kPlainText);
 	FIFO decrypted;
-	ASSERT_TRUE(fn_name, crypter.Decrypt(
-		std::span<const std::byte>(encrypted.Data().data(), encrypted.Data().size()),
-		decrypted
-	));
-	const std::string recovered(reinterpret_cast<const char*>(decrypted.Data().data()), decrypted.Data().size());
-	ASSERT_EQUAL(fn_name, recovered, kPlainText);
+	ASSERT_TRUE(fn_name, crypter.Decrypt(Bytes(encrypted), decrypted));
+	ASSERT_EQUAL(fn_name, DeserializeString(decrypted.Data()), kPlainText);
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestOpenSslRsaHybridEncryptDecrypt() {
-	const std::string fn_name = "TestOpenSslRsaHybridEncryptDecrypt";
+int test_openssl_rsa_hybrid_encrypt_decrypt() {
+	const std::string fn_name = "test_openssl_rsa_hybrid_encrypt_decrypt";
 	KeyPair::Generic::PointerType kp;
 	if (AssertLoadPair(fn_name, "rsa_test.pub.pem", "rsa_test.priv.pem", kp, KeyPair::Type::RSA) != 0)
 		return 1;
-	Crypter::RSA crypter(kp);
-	const std::string longText = kPlainText + std::string(4096, 'A');
-	FIFO encrypted;
-	ASSERT_TRUE(fn_name, crypter.Encrypt(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(longText.data()), longText.size()),
-		encrypted,
-		Crypter::Asymmetric::Strategy::Hybrid
-	));
-	ASSERT_TRUE(fn_name, !encrypted.Data().empty());
-	FIFO decrypted;
-	ASSERT_TRUE(fn_name, crypter.Decrypt(
-		std::span<const std::byte>(encrypted.Data().data(), encrypted.Data().size()),
-		decrypted
-	));
-	const std::string recovered(reinterpret_cast<const char*>(decrypted.Data().data()), decrypted.Data().size());
-	ASSERT_EQUAL(fn_name, recovered, longText);
-	RETURN_TEST(fn_name, 0);
+	return EncryptRoundTripRsa(fn_name, kp, kp, Crypter::Asymmetric::Strategy::Hybrid,
+		kPlainText + std::string(4096, 'A'));
 }
 
-int TestOpenSslRsaSignVerify() {
-	const std::string fn_name = "TestOpenSslRsaSignVerify";
+int test_openssl_rsa_sign_verify() {
+	const std::string fn_name = "test_openssl_rsa_sign_verify";
 	KeyPair::Generic::PointerType kp;
 	if (AssertLoadPair(fn_name, "rsa_test.pub.pem", "rsa_test.priv.pem", kp, KeyPair::Type::RSA) != 0)
 		return 1;
 	Signer::RSA signer(kp);
 	FIFO signature;
-	ASSERT_TRUE(fn_name, signer.Sign(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		signature
-	));
-	ASSERT_TRUE(fn_name, !signature.Data().empty());
-	const std::string sigStr(reinterpret_cast<const char*>(signature.Data().data()), signature.Data().size());
-	ASSERT_TRUE(fn_name, signer.Verify(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		sigStr
-	));
-	const std::string tampered = kPlainText + "X";
-	ASSERT_FALSE(fn_name, signer.Verify(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(tampered.data()), tampered.size()),
-		sigStr
-	));
+	ASSERT_TRUE(fn_name, signer.Sign(Bytes(kPlainText), signature));
+	ASSERT_TRUE(fn_name, !signature.Empty());
+	const std::string sigStr = DeserializeString(signature.Data());
+	ASSERT_TRUE(fn_name, signer.Verify(Bytes(kPlainText), sigStr));
+	ASSERT_FALSE(fn_name, signer.Verify(Bytes(kPlainText + "X"), sigStr));
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestOpenSslRsaDerRoundTripUse() {
-	const std::string fn_name = "TestOpenSslRsaDerRoundTripUse";
+int test_openssl_rsa_der_round_trip_use() {
+	const std::string fn_name = "test_openssl_rsa_der_round_trip_use";
 	KeyPair::Generic::PointerType kp;
 	if (AssertLoadPair(fn_name, "rsa_test.pub.der", "rsa_test.priv.der", kp, KeyPair::Type::RSA) != 0)
 		return 1;
-	Crypter::RSA crypter(kp);
-	FIFO encrypted, decrypted;
-	ASSERT_TRUE(fn_name, crypter.Encrypt(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		encrypted,
-		Crypter::Asymmetric::Strategy::Native
-	));
-	ASSERT_TRUE(fn_name, crypter.Decrypt(
-		std::span<const std::byte>(encrypted.Data().data(), encrypted.Data().size()),
-		decrypted
-	));
-	const std::string recovered(reinterpret_cast<const char*>(decrypted.Data().data()), decrypted.Data().size());
-	ASSERT_EQUAL(fn_name, recovered, kPlainText);
-	RETURN_TEST(fn_name, 0);
+	return EncryptRoundTripRsa(fn_name, kp, kp, Crypter::Asymmetric::Strategy::Native);
 }
 
 // ---------------------------------------------------------------------------
 // DSA: Load → Sign/Verify
 // ---------------------------------------------------------------------------
-int TestOpenSslDsaSignVerify() {
-	const std::string fn_name = "TestOpenSslDsaSignVerify";
+int test_openssl_dsa_sign_verify() {
+	const std::string fn_name = "test_openssl_dsa_sign_verify";
 	KeyPair::Generic::PointerType kp;
 	if (AssertLoadPair(fn_name, "dsa_test.pub.pem", "dsa_test.priv.pem", kp, KeyPair::Type::DSA) != 0)
 		return 1;
 	Signer::DSA signer(kp);
 	FIFO signature;
-	ASSERT_TRUE(fn_name, signer.Sign(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		signature
-	));
-	ASSERT_TRUE(fn_name, !signature.Data().empty());
-	const std::string sigStr(reinterpret_cast<const char*>(signature.Data().data()), signature.Data().size());
-	ASSERT_TRUE(fn_name, signer.Verify(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		sigStr
-	));
-	ASSERT_FALSE(fn_name, signer.Verify(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>("other"), 5),
-		sigStr
-	));
+	ASSERT_TRUE(fn_name, signer.Sign(Bytes(kPlainText), signature));
+	ASSERT_TRUE(fn_name, !signature.Empty());
+	const std::string sigStr = DeserializeString(signature.Data());
+	ASSERT_TRUE(fn_name, signer.Verify(Bytes(kPlainText), sigStr));
+	ASSERT_FALSE(fn_name, signer.Verify(std::span<const std::byte>(reinterpret_cast<const std::byte*>("other"), 5), sigStr));
 	RETURN_TEST(fn_name, 0);
 }
 
 // ---------------------------------------------------------------------------
 // ECDSA: Load → Sign/Verify
 // ---------------------------------------------------------------------------
-int TestOpenSslEcdsaSignVerify() {
-	const std::string fn_name = "TestOpenSslEcdsaSignVerify";
+int test_openssl_ecdsa_sign_verify() {
+	const std::string fn_name = "test_openssl_ecdsa_sign_verify";
 	KeyPair::Generic::PointerType kp;
 	if (AssertLoadPair(fn_name, "ecdsa_test.pub.pem", "ecdsa_test.priv.pem", kp, KeyPair::Type::ECDSA, false) != 0)
 		return 1;
 	Signer::ECDSA signer(kp);
 	FIFO signature;
-	ASSERT_TRUE(fn_name, signer.Sign(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		signature
-	));
-	ASSERT_TRUE(fn_name, !signature.Data().empty());
-	const std::string sigStr(reinterpret_cast<const char*>(signature.Data().data()), signature.Data().size());
-	ASSERT_TRUE(fn_name, signer.Verify(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		sigStr
-	));
+	ASSERT_TRUE(fn_name, signer.Sign(Bytes(kPlainText), signature));
+	ASSERT_TRUE(fn_name, !signature.Empty());
+	ASSERT_TRUE(fn_name, signer.Verify(Bytes(kPlainText), DeserializeString(signature.Data())));
 	RETURN_TEST(fn_name, 0);
 }
 
 // ---------------------------------------------------------------------------
 // ECC: Load → Encrypt/Decrypt
 // ---------------------------------------------------------------------------
-int TestOpenSslEccEncryptDecrypt() {
-	const std::string fn_name = "TestOpenSslEccEncryptDecrypt";
+int test_openssl_ecc_encrypt_decrypt() {
+	const std::string fn_name = "test_openssl_ecc_encrypt_decrypt";
 	KeyPair::Generic::PointerType kp;
 	if (AssertLoadPair(fn_name, "ecc_p256_test.pub.pem", "ecc_p256_test.priv.pem", kp, KeyPair::Type::ECC, false) != 0)
 		return 1;
-	Crypter::ECC crypter(kp);
-	FIFO encrypted;
-	ASSERT_TRUE(fn_name, crypter.Encrypt(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		encrypted,
-		Crypter::Asymmetric::Strategy::Native
-	));
-	ASSERT_TRUE(fn_name, !encrypted.Data().empty());
-	FIFO decrypted;
-	ASSERT_TRUE(fn_name, crypter.Decrypt(
-		std::span<const std::byte>(encrypted.Data().data(), encrypted.Data().size()),
-		decrypted
-	));
-	const std::string recovered(reinterpret_cast<const char*>(decrypted.Data().data()), decrypted.Data().size());
-	ASSERT_EQUAL(fn_name, recovered, kPlainText);
-	RETURN_TEST(fn_name, 0);
+	return EncryptRoundTripEcc(fn_name, kp, kp, Crypter::Asymmetric::Strategy::Native);
 }
 
 // ---------------------------------------------------------------------------
 // Ed25519: Load → Sign/Verify
 // ---------------------------------------------------------------------------
-int TestOpenSslEd25519SignVerify() {
-	const std::string fn_name = "TestOpenSslEd25519SignVerify";
+int test_openssl_ed25519_sign_verify() {
+	const std::string fn_name = "test_openssl_ed25519_sign_verify";
 	KeyPair::Generic::PointerType kp;
 	if (AssertLoadPair(fn_name, "ed25519_test.pub.pem", "ed25519_test.priv.pem", kp, KeyPair::Type::ED25519) != 0)
 		return 1;
 	Signer::ED25519 signer(kp);
 	FIFO signature;
-	ASSERT_TRUE(fn_name, signer.Sign(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		signature
-	));
-	ASSERT_TRUE(fn_name, !signature.Data().empty());
-	const std::string sigStr(reinterpret_cast<const char*>(signature.Data().data()), signature.Data().size());
-	ASSERT_TRUE(fn_name, signer.Verify(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		sigStr
-	));
-	ASSERT_FALSE(fn_name, signer.Verify(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>("tampered"), 8),
-		sigStr
-	));
+	ASSERT_TRUE(fn_name, signer.Sign(Bytes(kPlainText), signature));
+	ASSERT_TRUE(fn_name, !signature.Empty());
+	const std::string sigStr = DeserializeString(signature.Data());
+	ASSERT_TRUE(fn_name, signer.Verify(Bytes(kPlainText), sigStr));
+	ASSERT_FALSE(fn_name, signer.Verify(std::span<const std::byte>(reinterpret_cast<const std::byte*>("tampered"), 8), sigStr));
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestOpenSslEd25519DerSignVerify() {
-	const std::string fn_name = "TestOpenSslEd25519DerSignVerify";
+int test_openssl_ed25519_der_sign_verify() {
+	const std::string fn_name = "test_openssl_ed25519_der_sign_verify";
 	KeyPair::Generic::PointerType kp;
 	if (AssertLoadPair(fn_name, "ed25519_test.pub.der", "ed25519_test.priv.der", kp, KeyPair::Type::ED25519) != 0)
 		return 1;
-	Signer::ED25519 signer(kp);
-	FIFO signature;
-	ASSERT_TRUE(fn_name, signer.Sign(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		signature
-	));
-	const std::string sigStr(reinterpret_cast<const char*>(signature.Data().data()), signature.Data().size());
-	ASSERT_TRUE(fn_name, signer.Verify(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		sigStr
-	));
-	RETURN_TEST(fn_name, 0);
+	return SignRoundTrip<Signer::ED25519, KeyPair::ED25519>(fn_name, kp, kp);
 }
 
 // ---------------------------------------------------------------------------
-// ECDH: Load local + peer → Share (same secret both ways)
+// ECDH / X25519: Load local + peer → Share
 // ---------------------------------------------------------------------------
-int TestOpenSslEcdhShare() {
-	const std::string fn_name = "TestOpenSslEcdhShare";
-	// Control: library-generated keys must Share (baseline)
+int test_openssl_ecdh_share() {
+	const std::string fn_name = "test_openssl_ecdh_share";
 	{
 		auto a = KeyPair::ECDH::Generate(256);
 		auto b = KeyPair::ECDH::Generate(256);
-		ASSERT_TRUE(fn_name, a && b);
+		ASSERT_TRUE(fn_name, static_cast<bool>(a));
+		ASSERT_TRUE(fn_name, static_cast<bool>(b));
 		Secret::ECDH sa(a);
 		Secret::ECDH sb(b);
 		auto s1 = sa.Share(b->PublicKey());
@@ -385,36 +341,32 @@ int TestOpenSslEcdhShare() {
 	}
 
 	auto localLoaded = KeyPair::Load(KeyFile("ecdh_test.pub.pem"), KeyFile("ecdh_test.priv.pem"));
-	auto peerLoaded  = KeyPair::Load(KeyFile("ecdh_peer_test.pub.pem"), KeyFile("ecdh_peer_test.priv.pem"));
-	ASSERT_TRUE(fn_name, localLoaded);
-	ASSERT_TRUE(fn_name, peerLoaded);
+	auto peerLoaded = KeyPair::Load(KeyFile("ecdh_peer_test.pub.pem"), KeyFile("ecdh_peer_test.priv.pem"));
+	ASSERT_TRUE(fn_name, static_cast<bool>(localLoaded));
+	ASSERT_TRUE(fn_name, static_cast<bool>(peerLoaded));
 	ASSERT_TRUE(fn_name, localLoaded->HasPrivateKey());
 	ASSERT_TRUE(fn_name, peerLoaded->HasPrivateKey());
-	// Optional: see if formats look like Generate (Base64 length / type)
-	// std::cerr << "type=" << (int)localLoaded->Type()
-	//           << " pubLen=" << localLoaded->PublicKey().size() << "\n";
-	auto local = std::make_shared<KeyPair::ECDH>(localLoaded->PublicKey(), localLoaded->PrivateKey());
-	auto peer  = std::make_shared<KeyPair::ECDH>(peerLoaded->PublicKey(), peerLoaded->PrivateKey());
+	auto local = KeyPair::ECDH::MakePointer<KeyPair::ECDH>(localLoaded->PublicKey(), localLoaded->PrivateKey());
+	auto peer = KeyPair::ECDH::MakePointer<KeyPair::ECDH>(peerLoaded->PublicKey(), peerLoaded->PrivateKey());
 	Secret::ECDH ecdhLocal(local);
 	Secret::ECDH ecdhPeer(peer);
 	auto s1 = ecdhLocal.Share(peer->PublicKey());
 	auto s2 = ecdhPeer.Share(local->PublicKey());
-	// Which of these fails? has_value vs equality
-	ASSERT_TRUE(fn_name, s1.has_value());  // line ~353 if this is the one
+	ASSERT_TRUE(fn_name, s1.has_value());
 	ASSERT_TRUE(fn_name, s2.has_value());
 	ASSERT_TRUE(fn_name, s1 == s2);
 	ASSERT_TRUE(fn_name, !s1->Empty());
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestOpenSslX25519Share() {
-	const std::string fn_name = "TestOpenSslX25519Share";
+int test_openssl_x25519_share() {
+	const std::string fn_name = "test_openssl_x25519_share";
 	auto localLoaded = KeyPair::Load(KeyFile("x25519_test.pub.pem"), KeyFile("x25519_test.priv.pem"));
-	auto peerLoaded  = KeyPair::Load(KeyFile("x25519_peer_test.pub.pem"), KeyFile("x25519_peer_test.priv.pem"));
-	ASSERT_TRUE(fn_name, localLoaded);
-	ASSERT_TRUE(fn_name, peerLoaded);
-	auto local = std::make_shared<KeyPair::X25519>(localLoaded->PublicKey(), localLoaded->PrivateKey());
-	auto peer  = std::make_shared<KeyPair::X25519>(peerLoaded->PublicKey(), peerLoaded->PrivateKey());
+	auto peerLoaded = KeyPair::Load(KeyFile("x25519_peer_test.pub.pem"), KeyFile("x25519_peer_test.priv.pem"));
+	ASSERT_TRUE(fn_name, static_cast<bool>(localLoaded));
+	ASSERT_TRUE(fn_name, static_cast<bool>(peerLoaded));
+	auto local = KeyPair::X25519::MakePointer<KeyPair::X25519>(localLoaded->PublicKey(), localLoaded->PrivateKey());
+	auto peer = KeyPair::X25519::MakePointer<KeyPair::X25519>(peerLoaded->PublicKey(), peerLoaded->PrivateKey());
 	Secret::X25519 xLocal(local);
 	Secret::X25519 xPeer(peer);
 	auto s1 = xLocal.Share(peer->PublicKey());
@@ -429,223 +381,130 @@ int TestOpenSslX25519Share() {
 // ---------------------------------------------------------------------------
 // Single-file load still usable
 // ---------------------------------------------------------------------------
-int TestOpenSslRsaPrivateOnlyThenEncrypt() {
-	const std::string fn_name = "TestOpenSslRsaPrivateOnlyThenEncrypt";
+int test_openssl_rsa_private_only_then_encrypt() {
+	const std::string fn_name = "test_openssl_rsa_private_only_then_encrypt";
 	const auto priv = KeyFile("rsa_test.priv.pem");
 	ASSERT_TRUE(fn_name, FileExists(priv));
 	auto kp = KeyPair::Load(priv);
-	ASSERT_TRUE(fn_name, kp);
+	ASSERT_TRUE(fn_name, static_cast<bool>(kp));
 	ASSERT_TRUE(fn_name, kp->HasPrivateKey());
 	ASSERT_TRUE(fn_name, !kp->PublicKey().empty());
-	Crypter::RSA crypter(kp);
-	FIFO encrypted, decrypted;
-	ASSERT_TRUE(fn_name, crypter.Encrypt(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		encrypted,
-		Crypter::Asymmetric::Strategy::Native
-	));
-	ASSERT_TRUE(fn_name, crypter.Decrypt(
-		std::span<const std::byte>(encrypted.Data().data(), encrypted.Data().size()),
-		decrypted
-	));
-	const std::string recovered(reinterpret_cast<const char*>(decrypted.Data().data()), decrypted.Data().size());
-	ASSERT_EQUAL(fn_name, recovered, kPlainText);
-	RETURN_TEST(fn_name, 0);
+	return EncryptRoundTripRsa(fn_name, kp, kp, Crypter::Asymmetric::Strategy::Native);
 }
 
 // ---------------------------------------------------------------------------
 // Library Save → Load → still works
 // ---------------------------------------------------------------------------
-int TestLibraryRsaSaveLoadStillEncrypts() {
-	const std::string fn_name = "TestLibraryRsaSaveLoadStillEncrypts";
+int test_library_rsa_save_load_still_encrypts() {
+	const std::string fn_name = "test_library_rsa_save_load_still_encrypts";
 	auto original = KeyPair::RSA::Generate(2048);
-	ASSERT_TRUE(fn_name, original);
+	ASSERT_TRUE(fn_name, static_cast<bool>(original));
 	const fs::path outDir = KeysDir() / "roundtrip";
 	fs::create_directories(outDir);
 	ASSERT_TRUE(fn_name, original->Save(outDir, "lib_rsa", KeyPair::StorageFormat::PEM));
 	auto loaded = KeyPair::Load(outDir / "lib_rsa.pub.pem", outDir / "lib_rsa.pem");
-	ASSERT_TRUE(fn_name, loaded);
-	Crypter::RSA crypter(loaded);
-	FIFO encrypted, decrypted;
-	ASSERT_TRUE(fn_name, crypter.Encrypt(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		encrypted,
-		Crypter::Asymmetric::Strategy::Native
-	));
-	ASSERT_TRUE(fn_name, crypter.Decrypt(
-		std::span<const std::byte>(encrypted.Data().data(), encrypted.Data().size()),
-		decrypted
-	));
-	const std::string recovered(reinterpret_cast<const char*>(decrypted.Data().data()), decrypted.Data().size());
-	ASSERT_EQUAL(fn_name, recovered, kPlainText);
-	RETURN_TEST(fn_name, 0);
+	ASSERT_TRUE(fn_name, static_cast<bool>(loaded));
+	return EncryptRoundTripRsa(fn_name, loaded, loaded, Crypter::Asymmetric::Strategy::Native);
 }
 
 // ---------------------------------------------------------------------------
 // Encrypted PEM without password must fail
 // ---------------------------------------------------------------------------
-int TestOpenSslEncryptedPrivateWithoutPasswordFails() {
-	const std::string fn_name = "TestOpenSslEncryptedPrivateWithoutPasswordFails";
+int test_openssl_encrypted_private_without_password_fails() {
+	const std::string fn_name = "test_openssl_encrypted_private_without_password_fails";
 	const auto enc = KeyFile("rsa_test.priv.enc.pem");
 	ASSERT_TRUE(fn_name, FileExists(enc));
-	ASSERT_FALSE(fn_name, KeyPair::Load(enc));
-	ASSERT_FALSE(fn_name, KeyPair::Load(KeyFile("rsa_test.pub.pem"), enc));
+	ASSERT_FALSE(fn_name, static_cast<bool>(KeyPair::Load(enc)));
+	ASSERT_FALSE(fn_name, static_cast<bool>(KeyPair::Load(KeyFile("rsa_test.pub.pem"), enc)));
 	RETURN_TEST(fn_name, 0);
 }
 
 // ---------------------------------------------------------------------------
 // Private-only Load: derived public must work as a standalone public key
 // ---------------------------------------------------------------------------
-int TestOpenSslRsaPrivateOnlyDerivesPublic() {
-	const std::string fn_name = "TestOpenSslRsaPrivateOnlyDerivesPublic";
+int test_openssl_rsa_private_only_derives_public() {
+	const std::string fn_name = "test_openssl_rsa_private_only_derives_public";
 	const auto privPath = KeyFile("rsa_test.priv.pem");
 	ASSERT_TRUE(fn_name, FileExists(privPath));
 	auto privKp = KeyPair::Load(privPath);
-	ASSERT_TRUE(fn_name, privKp);
+	ASSERT_TRUE(fn_name, static_cast<bool>(privKp));
 	ASSERT_TRUE(fn_name, privKp->HasPrivateKey());
 	ASSERT_TRUE(fn_name, !privKp->PublicKey().empty());
-	// Public-only keypair built from derived public (no private)
-	auto pubKp = std::make_shared<KeyPair::RSA>(privKp->PublicKey(), std::nullopt);
+	auto pubKp = PubOnly<KeyPair::RSA>(privKp);
 	ASSERT_FALSE(fn_name, pubKp->HasPrivateKey());
-	Crypter::RSA encryptor(pubKp);
-	Crypter::RSA decryptor(privKp);
-	FIFO encrypted, decrypted;
-	ASSERT_TRUE(fn_name, encryptor.Encrypt(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		encrypted,
-		Crypter::Asymmetric::Strategy::Native
-	));
-	ASSERT_TRUE(fn_name, decryptor.Decrypt(
-		std::span<const std::byte>(encrypted.Data().data(), encrypted.Data().size()),
-		decrypted
-	));
-	const std::string recovered(reinterpret_cast<const char*>(decrypted.Data().data()), decrypted.Data().size());
-	ASSERT_EQUAL(fn_name, recovered, kPlainText);
-	RETURN_TEST(fn_name, 0);
+	return EncryptRoundTripRsa(fn_name, pubKp, privKp, Crypter::Asymmetric::Strategy::Native);
 }
 
-int TestOpenSslDsaPrivateOnlyDerivesPublic() {
-	const std::string fn_name = "TestOpenSslDsaPrivateOnlyDerivesPublic";
+int test_openssl_dsa_private_only_derives_public() {
+	const std::string fn_name = "test_openssl_dsa_private_only_derives_public";
 	const auto privPath = KeyFile("dsa_test.priv.pem");
 	ASSERT_TRUE(fn_name, FileExists(privPath));
 	auto privKp = KeyPair::Load(privPath);
-	ASSERT_TRUE(fn_name, privKp);
+	ASSERT_TRUE(fn_name, static_cast<bool>(privKp));
 	ASSERT_TRUE(fn_name, privKp->HasPrivateKey());
 	ASSERT_TRUE(fn_name, !privKp->PublicKey().empty());
-	auto pubKp = std::make_shared<KeyPair::DSA>(privKp->PublicKey(), std::nullopt);
+	auto pubKp = PubOnly<KeyPair::DSA>(privKp);
 	ASSERT_FALSE(fn_name, pubKp->HasPrivateKey());
-	Signer::DSA signer(privKp);
-	Signer::DSA verifier(pubKp);
-	FIFO signature;
-	ASSERT_TRUE(fn_name, signer.Sign(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		signature
-	));
-	const std::string sigStr(reinterpret_cast<const char*>(signature.Data().data()), signature.Data().size());
-	ASSERT_TRUE(fn_name, verifier.Verify(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		sigStr
-	));
-	RETURN_TEST(fn_name, 0);
+	return SignRoundTrip<Signer::DSA, KeyPair::DSA>(fn_name, privKp, pubKp);
 }
 
-int TestOpenSslEcdsaPrivateOnlyDerivesPublic() {
-	const std::string fn_name = "TestOpenSslEcdsaPrivateOnlyDerivesPublic";
+int test_openssl_ecdsa_private_only_derives_public() {
+	const std::string fn_name = "test_openssl_ecdsa_private_only_derives_public";
 	const auto privPath = KeyFile("ecdsa_test.priv.pem");
 	ASSERT_TRUE(fn_name, FileExists(privPath));
 	auto privKp = KeyPair::Load(privPath);
-	ASSERT_TRUE(fn_name, privKp);
+	ASSERT_TRUE(fn_name, static_cast<bool>(privKp));
 	ASSERT_TRUE(fn_name, privKp->HasPrivateKey());
 	ASSERT_TRUE(fn_name, !privKp->PublicKey().empty());
-	auto pubKp = std::make_shared<KeyPair::ECDSA>(privKp->PublicKey(), std::nullopt);
+	auto pubKp = PubOnly<KeyPair::ECDSA>(privKp);
 	ASSERT_FALSE(fn_name, pubKp->HasPrivateKey());
-	Signer::ECDSA signer(privKp);
-	Signer::ECDSA verifier(pubKp);
-	FIFO signature;
-	ASSERT_TRUE(fn_name, signer.Sign(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		signature
-	));
-	const std::string sigStr(reinterpret_cast<const char*>(signature.Data().data()), signature.Data().size());
-	ASSERT_TRUE(fn_name, verifier.Verify(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		sigStr
-	));
-	RETURN_TEST(fn_name, 0);
+	return SignRoundTrip<Signer::ECDSA, KeyPair::ECDSA>(fn_name, privKp, pubKp);
 }
 
-int TestOpenSslEccPrivateOnlyDerivesPublic() {
-	const std::string fn_name = "TestOpenSslEccPrivateOnlyDerivesPublic";
+int test_openssl_ecc_private_only_derives_public() {
+	const std::string fn_name = "test_openssl_ecc_private_only_derives_public";
 	const auto privPath = KeyFile("ecc_p256_test.priv.pem");
 	ASSERT_TRUE(fn_name, FileExists(privPath));
 	auto privKp = KeyPair::Load(privPath);
-	ASSERT_TRUE(fn_name, privKp);
+	ASSERT_TRUE(fn_name, static_cast<bool>(privKp));
 	ASSERT_TRUE(fn_name, privKp->HasPrivateKey());
 	ASSERT_TRUE(fn_name, !privKp->PublicKey().empty());
-	auto pubKp = std::make_shared<KeyPair::ECC>(privKp->PublicKey(), std::nullopt);
+	auto pubKp = PubOnly<KeyPair::ECC>(privKp);
 	ASSERT_FALSE(fn_name, pubKp->HasPrivateKey());
-	Crypter::ECC encryptor(pubKp);
-	Crypter::ECC decryptor(privKp);
-	FIFO encrypted, decrypted;
-	ASSERT_TRUE(fn_name, encryptor.Encrypt(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		encrypted,
-		Crypter::Asymmetric::Strategy::Native
-	));
-	ASSERT_TRUE(fn_name, decryptor.Decrypt(
-		std::span<const std::byte>(encrypted.Data().data(), encrypted.Data().size()),
-		decrypted
-	));
-	const std::string recovered(reinterpret_cast<const char*>(decrypted.Data().data()), decrypted.Data().size());
-	ASSERT_EQUAL(fn_name, recovered, kPlainText);
-	RETURN_TEST(fn_name, 0);
+	return EncryptRoundTripEcc(fn_name, pubKp, privKp, Crypter::Asymmetric::Strategy::Native);
 }
 
-int TestOpenSslEd25519PrivateOnlyDerivesPublic() {
-	const std::string fn_name = "TestOpenSslEd25519PrivateOnlyDerivesPublic";
+int test_openssl_ed25519_private_only_derives_public() {
+	const std::string fn_name = "test_openssl_ed25519_private_only_derives_public";
 	const auto privPath = KeyFile("ed25519_test.priv.pem");
 	ASSERT_TRUE(fn_name, FileExists(privPath));
 	auto privKp = KeyPair::Load(privPath);
-	ASSERT_TRUE(fn_name, privKp);
+	ASSERT_TRUE(fn_name, static_cast<bool>(privKp));
 	ASSERT_TRUE(fn_name, privKp->HasPrivateKey());
 	ASSERT_TRUE(fn_name, !privKp->PublicKey().empty());
-	auto pubKp = std::make_shared<KeyPair::ED25519>(privKp->PublicKey(), std::nullopt);
+	auto pubKp = PubOnly<KeyPair::ED25519>(privKp);
 	ASSERT_FALSE(fn_name, pubKp->HasPrivateKey());
-	Signer::ED25519 signer(privKp);
-	Signer::ED25519 verifier(pubKp);
-	FIFO signature;
-	ASSERT_TRUE(fn_name, signer.Sign(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		signature
-	));
-	const std::string sigStr(reinterpret_cast<const char*>(signature.Data().data()), signature.Data().size());
-	ASSERT_TRUE(fn_name, verifier.Verify(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		sigStr
-	));
-	RETURN_TEST(fn_name, 0);
+	return SignRoundTrip<Signer::ED25519, KeyPair::ED25519>(fn_name, privKp, pubKp);
 }
 
-int TestOpenSslEcdhPrivateOnlyDerivesPublic() {
-	const std::string fn_name = "TestOpenSslEcdhPrivateOnlyDerivesPublic";
+int test_openssl_ecdh_private_only_derives_public() {
+	const std::string fn_name = "test_openssl_ecdh_private_only_derives_public";
 	const auto privPath = KeyFile("ecdh_test.priv.pem");
 	const auto peerPriv = KeyFile("ecdh_peer_test.priv.pem");
 	ASSERT_TRUE(fn_name, FileExists(privPath));
 	ASSERT_TRUE(fn_name, FileExists(peerPriv));
 	auto localPriv = KeyPair::Load(privPath);
 	auto peerPrivKp = KeyPair::Load(peerPriv);
-	ASSERT_TRUE(fn_name, localPriv);
-	ASSERT_TRUE(fn_name, peerPrivKp);
+	ASSERT_TRUE(fn_name, static_cast<bool>(localPriv));
+	ASSERT_TRUE(fn_name, static_cast<bool>(peerPrivKp));
 	ASSERT_TRUE(fn_name, !localPriv->PublicKey().empty());
 	ASSERT_TRUE(fn_name, !peerPrivKp->PublicKey().empty());
-	// Peer's derived public only (no private on that object) must still agree
-	auto peerPubOnly = std::make_shared<KeyPair::ECDH>(peerPrivKp->PublicKey(), std::nullopt);
+	auto peerPubOnly = PubOnly<KeyPair::ECDH>(peerPrivKp);
 	ASSERT_FALSE(fn_name, peerPubOnly->HasPrivateKey());
-	auto local = std::make_shared<KeyPair::ECDH>(localPriv->PublicKey(), localPriv->PrivateKey());
-	auto peer  = std::make_shared<KeyPair::ECDH>(peerPrivKp->PublicKey(), peerPrivKp->PrivateKey());
+	auto local = KeyPair::ECDH::MakePointer<KeyPair::ECDH>(localPriv->PublicKey(), localPriv->PrivateKey());
+	auto peer = KeyPair::ECDH::MakePointer<KeyPair::ECDH>(peerPrivKp->PublicKey(), peerPrivKp->PrivateKey());
 	Secret::ECDH a(local, 256);
 	Secret::ECDH b(peer, 256);
-	// Share using only the peer's public string (derived), not a loaded .pub file
 	auto s1 = a.Share(peerPubOnly->PublicKey());
 	auto s2 = b.Share(local->PublicKey());
 	ASSERT_TRUE(fn_name, s1.has_value());
@@ -654,19 +513,19 @@ int TestOpenSslEcdhPrivateOnlyDerivesPublic() {
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestOpenSslX25519PrivateOnlyDerivesPublic() {
-	const std::string fn_name = "TestOpenSslX25519PrivateOnlyDerivesPublic";
+int test_openssl_x25519_private_only_derives_public() {
+	const std::string fn_name = "test_openssl_x25519_private_only_derives_public";
 	const auto privPath = KeyFile("x25519_test.priv.pem");
 	const auto peerPriv = KeyFile("x25519_peer_test.priv.pem");
 	ASSERT_TRUE(fn_name, FileExists(privPath));
 	ASSERT_TRUE(fn_name, FileExists(peerPriv));
 	auto localPriv = KeyPair::Load(privPath);
 	auto peerPrivKp = KeyPair::Load(peerPriv);
-	ASSERT_TRUE(fn_name, localPriv);
-	ASSERT_TRUE(fn_name, peerPrivKp);
+	ASSERT_TRUE(fn_name, static_cast<bool>(localPriv));
+	ASSERT_TRUE(fn_name, static_cast<bool>(peerPrivKp));
 	ASSERT_TRUE(fn_name, !localPriv->PublicKey().empty());
 	ASSERT_TRUE(fn_name, !peerPrivKp->PublicKey().empty());
-	auto peerPubOnly = std::make_shared<KeyPair::X25519>(peerPrivKp->PublicKey(), std::nullopt);
+	auto peerPubOnly = PubOnly<KeyPair::X25519>(peerPrivKp);
 	ASSERT_FALSE(fn_name, peerPubOnly->HasPrivateKey());
 	Secret::X25519 xLocal(localPriv);
 	Secret::X25519 xPeer(peerPrivKp);
@@ -681,189 +540,84 @@ int TestOpenSslX25519PrivateOnlyDerivesPublic() {
 // ---------------------------------------------------------------------------
 // Encrypted private key Load (password) → usable for crypto ops
 // ---------------------------------------------------------------------------
-int TestOpenSslRsaEncryptedLoadEncryptDecrypt() {
-	const std::string fn_name = "TestOpenSslRsaEncryptedLoadEncryptDecrypt";
+int test_openssl_rsa_encrypted_load_encrypt_decrypt() {
+	const std::string fn_name = "test_openssl_rsa_encrypted_load_encrypt_decrypt";
 	const auto enc = KeyFile("rsa_test.priv.enc.pem");
 	const auto pub = KeyFile("rsa_test.pub.pem");
 	ASSERT_TRUE(fn_name, FileExists(enc));
 	ASSERT_TRUE(fn_name, FileExists(pub));
-	Password pass = TestKeysPassword();
-	auto kp = KeyPair::Load(pub, enc, pass);
-	ASSERT_TRUE(fn_name, kp);
+	auto kp = KeyPair::Load(pub, enc, TestKeysPassword());
+	ASSERT_TRUE(fn_name, static_cast<bool>(kp));
 	ASSERT_TRUE(fn_name, kp->HasPrivateKey());
 	ASSERT_TRUE(fn_name, !kp->PublicKey().empty());
-	auto pubOnly = std::make_shared<KeyPair::RSA>(kp->PublicKey(), std::nullopt);
-	Crypter::RSA encryptor(pubOnly);
-	Crypter::RSA decryptor(kp);
-	FIFO encrypted, decrypted;
-	ASSERT_TRUE(fn_name, encryptor.Encrypt(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		encrypted,
-		Crypter::Asymmetric::Strategy::Native
-	));
-	ASSERT_TRUE(fn_name, decryptor.Decrypt(
-		std::span<const std::byte>(encrypted.Data().data(), encrypted.Data().size()),
-		decrypted
-	));
-	const std::string recovered(reinterpret_cast<const char*>(decrypted.Data().data()), decrypted.Data().size());
-	ASSERT_EQUAL(fn_name, recovered, kPlainText);
-	RETURN_TEST(fn_name, 0);
+	return EncryptRoundTripRsa(fn_name, PubOnly<KeyPair::RSA>(kp), kp, Crypter::Asymmetric::Strategy::Native);
 }
 
-int TestOpenSslRsaEncryptedLoadPrivateOnly() {
-	const std::string fn_name = "TestOpenSslRsaEncryptedLoadPrivateOnly";
+int test_openssl_rsa_encrypted_load_private_only() {
+	const std::string fn_name = "test_openssl_rsa_encrypted_load_private_only";
 	const auto enc = KeyFile("rsa_test.priv.enc.pem");
 	ASSERT_TRUE(fn_name, FileExists(enc));
-	Password pass = TestKeysPassword();
-	auto kp = KeyPair::Load(enc, pass);
-	ASSERT_TRUE(fn_name, kp);
+	auto kp = KeyPair::Load(enc, TestKeysPassword());
+	ASSERT_TRUE(fn_name, static_cast<bool>(kp));
 	ASSERT_TRUE(fn_name, kp->HasPrivateKey());
 	ASSERT_TRUE(fn_name, !kp->PublicKey().empty());
-	auto pubOnly = std::make_shared<KeyPair::RSA>(kp->PublicKey(), std::nullopt);
-	Crypter::RSA encryptor(pubOnly);
-	Crypter::RSA decryptor(kp);
-	FIFO encrypted, decrypted;
-	ASSERT_TRUE(fn_name, encryptor.Encrypt(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		encrypted,
-		Crypter::Asymmetric::Strategy::Native
-	));
-	ASSERT_TRUE(fn_name, decryptor.Decrypt(
-		std::span<const std::byte>(encrypted.Data().data(), encrypted.Data().size()),
-		decrypted
-	));
-	const std::string recovered(reinterpret_cast<const char*>(decrypted.Data().data()), decrypted.Data().size());
-	ASSERT_EQUAL(fn_name, recovered, kPlainText);
-	RETURN_TEST(fn_name, 0);
+	return EncryptRoundTripRsa(fn_name, PubOnly<KeyPair::RSA>(kp), kp, Crypter::Asymmetric::Strategy::Native);
 }
 
-int TestOpenSslRsaEncryptedWrongPasswordFails() {
-	const std::string fn_name = "TestOpenSslRsaEncryptedWrongPasswordFails";
+int test_openssl_rsa_encrypted_wrong_password_fails() {
+	const std::string fn_name = "test_openssl_rsa_encrypted_wrong_password_fails";
 	const auto enc = KeyFile("rsa_test.priv.enc.pem");
 	ASSERT_TRUE(fn_name, FileExists(enc));
 	Password wrong("DefinitelyNotTheRightPassphrase");
-	ASSERT_FALSE(fn_name, KeyPair::Load(enc, wrong));
-	ASSERT_FALSE(fn_name, KeyPair::Load(KeyFile("rsa_test.pub.pem"), enc, wrong));
+	ASSERT_FALSE(fn_name, static_cast<bool>(KeyPair::Load(enc, wrong)));
+	ASSERT_FALSE(fn_name, static_cast<bool>(KeyPair::Load(KeyFile("rsa_test.pub.pem"), enc, wrong)));
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestOpenSslRsaEncryptedSignVerify() {
-	const std::string fn_name = "TestOpenSslRsaEncryptedSignVerify";
-	Password pass = TestKeysPassword();
-	auto kp = KeyPair::Load(KeyFile("rsa_test.priv.enc.pem"), pass);
-	ASSERT_TRUE(fn_name, kp);
-	auto pubOnly = std::make_shared<KeyPair::RSA>(kp->PublicKey(), std::nullopt);
-	Signer::RSA signer(kp);
-	Signer::RSA verifier(pubOnly);
-	FIFO signature;
-	ASSERT_TRUE(fn_name, signer.Sign(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		signature
-	));
-	const std::string sigStr(reinterpret_cast<const char*>(signature.Data().data()), signature.Data().size());
-	ASSERT_TRUE(fn_name, verifier.Verify(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		sigStr
-	));
-	RETURN_TEST(fn_name, 0);
+int test_openssl_rsa_encrypted_sign_verify() {
+	const std::string fn_name = "test_openssl_rsa_encrypted_sign_verify";
+	auto kp = KeyPair::Load(KeyFile("rsa_test.priv.enc.pem"), TestKeysPassword());
+	ASSERT_TRUE(fn_name, static_cast<bool>(kp));
+	return SignRoundTrip<Signer::RSA, KeyPair::RSA>(fn_name, kp, kp);
 }
 
-int TestOpenSslDsaEncryptedSignVerify() {
-	const std::string fn_name = "TestOpenSslDsaEncryptedSignVerify";
-	Password pass = TestKeysPassword();
-	auto kp = KeyPair::Load(KeyFile("dsa_test.priv.enc.pem"), pass);
-	ASSERT_TRUE(fn_name, kp);
-	auto pubOnly = std::make_shared<KeyPair::DSA>(kp->PublicKey(), std::nullopt);
-	Signer::DSA signer(kp);
-	Signer::DSA verifier(pubOnly);
-	FIFO signature;
-	ASSERT_TRUE(fn_name, signer.Sign(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		signature
-	));
-	const std::string sigStr(reinterpret_cast<const char*>(signature.Data().data()), signature.Data().size());
-	ASSERT_TRUE(fn_name, verifier.Verify(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		sigStr
-	));
-	RETURN_TEST(fn_name, 0);
+int test_openssl_dsa_encrypted_sign_verify() {
+	const std::string fn_name = "test_openssl_dsa_encrypted_sign_verify";
+	auto kp = KeyPair::Load(KeyFile("dsa_test.priv.enc.pem"), TestKeysPassword());
+	ASSERT_TRUE(fn_name, static_cast<bool>(kp));
+	return SignRoundTrip<Signer::DSA, KeyPair::DSA>(fn_name, kp, kp);
 }
 
-int TestOpenSslEcdsaEncryptedSignVerify() {
-	const std::string fn_name = "TestOpenSslEcdsaEncryptedSignVerify";
-	Password pass = TestKeysPassword();
-	auto kp = KeyPair::Load(KeyFile("ecdsa_test.priv.enc.pem"), pass);
-	ASSERT_TRUE(fn_name, kp);
-	auto pubOnly = std::make_shared<KeyPair::ECDSA>(kp->PublicKey(), std::nullopt);
-	Signer::ECDSA signer(kp);
-	Signer::ECDSA verifier(pubOnly);
-	FIFO signature;
-	ASSERT_TRUE(fn_name, signer.Sign(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		signature
-	));
-	const std::string sigStr(reinterpret_cast<const char*>(signature.Data().data()), signature.Data().size());
-	ASSERT_TRUE(fn_name, verifier.Verify(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		sigStr
-	));
-	RETURN_TEST(fn_name, 0);
+int test_openssl_ecdsa_encrypted_sign_verify() {
+	const std::string fn_name = "test_openssl_ecdsa_encrypted_sign_verify";
+	auto kp = KeyPair::Load(KeyFile("ecdsa_test.priv.enc.pem"), TestKeysPassword());
+	ASSERT_TRUE(fn_name, static_cast<bool>(kp));
+	return SignRoundTrip<Signer::ECDSA, KeyPair::ECDSA>(fn_name, kp, kp);
 }
 
-int TestOpenSslEccEncryptedEncryptDecrypt() {
-	const std::string fn_name = "TestOpenSslEccEncryptedEncryptDecrypt";
-	Password pass = TestKeysPassword();
-	auto kp = KeyPair::Load(KeyFile("ecc_p256_test.priv.enc.pem"), pass);
-	ASSERT_TRUE(fn_name, kp);
-	auto pubOnly = std::make_shared<KeyPair::ECC>(kp->PublicKey(), std::nullopt);
-	Crypter::ECC encryptor(pubOnly);
-	Crypter::ECC decryptor(kp);
-	FIFO encrypted, decrypted;
-	ASSERT_TRUE(fn_name, encryptor.Encrypt(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		encrypted,
-		Crypter::Asymmetric::Strategy::Native
-	));
-	ASSERT_TRUE(fn_name, decryptor.Decrypt(
-		std::span<const std::byte>(encrypted.Data().data(), encrypted.Data().size()),
-		decrypted
-	));
-	const std::string recovered(reinterpret_cast<const char*>(decrypted.Data().data()), decrypted.Data().size());
-	ASSERT_EQUAL(fn_name, recovered, kPlainText);
-	RETURN_TEST(fn_name, 0);
+int test_openssl_ecc_encrypted_encrypt_decrypt() {
+	const std::string fn_name = "test_openssl_ecc_encrypted_encrypt_decrypt";
+	auto kp = KeyPair::Load(KeyFile("ecc_p256_test.priv.enc.pem"), TestKeysPassword());
+	ASSERT_TRUE(fn_name, static_cast<bool>(kp));
+	return EncryptRoundTripEcc(fn_name, PubOnly<KeyPair::ECC>(kp), kp, Crypter::Asymmetric::Strategy::Native);
 }
 
-int TestOpenSslEd25519EncryptedSignVerify() {
-	const std::string fn_name = "TestOpenSslEd25519EncryptedSignVerify";
-	Password pass = TestKeysPassword();
-	auto kp = KeyPair::Load(KeyFile("ed25519_test.priv.enc.pem"), pass);
-	ASSERT_TRUE(fn_name, kp);
-	auto pubOnly = std::make_shared<KeyPair::ED25519>(kp->PublicKey(), std::nullopt);
-	Signer::ED25519 signer(kp);
-	Signer::ED25519 verifier(pubOnly);
-	FIFO signature;
-	ASSERT_TRUE(fn_name, signer.Sign(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		signature
-	));
-	const std::string sigStr(reinterpret_cast<const char*>(signature.Data().data()), signature.Data().size());
-	ASSERT_TRUE(fn_name, verifier.Verify(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		sigStr
-	));
-	RETURN_TEST(fn_name, 0);
+int test_openssl_ed25519_encrypted_sign_verify() {
+	const std::string fn_name = "test_openssl_ed25519_encrypted_sign_verify";
+	auto kp = KeyPair::Load(KeyFile("ed25519_test.priv.enc.pem"), TestKeysPassword());
+	ASSERT_TRUE(fn_name, static_cast<bool>(kp));
+	return SignRoundTrip<Signer::ED25519, KeyPair::ED25519>(fn_name, kp, kp);
 }
 
-int TestOpenSslEcdhEncryptedShare() {
-	const std::string fn_name = "TestOpenSslEcdhEncryptedShare";
-	Password pass = TestKeysPassword();
-	auto local = KeyPair::Load(KeyFile("ecdh_test.priv.enc.pem"), pass);
-	auto peer  = KeyPair::Load(KeyFile("ecdh_peer_test.priv.pem"));
-	ASSERT_TRUE(fn_name, local);
-	ASSERT_TRUE(fn_name, peer);
-	auto localKp = std::make_shared<KeyPair::ECDH>(local->PublicKey(), local->PrivateKey());
-	auto peerKp  = std::make_shared<KeyPair::ECDH>(peer->PublicKey(), peer->PrivateKey());
-	auto peerPub = std::make_shared<KeyPair::ECDH>(peer->PublicKey(), std::nullopt);
+int test_openssl_ecdh_encrypted_share() {
+	const std::string fn_name = "test_openssl_ecdh_encrypted_share";
+	auto local = KeyPair::Load(KeyFile("ecdh_test.priv.enc.pem"), TestKeysPassword());
+	auto peer = KeyPair::Load(KeyFile("ecdh_peer_test.priv.pem"));
+	ASSERT_TRUE(fn_name, static_cast<bool>(local));
+	ASSERT_TRUE(fn_name, static_cast<bool>(peer));
+	auto localKp = KeyPair::ECDH::MakePointer<KeyPair::ECDH>(local->PublicKey(), local->PrivateKey());
+	auto peerKp = KeyPair::ECDH::MakePointer<KeyPair::ECDH>(peer->PublicKey(), peer->PrivateKey());
+	auto peerPub = PubOnly<KeyPair::ECDH>(peer);
 	Secret::ECDH a(localKp, 256);
 	Secret::ECDH b(peerKp, 256);
 	auto s1 = a.Share(peerPub->PublicKey());
@@ -874,14 +628,13 @@ int TestOpenSslEcdhEncryptedShare() {
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestOpenSslX25519EncryptedShare() {
-	const std::string fn_name = "TestOpenSslX25519EncryptedShare";
-	Password pass = TestKeysPassword();
-	auto local = KeyPair::Load(KeyFile("x25519_test.priv.enc.pem"), pass);
-	auto peer  = KeyPair::Load(KeyFile("x25519_peer_test.priv.pem"));
-	ASSERT_TRUE(fn_name, local);
-	ASSERT_TRUE(fn_name, peer);
-	auto peerPub = std::make_shared<KeyPair::X25519>(peer->PublicKey(), std::nullopt);
+int test_openssl_x25519_encrypted_share() {
+	const std::string fn_name = "test_openssl_x25519_encrypted_share";
+	auto local = KeyPair::Load(KeyFile("x25519_test.priv.enc.pem"), TestKeysPassword());
+	auto peer = KeyPair::Load(KeyFile("x25519_peer_test.priv.pem"));
+	ASSERT_TRUE(fn_name, static_cast<bool>(local));
+	ASSERT_TRUE(fn_name, static_cast<bool>(peer));
+	auto peerPub = PubOnly<KeyPair::X25519>(peer);
 	Secret::X25519 xLocal(local);
 	Secret::X25519 xPeer(peer);
 	auto s1 = xLocal.Share(peerPub->PublicKey());
@@ -895,312 +648,185 @@ int TestOpenSslX25519EncryptedShare() {
 // ---------------------------------------------------------------------------
 // Truncated / invalid OpenSSL private keys must not load
 // ---------------------------------------------------------------------------
-int TestOpenSslRsaTruncatedPrivateFails() {
-	const std::string fn_name = "TestOpenSslRsaTruncatedPrivateFails";
+int test_openssl_rsa_truncated_private_fails() {
+	const std::string fn_name = "test_openssl_rsa_truncated_private_fails";
 	ASSERT_TRUE(fn_name, FileExists(KeyFile("rsa_test.priv.truncated.pem")));
-	auto kp = KeyPair::Load(KeyFile("rsa_test.priv.truncated.pem"));
-	ASSERT_FALSE(fn_name, kp);
+	ASSERT_FALSE(fn_name, static_cast<bool>(KeyPair::Load(KeyFile("rsa_test.priv.truncated.pem"))));
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestOpenSslDsaTruncatedPrivateFails() {
-	const std::string fn_name = "TestOpenSslDsaTruncatedPrivateFails";
+int test_openssl_dsa_truncated_private_fails() {
+	const std::string fn_name = "test_openssl_dsa_truncated_private_fails";
 	ASSERT_TRUE(fn_name, FileExists(KeyFile("dsa_test.priv.truncated.pem")));
-	auto kp = KeyPair::Load(KeyFile("dsa_test.priv.truncated.pem"));
-	ASSERT_FALSE(fn_name, kp);
+	ASSERT_FALSE(fn_name, static_cast<bool>(KeyPair::Load(KeyFile("dsa_test.priv.truncated.pem"))));
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestOpenSslEccTruncatedPrivateFails() {
-	const std::string fn_name = "TestOpenSslEccTruncatedPrivateFails";
+int test_openssl_ecc_truncated_private_fails() {
+	const std::string fn_name = "test_openssl_ecc_truncated_private_fails";
 	ASSERT_TRUE(fn_name, FileExists(KeyFile("ecc_p256_test.priv.truncated.pem")));
-	auto kp = KeyPair::Load(KeyFile("ecc_p256_test.priv.truncated.pem"));
-	ASSERT_FALSE(fn_name, kp);
+	ASSERT_FALSE(fn_name, static_cast<bool>(KeyPair::Load(KeyFile("ecc_p256_test.priv.truncated.pem"))));
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestOpenSslEcdsaTruncatedPrivateFails() {
-	const std::string fn_name = "TestOpenSslEcdsaTruncatedPrivateFails";
+int test_openssl_ecdsa_truncated_private_fails() {
+	const std::string fn_name = "test_openssl_ecdsa_truncated_private_fails";
 	ASSERT_TRUE(fn_name, FileExists(KeyFile("ecdsa_test.priv.truncated.pem")));
-	auto kp = KeyPair::Load(KeyFile("ecdsa_test.priv.truncated.pem"));
-	ASSERT_FALSE(fn_name, kp);
+	ASSERT_FALSE(fn_name, static_cast<bool>(KeyPair::Load(KeyFile("ecdsa_test.priv.truncated.pem"))));
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestOpenSslEcdhTruncatedPrivateFails() {
-	const std::string fn_name = "TestOpenSslEcdhTruncatedPrivateFails";
+int test_openssl_ecdh_truncated_private_fails() {
+	const std::string fn_name = "test_openssl_ecdh_truncated_private_fails";
 	ASSERT_TRUE(fn_name, FileExists(KeyFile("ecdh_test.priv.truncated.pem")));
-	auto kp = KeyPair::Load(KeyFile("ecdh_test.priv.truncated.pem"));
-	ASSERT_FALSE(fn_name, kp);
+	ASSERT_FALSE(fn_name, static_cast<bool>(KeyPair::Load(KeyFile("ecdh_test.priv.truncated.pem"))));
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestOpenSslEd25519TruncatedPrivateFails() {
-	const std::string fn_name = "TestOpenSslEd25519TruncatedPrivateFails";
+int test_openssl_ed25519_truncated_private_fails() {
+	const std::string fn_name = "test_openssl_ed25519_truncated_private_fails";
 	ASSERT_TRUE(fn_name, FileExists(KeyFile("ed25519_test.priv.truncated.pem")));
-	auto kp = KeyPair::Load(KeyFile("ed25519_test.priv.truncated.pem"));
-	ASSERT_FALSE(fn_name, kp);
+	ASSERT_FALSE(fn_name, static_cast<bool>(KeyPair::Load(KeyFile("ed25519_test.priv.truncated.pem"))));
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestOpenSslX25519TruncatedPrivateFails() {
-	const std::string fn_name = "TestOpenSslX25519TruncatedPrivateFails";
+int test_openssl_x25519_truncated_private_fails() {
+	const std::string fn_name = "test_openssl_x25519_truncated_private_fails";
 	ASSERT_TRUE(fn_name, FileExists(KeyFile("x25519_test.priv.truncated.pem")));
-	auto kp = KeyPair::Load(KeyFile("x25519_test.priv.truncated.pem"));
-	ASSERT_FALSE(fn_name, kp);
+	ASSERT_FALSE(fn_name, static_cast<bool>(KeyPair::Load(KeyFile("x25519_test.priv.truncated.pem"))));
 	RETURN_TEST(fn_name, 0);
 }
 
 // ---------------------------------------------------------------------------
 // OpenSSL edge cases
 // ---------------------------------------------------------------------------
-int TestOpenSslEdgeMismatchedPubPrivFail() {
-	const std::string fn_name = "TestOpenSslEdgeMismatchedPubPrivFail";
+int test_openssl_edge_mismatched_pub_priv_fail() {
+	const std::string fn_name = "test_openssl_edge_mismatched_pub_priv_fail";
 	auto kp = KeyPair::Load(KeyFile("rsa_test.pub.pem"), KeyFile("dsa_test.priv.pem"));
-	ASSERT_FALSE(fn_name, kp);
+	ASSERT_FALSE(fn_name, static_cast<bool>(kp));
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestOpenSslEdgePublicOnlyUsable() {
-	const std::string fn_name = "TestOpenSslEdgePublicOnlyUsable";
+int test_openssl_edge_public_only_usable() {
+	const std::string fn_name = "test_openssl_edge_public_only_usable";
 	auto pubOnly = KeyPair::Load(KeyFile("rsa_test.pub.pem"));
-	ASSERT_TRUE(fn_name, pubOnly);
+	ASSERT_TRUE(fn_name, static_cast<bool>(pubOnly));
 	ASSERT_FALSE(fn_name, pubOnly->HasPrivateKey());
 	auto full = KeyPair::Load(KeyFile("rsa_test.pub.pem"), KeyFile("rsa_test.priv.pem"));
-	ASSERT_TRUE(fn_name, full && full->HasPrivateKey());
-	Crypter::RSA encryptor(pubOnly);
-	Crypter::RSA decryptor(full);
-	FIFO encrypted, decrypted;
-	ASSERT_TRUE(fn_name, encryptor.Encrypt(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		encrypted,
-		Crypter::Asymmetric::Strategy::Native
-	));
-	ASSERT_TRUE(fn_name, decryptor.Decrypt(
-		std::span<const std::byte>(encrypted.Data().data(), encrypted.Data().size()),
-		decrypted
-	));
-	const std::string recovered(reinterpret_cast<const char*>(decrypted.Data().data()), decrypted.Data().size());
-	ASSERT_EQUAL(fn_name, recovered, kPlainText);
-	RETURN_TEST(fn_name, 0);
+	ASSERT_TRUE(fn_name, static_cast<bool>(full));
+	ASSERT_TRUE(fn_name, full->HasPrivateKey());
+	return EncryptRoundTripRsa(fn_name, pubOnly, full, Crypter::Asymmetric::Strategy::Native);
 }
 
-int TestOpenSslEdgeConcatenatedPemRoundTrip() {
-	const std::string fn_name = "TestOpenSslEdgeConcatenatedPemRoundTrip";
+int test_openssl_edge_concatenated_pem_round_trip() {
+	const std::string fn_name = "test_openssl_edge_concatenated_pem_round_trip";
 	const std::string priv = ReadAllText(KeyFile("rsa_test.priv.pem"));
 	const std::string pub = ReadAllText(KeyFile("rsa_test.pub.pem"));
 	ASSERT_FALSE(fn_name, priv.empty() || pub.empty());
 	const fs::path combined = KeysDir() / "rsa_test.combined.pem";
 	ASSERT_TRUE(fn_name, WriteText(combined, priv + pub));
 	auto kp = KeyPair::Load(combined);
-	ASSERT_TRUE(fn_name, kp);
+	ASSERT_TRUE(fn_name, static_cast<bool>(kp));
 	ASSERT_TRUE(fn_name, kp->HasPrivateKey());
-	Crypter::RSA cipher(kp);
-	FIFO encrypted, decrypted;
-	ASSERT_TRUE(fn_name, cipher.Encrypt(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		encrypted,
-		Crypter::Asymmetric::Strategy::Native
-	));
-	ASSERT_TRUE(fn_name, cipher.Decrypt(
-		std::span<const std::byte>(encrypted.Data().data(), encrypted.Data().size()),
-		decrypted
-	));
-	const std::string recovered(reinterpret_cast<const char*>(decrypted.Data().data()), decrypted.Data().size());
-	ASSERT_EQUAL(fn_name, recovered, kPlainText);
-	RETURN_TEST(fn_name, 0);
+	return EncryptRoundTripRsa(fn_name, kp, kp, Crypter::Asymmetric::Strategy::Native);
 }
 
-int TestOpenSslEdgeTruncatedEncryptedPrivateFails() {
-	const std::string fn_name = "TestOpenSslEdgeTruncatedEncryptedPrivateFails";
+int test_openssl_edge_truncated_encrypted_private_fails() {
+	const std::string fn_name = "test_openssl_edge_truncated_encrypted_private_fails";
 	auto bytes = ReadAllBytes(KeyFile("rsa_test.priv.enc.pem"));
 	ASSERT_FALSE(fn_name, bytes.empty());
 	bytes.resize(std::max<size_t>(1, bytes.size() / 2));
 	const fs::path truncated = KeysDir() / "rsa_test.priv.enc.truncated.pem";
 	ASSERT_TRUE(fn_name, WriteBytes(truncated, bytes));
-	ASSERT_FALSE(fn_name, KeyPair::Load(truncated, TestKeysPassword()));
+	ASSERT_FALSE(fn_name, static_cast<bool>(KeyPair::Load(truncated, TestKeysPassword())));
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestOpenSslEdgeEmptyPasswordOnEncryptedFails() {
-	const std::string fn_name = "TestOpenSslEdgeEmptyPasswordOnEncryptedFails";
-	ASSERT_FALSE(fn_name, KeyPair::Load(KeyFile("rsa_test.priv.enc.pem"), Password("")));
+int test_openssl_edge_empty_password_on_encrypted_fails() {
+	const std::string fn_name = "test_openssl_edge_empty_password_on_encrypted_fails";
+	ASSERT_FALSE(fn_name, static_cast<bool>(KeyPair::Load(KeyFile("rsa_test.priv.enc.pem"), Password(""))));
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestOpenSslEdgePasswordOnPlainPrivateStillLoads() {
-	const std::string fn_name = "TestOpenSslEdgePasswordOnPlainPrivateStillLoads";
+int test_openssl_edge_password_on_plain_private_still_loads() {
+	const std::string fn_name = "test_openssl_edge_password_on_plain_private_still_loads";
 	auto kp = KeyPair::Load(KeyFile("rsa_test.priv.pem"), TestKeysPassword());
-	ASSERT_TRUE(fn_name, kp);
+	ASSERT_TRUE(fn_name, static_cast<bool>(kp));
 	ASSERT_TRUE(fn_name, kp->HasPrivateKey());
-	Crypter::RSA cipher(kp);
-	FIFO encrypted, decrypted;
-	ASSERT_TRUE(fn_name, cipher.Encrypt(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		encrypted,
-		Crypter::Asymmetric::Strategy::Native
-	));
-	ASSERT_TRUE(fn_name, cipher.Decrypt(
-		std::span<const std::byte>(encrypted.Data().data(), encrypted.Data().size()),
-		decrypted
-	));
-	const std::string recovered(reinterpret_cast<const char*>(decrypted.Data().data()), decrypted.Data().size());
-	ASSERT_EQUAL(fn_name, recovered, kPlainText);
-	RETURN_TEST(fn_name, 0);
+	return EncryptRoundTripRsa(fn_name, kp, kp, Crypter::Asymmetric::Strategy::Native);
 }
 
-int TestOpenSslEdgeSwappedPathsFail() {
-	const std::string fn_name = "TestOpenSslEdgeSwappedPathsFail";
+int test_openssl_edge_swapped_paths_fail() {
+	const std::string fn_name = "test_openssl_edge_swapped_paths_fail";
 	auto kp = KeyPair::Load(KeyFile("rsa_test.priv.pem"), KeyFile("rsa_test.pub.pem"));
-	ASSERT_FALSE(fn_name, kp);
+	ASSERT_FALSE(fn_name, static_cast<bool>(kp));
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestOpenSslEdgeLoadThenLibrarySaveReload() {
-	const std::string fn_name = "TestOpenSslEdgeLoadThenLibrarySaveReload";
+int test_openssl_edge_load_then_library_save_reload() {
+	const std::string fn_name = "test_openssl_edge_load_then_library_save_reload";
 	auto original = KeyPair::Load(KeyFile("rsa_test.pub.pem"), KeyFile("rsa_test.priv.pem"));
-	ASSERT_TRUE(fn_name, original);
+	ASSERT_TRUE(fn_name, static_cast<bool>(original));
 	const fs::path outDir = KeysDir() / "edge_resave";
 	fs::create_directories(outDir);
 	ASSERT_TRUE(fn_name, original->Save(outDir, "rsa_resave", KeyPair::StorageFormat::PEM));
 	auto reloaded = KeyPair::Load(outDir / "rsa_resave.pub.pem", outDir / "rsa_resave.pem");
-	ASSERT_TRUE(fn_name, reloaded);
-	Crypter::RSA cipher(reloaded);
-	FIFO encrypted, decrypted;
-	ASSERT_TRUE(fn_name, cipher.Encrypt(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		encrypted,
-		Crypter::Asymmetric::Strategy::Native
-	));
-	ASSERT_TRUE(fn_name, cipher.Decrypt(
-		std::span<const std::byte>(encrypted.Data().data(), encrypted.Data().size()),
-		decrypted
-	));
-	const std::string recovered(reinterpret_cast<const char*>(decrypted.Data().data()), decrypted.Data().size());
-	ASSERT_EQUAL(fn_name, recovered, kPlainText);
-	RETURN_TEST(fn_name, 0);
+	ASSERT_TRUE(fn_name, static_cast<bool>(reloaded));
+	return EncryptRoundTripRsa(fn_name, reloaded, reloaded, Crypter::Asymmetric::Strategy::Native);
 }
 
 // ---------------------------------------------------------------------------
-// PKCS#1 / traditional private key Load (explicit OpenSSL fixtures)
-//
-// rsa_test.priv.pkcs1.der / .pem are forced with `openssl rsa` (RSAPrivateKey).
-// ecc_* / ecdsa_* / ecdh_*.priv.sec1.* are SEC1 traditional EC (not PKCS#1).
-// These must not overwrite the default *.priv.der paths used by other tests.
+// PKCS#1 / traditional private key Load
 // ---------------------------------------------------------------------------
-int TestOpenSslRsaPkcs1DerEncryptDecrypt() {
-	const std::string fn_name = "TestOpenSslRsaPkcs1DerEncryptDecrypt";
+int test_openssl_rsa_pkcs1_der_encrypt_decrypt() {
+	const std::string fn_name = "test_openssl_rsa_pkcs1_der_encrypt_decrypt";
 	KeyPair::Generic::PointerType kp;
 	if (AssertLoadPair(fn_name, "rsa_test.pub.der", "rsa_test.priv.pkcs1.der", kp, KeyPair::Type::RSA) != 0)
 		return 1;
-	Crypter::RSA crypter(kp);
-	FIFO encrypted, decrypted;
-	ASSERT_TRUE(fn_name, crypter.Encrypt(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		encrypted,
-		Crypter::Asymmetric::Strategy::Native
-	));
-	ASSERT_TRUE(fn_name, crypter.Decrypt(
-		std::span<const std::byte>(encrypted.Data().data(), encrypted.Data().size()),
-		decrypted
-	));
-	const std::string recovered(reinterpret_cast<const char*>(decrypted.Data().data()), decrypted.Data().size());
-	ASSERT_EQUAL(fn_name, recovered, kPlainText);
-	RETURN_TEST(fn_name, 0);
+	return EncryptRoundTripRsa(fn_name, kp, kp, Crypter::Asymmetric::Strategy::Native);
 }
 
-int TestOpenSslRsaPkcs1PemEncryptDecrypt() {
-	const std::string fn_name = "TestOpenSslRsaPkcs1PemEncryptDecrypt";
+int test_openssl_rsa_pkcs1_pem_encrypt_decrypt() {
+	const std::string fn_name = "test_openssl_rsa_pkcs1_pem_encrypt_decrypt";
 	KeyPair::Generic::PointerType kp;
 	if (AssertLoadPair(fn_name, "rsa_test.pub.pem", "rsa_test.priv.pkcs1.pem", kp, KeyPair::Type::RSA) != 0)
 		return 1;
-	Crypter::RSA crypter(kp);
-	FIFO encrypted, decrypted;
-	ASSERT_TRUE(fn_name, crypter.Encrypt(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		encrypted,
-		Crypter::Asymmetric::Strategy::Native
-	));
-	ASSERT_TRUE(fn_name, crypter.Decrypt(
-		std::span<const std::byte>(encrypted.Data().data(), encrypted.Data().size()),
-		decrypted
-	));
-	const std::string recovered(reinterpret_cast<const char*>(decrypted.Data().data()), decrypted.Data().size());
-	ASSERT_EQUAL(fn_name, recovered, kPlainText);
-	RETURN_TEST(fn_name, 0);
+	return EncryptRoundTripRsa(fn_name, kp, kp, Crypter::Asymmetric::Strategy::Native);
 }
 
-int TestOpenSslRsaPkcs1DerSignVerify() {
-	const std::string fn_name = "TestOpenSslRsaPkcs1DerSignVerify";
+int test_openssl_rsa_pkcs1_der_sign_verify() {
+	const std::string fn_name = "test_openssl_rsa_pkcs1_der_sign_verify";
 	KeyPair::Generic::PointerType kp;
 	if (AssertLoadPair(fn_name, "rsa_test.pub.der", "rsa_test.priv.pkcs1.der", kp, KeyPair::Type::RSA) != 0)
 		return 1;
-	Signer::RSA signer(kp);
-	FIFO signature;
-	ASSERT_TRUE(fn_name, signer.Sign(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		signature
-	));
-	ASSERT_TRUE(fn_name, signer.Verify(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		std::string(reinterpret_cast<const char*>(signature.Data().data()), signature.Data().size())
-	));
-	RETURN_TEST(fn_name, 0);
+	return SignRoundTrip<Signer::RSA, KeyPair::RSA>(fn_name, kp, kp);
 }
 
-int TestOpenSslEccSec1DerEncryptDecrypt() {
-	const std::string fn_name = "TestOpenSslEccSec1DerEncryptDecrypt";
+int test_openssl_ecc_sec1_der_encrypt_decrypt() {
+	const std::string fn_name = "test_openssl_ecc_sec1_der_encrypt_decrypt";
 	KeyPair::Generic::PointerType kp;
-	// SEC1 traditional EC private; type may be ECC (or EC family) depending on detector
 	if (AssertLoadPair(fn_name, "ecc_p256_test.pub.der", "ecc_p256_test.priv.sec1.der", kp, KeyPair::Type::ECC, false) != 0)
 		return 1;
 	ASSERT_TRUE(fn_name, kp->HasPrivateKey());
-	Crypter::ECC crypter(kp);
-	FIFO encrypted, decrypted;
-	ASSERT_TRUE(fn_name, crypter.Encrypt(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		encrypted,
-		Crypter::Asymmetric::Strategy::Hybrid
-	));
-	ASSERT_TRUE(fn_name, crypter.Decrypt(
-		std::span<const std::byte>(encrypted.Data().data(), encrypted.Data().size()),
-		decrypted
-	));
-	const std::string recovered(reinterpret_cast<const char*>(decrypted.Data().data()), decrypted.Data().size());
-	ASSERT_EQUAL(fn_name, recovered, kPlainText);
-	RETURN_TEST(fn_name, 0);
+	return EncryptRoundTripEcc(fn_name, kp, kp, Crypter::Asymmetric::Strategy::Hybrid);
 }
 
-int TestOpenSslEcdsaSec1DerSignVerify() {
-	const std::string fn_name = "TestOpenSslEcdsaSec1DerSignVerify";
+int test_openssl_ecdsa_sec1_der_sign_verify() {
+	const std::string fn_name = "test_openssl_ecdsa_sec1_der_sign_verify";
 	KeyPair::Generic::PointerType kp;
 	if (AssertLoadPair(fn_name, "ecdsa_test.pub.der", "ecdsa_test.priv.sec1.der", kp, KeyPair::Type::ECDSA, false) != 0)
 		return 1;
-	Signer::ECDSA signer(kp);
-	FIFO signature;
-	ASSERT_TRUE(fn_name, signer.Sign(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		signature
-	));
-	ASSERT_TRUE(fn_name, signer.Verify(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(kPlainText.data()), kPlainText.size()),
-		std::string(reinterpret_cast<const char*>(signature.Data().data()), signature.Data().size())
-	));
-	RETURN_TEST(fn_name, 0);
+	return SignRoundTrip<Signer::ECDSA, KeyPair::ECDSA>(fn_name, kp, kp);
 }
 
-int TestOpenSslEcdhSec1DerShare() {
-	const std::string fn_name = "TestOpenSslEcdhSec1DerShare";
+int test_openssl_ecdh_sec1_der_share() {
+	const std::string fn_name = "test_openssl_ecdh_sec1_der_share";
 	KeyPair::Generic::PointerType local;
 	if (AssertLoadPair(fn_name, "ecdh_test.pub.der", "ecdh_test.priv.sec1.der", local, KeyPair::Type::ECDH, false) != 0)
 		return 1;
-	auto peer = KeyPair::Load(KeyFile("ecdh_peer_test.pub.der"));
-	ASSERT_TRUE(fn_name, peer);
-	Secret::ECDH a(local);
-	Secret::ECDH b(peer);
-	// Peer has public only for Share from local; for mutual share load peer with priv if available
 	auto peerFull = KeyPair::Load(KeyFile("ecdh_peer_test.pub.der"), KeyFile("ecdh_peer_test.priv.der"));
-	ASSERT_TRUE(fn_name, peerFull);
+	ASSERT_TRUE(fn_name, static_cast<bool>(peerFull));
+	Secret::ECDH a(local);
 	Secret::ECDH peerSide(peerFull);
 	auto s1 = a.Share(peerFull->PublicKey());
 	auto s2 = peerSide.Share(local->PublicKey());
@@ -1212,58 +838,91 @@ int TestOpenSslEcdhSec1DerShare() {
 
 int main() {
 	int result = 0;
-	result += TestOpenSslRsaEncryptDecrypt();
-	result += TestOpenSslRsaHybridEncryptDecrypt();
-	result += TestOpenSslRsaSignVerify();
-	result += TestOpenSslRsaDerRoundTripUse();
-	result += TestOpenSslRsaPrivateOnlyThenEncrypt();
-	result += TestOpenSslDsaSignVerify();
-	result += TestOpenSslEcdsaSignVerify();
-	result += TestOpenSslEccEncryptDecrypt();
-	result += TestOpenSslEd25519SignVerify();
-	result += TestOpenSslEd25519DerSignVerify();
-	result += TestOpenSslEcdhShare();
-	result += TestOpenSslX25519Share();
-	result += TestLibraryRsaSaveLoadStillEncrypts();
-	result += TestOpenSslEncryptedPrivateWithoutPasswordFails();
-	result += TestOpenSslRsaPrivateOnlyDerivesPublic();
-	result += TestOpenSslDsaPrivateOnlyDerivesPublic();
-	result += TestOpenSslEcdsaPrivateOnlyDerivesPublic();
-	result += TestOpenSslEccPrivateOnlyDerivesPublic();
-	result += TestOpenSslEd25519PrivateOnlyDerivesPublic();
-	result += TestOpenSslEcdhPrivateOnlyDerivesPublic();
-	result += TestOpenSslX25519PrivateOnlyDerivesPublic();
-	result += TestOpenSslRsaEncryptedLoadEncryptDecrypt();
-	result += TestOpenSslRsaEncryptedLoadPrivateOnly();
-	result += TestOpenSslRsaEncryptedWrongPasswordFails();
-	result += TestOpenSslRsaEncryptedSignVerify();
-	result += TestOpenSslDsaEncryptedSignVerify();
-	result += TestOpenSslEcdsaEncryptedSignVerify();
-	result += TestOpenSslEccEncryptedEncryptDecrypt();
-	result += TestOpenSslEd25519EncryptedSignVerify();
-	result += TestOpenSslEcdhEncryptedShare();
-	result += TestOpenSslX25519EncryptedShare();
-	result += TestOpenSslRsaTruncatedPrivateFails();
-	result += TestOpenSslDsaTruncatedPrivateFails();
-	result += TestOpenSslEccTruncatedPrivateFails();
-	result += TestOpenSslEcdsaTruncatedPrivateFails();
-	result += TestOpenSslEcdhTruncatedPrivateFails();
-	result += TestOpenSslEd25519TruncatedPrivateFails();
-	result += TestOpenSslX25519TruncatedPrivateFails();
-	result += TestOpenSslEdgeMismatchedPubPrivFail();
-	result += TestOpenSslEdgePublicOnlyUsable();
-	result += TestOpenSslEdgeConcatenatedPemRoundTrip();
-	result += TestOpenSslEdgeTruncatedEncryptedPrivateFails();
-	result += TestOpenSslEdgeEmptyPasswordOnEncryptedFails();
-	result += TestOpenSslEdgePasswordOnPlainPrivateStillLoads();
-	result += TestOpenSslEdgeSwappedPathsFail();
-	result += TestOpenSslEdgeLoadThenLibrarySaveReload();
-	result += TestOpenSslRsaPkcs1DerEncryptDecrypt();
-	result += TestOpenSslRsaPkcs1PemEncryptDecrypt();
-	result += TestOpenSslRsaPkcs1DerSignVerify();
-	result += TestOpenSslEccSec1DerEncryptDecrypt();
-	result += TestOpenSslEcdsaSec1DerSignVerify();
-	result += TestOpenSslEcdhSec1DerShare();
+
+	// ---------------------------------------------------------------------------
+	// RSA: Load → Encrypt/Decrypt → Sign/Verify
+	// ---------------------------------------------------------------------------
+	result += test_openssl_rsa_encrypt_decrypt();
+	result += test_openssl_rsa_hybrid_encrypt_decrypt();
+	result += test_openssl_rsa_sign_verify();
+	result += test_openssl_rsa_der_round_trip_use();
+	result += test_openssl_rsa_private_only_then_encrypt();
+
+	// ---------------------------------------------------------------------------
+	// DSA / ECDSA / ECC / Ed25519
+	// ---------------------------------------------------------------------------
+	result += test_openssl_dsa_sign_verify();
+	result += test_openssl_ecdsa_sign_verify();
+	result += test_openssl_ecc_encrypt_decrypt();
+	result += test_openssl_ed25519_sign_verify();
+	result += test_openssl_ed25519_der_sign_verify();
+
+	// ---------------------------------------------------------------------------
+	// ECDH / X25519
+	// ---------------------------------------------------------------------------
+	result += test_openssl_ecdh_share();
+	result += test_openssl_x25519_share();
+	result += test_library_rsa_save_load_still_encrypts();
+	result += test_openssl_encrypted_private_without_password_fails();
+
+	// ---------------------------------------------------------------------------
+	// Private-only Load: derived public
+	// ---------------------------------------------------------------------------
+	result += test_openssl_rsa_private_only_derives_public();
+	result += test_openssl_dsa_private_only_derives_public();
+	result += test_openssl_ecdsa_private_only_derives_public();
+	result += test_openssl_ecc_private_only_derives_public();
+	result += test_openssl_ed25519_private_only_derives_public();
+	result += test_openssl_ecdh_private_only_derives_public();
+	result += test_openssl_x25519_private_only_derives_public();
+
+	// ---------------------------------------------------------------------------
+	// Encrypted private key Load
+	// ---------------------------------------------------------------------------
+	result += test_openssl_rsa_encrypted_load_encrypt_decrypt();
+	result += test_openssl_rsa_encrypted_load_private_only();
+	result += test_openssl_rsa_encrypted_wrong_password_fails();
+	result += test_openssl_rsa_encrypted_sign_verify();
+	result += test_openssl_dsa_encrypted_sign_verify();
+	result += test_openssl_ecdsa_encrypted_sign_verify();
+	result += test_openssl_ecc_encrypted_encrypt_decrypt();
+	result += test_openssl_ed25519_encrypted_sign_verify();
+	result += test_openssl_ecdh_encrypted_share();
+	result += test_openssl_x25519_encrypted_share();
+
+	// ---------------------------------------------------------------------------
+	// Truncated / invalid OpenSSL private keys
+	// ---------------------------------------------------------------------------
+	result += test_openssl_rsa_truncated_private_fails();
+	result += test_openssl_dsa_truncated_private_fails();
+	result += test_openssl_ecc_truncated_private_fails();
+	result += test_openssl_ecdsa_truncated_private_fails();
+	result += test_openssl_ecdh_truncated_private_fails();
+	result += test_openssl_ed25519_truncated_private_fails();
+	result += test_openssl_x25519_truncated_private_fails();
+
+	// ---------------------------------------------------------------------------
+	// OpenSSL edge cases
+	// ---------------------------------------------------------------------------
+	result += test_openssl_edge_mismatched_pub_priv_fail();
+	result += test_openssl_edge_public_only_usable();
+	result += test_openssl_edge_concatenated_pem_round_trip();
+	result += test_openssl_edge_truncated_encrypted_private_fails();
+	result += test_openssl_edge_empty_password_on_encrypted_fails();
+	result += test_openssl_edge_password_on_plain_private_still_loads();
+	result += test_openssl_edge_swapped_paths_fail();
+	result += test_openssl_edge_load_then_library_save_reload();
+
+	// ---------------------------------------------------------------------------
+	// PKCS#1 / traditional private key Load
+	// ---------------------------------------------------------------------------
+	result += test_openssl_rsa_pkcs1_der_encrypt_decrypt();
+	result += test_openssl_rsa_pkcs1_pem_encrypt_decrypt();
+	result += test_openssl_rsa_pkcs1_der_sign_verify();
+	result += test_openssl_ecc_sec1_der_encrypt_decrypt();
+	result += test_openssl_ecdsa_sec1_der_sign_verify();
+	result += test_openssl_ecdh_sec1_der_share();
+
 	if (result == 0) {
 		std::cout << "All tests passed!" << std::endl;
 	} else {

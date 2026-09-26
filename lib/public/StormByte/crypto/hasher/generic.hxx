@@ -46,177 +46,190 @@
 #include <StormByte/crypto/visibility.h>
 #include <StormByte/type_traits.hxx>
 
-#include <vector>
+#include <span>
 
 /**
- * @brief Hash algorithms of the Crypto module.
+ * @namespace StormByte
+ * @brief Root namespace of the StormByte suite.
  */
-namespace StormByte::Crypto::Hasher {
+namespace StormByte {
 	/**
-	 * @enum Type
-	 * @brief Available hash algorithms.
+	 * @namespace StormByte::Crypto
+	 * @brief Crypto module of the StormByte suite.
 	 */
-	enum class Type {
-		Blake2b,	///< BLAKE2b
-		Blake2s,	///< BLAKE2s
-		SHA3_256,	///< SHA3-256
-		SHA3_512,	///< SHA3-512
-		SHA256,		///< SHA-256
-		SHA512,		///< SHA-512
-	};
-
-	/**
-	 * @class Generic
-	 * @brief Abstract hasher. Concrete algorithms derive from this.
-	 */
-	class STORMBYTE_CRYPTO_PUBLIC Generic: public StormByte::Clonable<Generic> {
-		public:
+	namespace Crypto {
+		/**
+		 * @namespace StormByte::Crypto::Hasher
+		 * @brief Hash algorithms of the Crypto module.
+		 */
+		namespace Hasher {
 			/**
-			 * @name Construction
-			 * @{
+			 * @enum Type
+			 * @brief Available hash algorithms.
 			 */
-			/**
-			 * @brief Copy constructor.
-			 * @param other Hasher to copy.
-			 */
-			Generic(const Generic& other) = default;
+			enum class Type {
+				Blake2b,	///< BLAKE2b
+				Blake2s,	///< BLAKE2s
+				SHA3_256,	///< SHA3-256
+				SHA3_512,	///< SHA3-512
+				SHA256,		///< SHA-256
+				SHA512		///< SHA-512
+			};
 
 			/**
-			 * @brief Move constructor.
-			 * @param other Hasher to move.
+			 * @class Generic
+			 * @brief Abstract hasher. Concrete algorithms derive from this.
 			 */
-			Generic(Generic&& other) noexcept = default;
+			class STORMBYTE_CRYPTO_PUBLIC Generic: public StormByte::Clonable<Generic> {
+				public:
+					/**
+					 * @name Construction
+					 * @{
+					 */
+					/**
+					 * @brief Copy constructor.
+					 * @param other Hasher to copy.
+					 */
+					Generic(const Generic& other) = default;
+
+					/**
+					 * @brief Move constructor.
+					 * @param other Hasher to move.
+					 */
+					Generic(Generic&& other) noexcept = default;
+
+					/**
+					 * @brief Destructor.
+					 */
+					virtual ~Generic() noexcept = default;
+
+					/**
+					 * @brief Copy assignment.
+					 * @param other Hasher to copy.
+					 * @return Reference to this hasher.
+					 */
+					Generic& operator=(const Generic& other) = default;
+
+					/**
+					 * @brief Move assignment.
+					 * @param other Hasher to move.
+					 * @return Reference to this hasher.
+					 */
+					Generic& operator=(Generic&& other) noexcept = default;
+					/** @} */
+
+					/**
+					 * @name Hash
+					 * @{
+					 */
+					/**
+					 * @brief Hash a byte span into an output buffer.
+					 * @param input Input bytes.
+					 * @param output Destination buffer.
+					 * @return true on success.
+					 */
+					inline bool Hash(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept {
+						return DoHash(input, output);
+					}
+
+					/**
+					 * @brief Hash an input range of byte-convertible values.
+					 * @tparam Range Input range type.
+					 * @param input Input values.
+					 * @param output Destination buffer.
+					 * @return true on success.
+					 */
+					template<StormByte::Type::ByteInputRange Range>
+					bool Hash(const Range& input, Buffer::WriteOnly& output) const {
+						StormByte::BinaryData data;
+						for (const auto value: input) {
+							data.emplace_back(static_cast<std::byte>(value));
+						}
+						return Hash(std::span<const std::byte>(data), output);
+					}
+
+					/**
+					 * @brief Hash a read-only buffer (copy).
+					 * @param input Input buffer.
+					 * @param output Destination buffer.
+					 * @return true on success.
+					 */
+					inline bool Hash(const Buffer::ReadOnly& input, Buffer::WriteOnly& output) const noexcept {
+						return DoHash(const_cast<Buffer::ReadOnly&>(input), output, ReadMode::Copy);
+					}
+
+					/**
+					 * @brief Hash a buffer, consuming it.
+					 * @param input Input buffer.
+					 * @param output Destination buffer.
+					 * @return true on success.
+					 */
+					inline bool Hash(Buffer::ReadOnly& input, Buffer::WriteOnly& output) const noexcept {
+						return DoHash(input, output, ReadMode::Move);
+					}
+
+					/**
+					 * @brief Hash a Consumer into another Consumer.
+					 * @param consumer Input consumer.
+					 * @param mode Copy or move.
+					 * @return Consumer with the digest.
+					 */
+					inline Buffer::Consumer Hash(Buffer::Consumer consumer, ReadMode mode = ReadMode::Move) const noexcept {
+						return DoHash(consumer, mode);
+					}
+
+					/**
+					 * @brief Algorithm of this hasher.
+					 * @return Hasher type.
+					 */
+					inline enum Type Type() const noexcept {
+						return m_type;
+					}
+					/** @} */
+
+				protected:
+					enum Type m_type;	///< Algorithm
+
+					/**
+					 * @brief Construct with an algorithm.
+					 * @param type Algorithm.
+					 */
+					inline Generic(enum Type type):
+						m_type(type) {}
+
+				private:
+					/**
+					 * @brief Hash a buffer with an explicit read mode.
+					 * @param input Input buffer.
+					 * @param output Destination buffer.
+					 * @param mode Copy or move.
+					 * @return true on success.
+					 */
+					bool DoHash(Buffer::ReadOnly& input, Buffer::WriteOnly& output, ReadMode mode) const noexcept;
+
+					/**
+					 * @brief Hash a byte span.
+					 * @param input Input bytes.
+					 * @param output Destination buffer.
+					 * @return true on success.
+					 */
+					virtual bool DoHash(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept = 0;
+
+					/**
+					 * @brief Hash a Consumer.
+					 * @param consumer Input consumer.
+					 * @param mode Copy or move.
+					 * @return Consumer with the digest.
+					 */
+					virtual Buffer::Consumer DoHash(Buffer::Consumer consumer, ReadMode mode) const noexcept = 0;
+			};
 
 			/**
-			 * @brief Destructor.
-			 */
-			virtual ~Generic() noexcept = default;
-
-			/**
-			 * @brief Copy assignment.
-			 * @param other Hasher to copy.
-			 * @return Reference to this hasher.
-			 */
-			Generic& operator=(const Generic& other) = default;
-
-			/**
-			 * @brief Move assignment.
-			 * @param other Hasher to move.
-			 * @return Reference to this hasher.
-			 */
-			Generic& operator=(Generic&& other) noexcept = default;
-			/** @} */
-
-			/**
-			 * @name Hash
-			 * @{
-			 */
-			/**
-			 * @brief Hash a byte span into an output buffer.
-			 * @param input Input bytes.
-			 * @param output Destination buffer.
-			 * @return true on success.
-			 */
-			inline bool Hash(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept {
-				return DoHash(input, output);
-			}
-
-			/**
-			 * @brief Hash an input range of byte-convertible values.
-			 * @tparam Range Input range type.
-			 * @param input Input values.
-			 * @param output Destination buffer.
-			 * @return true on success.
-			 */
-			template<StormByte::Type::ByteInputRange Range>
-			bool Hash(const Range& input, Buffer::WriteOnly& output) const {
-				Buffer::DataType data;
-				for (const auto value: input) {
-					data.emplace_back(static_cast<std::byte>(value));
-				}
-				return Hash(std::span<const std::byte>(data), output);
-			}
-
-			/**
-			 * @brief Hash a read-only buffer (copy).
-			 * @param input Input buffer.
-			 * @param output Destination buffer.
-			 * @return true on success.
-			 */
-			inline bool Hash(const Buffer::ReadOnly& input, Buffer::WriteOnly& output) const noexcept {
-				return DoHash(const_cast<Buffer::ReadOnly&>(input), output, ReadMode::Copy);
-			}
-
-			/**
-			 * @brief Hash a buffer, consuming it.
-			 * @param input Input buffer.
-			 * @param output Destination buffer.
-			 * @return true on success.
-			 */
-			inline bool Hash(Buffer::ReadOnly& input, Buffer::WriteOnly& output) const noexcept {
-				return DoHash(input, output, ReadMode::Move);
-			}
-
-			/**
-			 * @brief Hash a Consumer into another Consumer.
-			 * @param consumer Input consumer.
-			 * @param mode Copy or move.
-			 * @return Consumer with the digest.
-			 */
-			inline Buffer::Consumer Hash(Buffer::Consumer consumer, ReadMode mode = ReadMode::Move) const noexcept {
-				return DoHash(consumer, mode);
-			}
-
-			/**
-			 * @brief Algorithm of this hasher.
-			 * @return Hasher type.
-			 */
-			inline enum Type Type() const noexcept {
-				return m_type;
-			}
-			/** @} */
-
-		protected:
-			enum Type m_type;	///< Algorithm
-
-			/**
-			 * @brief Construct with an algorithm.
+			 * @brief Factory for a hasher.
 			 * @param type Algorithm.
+			 * @return Hasher pointer.
 			 */
-			inline Generic(enum Type type):
-				m_type(type) {}
-
-		private:
-			/**
-			 * @brief Hash a buffer with an explicit read mode.
-			 * @param input Input buffer.
-			 * @param output Destination buffer.
-			 * @param mode Copy or move.
-			 * @return true on success.
-			 */
-			bool DoHash(Buffer::ReadOnly& input, Buffer::WriteOnly& output, ReadMode mode) const noexcept;
-
-			/**
-			 * @brief Hash a byte span.
-			 * @param input Input bytes.
-			 * @param output Destination buffer.
-			 * @return true on success.
-			 */
-			virtual bool DoHash(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept = 0;
-
-			/**
-			 * @brief Hash a Consumer.
-			 * @param consumer Input consumer.
-			 * @param mode Copy or move.
-			 * @return Consumer with the digest.
-			 */
-			virtual Buffer::Consumer DoHash(Buffer::Consumer consumer, ReadMode mode) const noexcept = 0;
-	};
-
-	/**
-	 * @brief Factory for a hasher.
-	 * @param type Algorithm.
-	 * @return Hasher pointer.
-	 */
-	STORMBYTE_CRYPTO_PUBLIC Generic::PointerType Create(Type type) noexcept;
+			STORMBYTE_CRYPTO_PUBLIC Generic::PointerType Create(Type type) noexcept;
+		}
+	}
 }

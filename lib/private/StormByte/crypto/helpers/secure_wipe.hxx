@@ -40,6 +40,8 @@
 
 #pragma once
 
+#include <StormByte/binary_data.hxx>
+
 #include <cstddef>
 #include <cstring>
 #include <optional>
@@ -49,69 +51,97 @@
 #include <secblock.h>
 
 /**
- * @brief Private helpers of the Crypto module.
+ * @namespace StormByte
+ * @brief Root namespace of the StormByte suite.
  */
-namespace StormByte::Crypto::Helpers {
+namespace StormByte {
 	/**
-	 * @brief Zero and clear a string.
-	 * @param s String to wipe.
+	 * @namespace StormByte::Crypto
+	 * @brief Crypto module of the StormByte suite.
 	 */
-	inline void SecureWipe(std::string& s) noexcept {
-		if (s.empty()) return;
+	namespace Crypto {
+		/**
+		 * @namespace StormByte::Crypto::Helpers
+		 * @brief Private helpers of the Crypto module.
+		 */
+		namespace Helpers {
+			/**
+			 * @brief Zero and clear a string.
+			 * @param s String to wipe.
+			 */
+			inline void SecureWipe(std::string& s) noexcept {
+				if (s.empty())
+					return;
 
-		volatile char* p = s.data();
-		for (size_t i = 0; i < s.size(); ++i) {
-			p[i] = 0;
+				volatile char* p = s.data();
+				for (size_t i = 0; i < s.size(); ++i)
+					p[i] = 0;
+				s.clear();
+				s.shrink_to_fit();
+			}
+
+			/**
+			 * @brief Zero a Crypto++ SecByteBlock.
+			 * @param block Block to wipe.
+			 */
+			inline void SecureWipe(CryptoPP::SecByteBlock& block) noexcept {
+				if (block.empty())
+					return;
+				block.CleanNew(0);
+			}
+
+			/**
+			 * @brief Zero an optional string.
+			 * @param opt Optional to wipe.
+			 */
+			inline void SecureWipe(std::optional<std::string>& opt) noexcept {
+				if (opt.has_value()) {
+					SecureWipe(*opt);
+					opt.reset();
+				}
+			}
+
+			/**
+			 * @brief Zero a vector of bytes.
+			 * @param data Vector to wipe.
+			 */
+			inline void SecureWipe(std::vector<std::byte>& data) noexcept {
+				if (data.empty())
+					return;
+				volatile std::byte* p = data.data();
+				for (size_t i = 0; i < data.size(); ++i)
+					p[i] = std::byte{0};
+				data.clear();
+				data.shrink_to_fit();
+			}
+
+			/**
+			 * @brief Zero a vector of Crypto++ bytes (`unsigned char`).
+			 * @param data Vector to wipe.
+			 */
+			inline void SecureWipe(std::vector<unsigned char>& data) noexcept {
+				if (data.empty())
+					return;
+				volatile unsigned char* p = data.data();
+				for (size_t i = 0; i < data.size(); ++i)
+					p[i] = 0;
+				data.clear();
+				data.shrink_to_fit();
+			}
+
+			/**
+			 * @brief Zero a StormByte binary buffer.
+			 * @param data Buffer to wipe.
+			 */
+			inline void SecureWipe(StormByte::BinaryData& data) noexcept {
+				if (data.empty())
+					return;
+				volatile std::byte* p = data.data();
+				const std::size_t n = static_cast<std::size_t>(data.size());
+				for (std::size_t i = 0; i < n; ++i)
+					p[i] = std::byte{0};
+				data.clear();
+			}
 		}
-		s.clear();
-		s.shrink_to_fit();
-	}
-
-	/**
-	 * @brief Zero a Crypto++ SecByteBlock.
-	 * @param block Block to wipe.
-	 */
-	inline void SecureWipe(CryptoPP::SecByteBlock& block) noexcept {
-		if (block.empty()) return;
-		block.CleanNew(0);
-	}
-
-	/**
-	 * @brief Zero an optional string.
-	 * @param opt Optional to wipe.
-	 */
-	inline void SecureWipe(std::optional<std::string>& opt) noexcept {
-		if (opt.has_value()) {
-			SecureWipe(*opt);
-			opt.reset();
-		}
-	}
-
-	/**
-	 * @brief Zero a vector of bytes.
-	 * @param data Vector to wipe.
-	 */
-	inline void SecureWipe(std::vector<std::byte>& data) noexcept {
-		if (data.empty()) return;
-		volatile std::byte* p = data.data();
-		for (size_t i = 0; i < data.size(); ++i) {
-			p[i] = std::byte{0};
-		}
-		data.clear();
-		data.shrink_to_fit();
-	}
-
-	/**
-	 * @brief Zero a vector of Crypto++ bytes (`unsigned char`).
-	 * @param data Vector to wipe.
-	 */
-	inline void SecureWipe(std::vector<unsigned char>& data) noexcept {
-		if (data.empty()) return;
-		volatile unsigned char* p = data.data();
-		for (size_t i = 0; i < data.size(); ++i) {
-			p[i] = 0;
-		}
-		data.clear();
-		data.shrink_to_fit();
 	}
 }

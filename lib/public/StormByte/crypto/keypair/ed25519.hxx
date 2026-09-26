@@ -47,80 +47,93 @@
 #include <string>
 
 /**
- * @brief Keypairs of the Crypto module.
+ * @namespace StormByte
+ * @brief Root namespace of the StormByte suite.
  */
-namespace StormByte::Crypto::KeyPair {
+namespace StormByte {
 	/**
-	 * @class ED25519
-	 * @brief Ed25519 keypair.
+	 * @namespace StormByte::Crypto
+	 * @brief Crypto module of the StormByte suite.
 	 */
-	class STORMBYTE_CRYPTO_PUBLIC ED25519 final: public Generic {
-		public:
+	namespace Crypto {
+		/**
+		 * @namespace StormByte::Crypto::KeyPair
+		 * @brief Keypairs of the Crypto module.
+		 */
+		namespace KeyPair {
 			/**
-			 * @name Construction
-			 * @{
+			 * @class ED25519
+			 * @brief Ed25519 keypair.
 			 */
-			/**
-			 * @brief Construct from public material and optional private Password.
-			 * @param publicKey Public key.
-			 * @param privateKey Optional private key.
-			 */
-			inline ED25519(std::string publicKey, std::optional<Password> privateKey = std::nullopt):
-				Generic(Type::ED25519, std::move(publicKey), std::move(privateKey)) {}
+			class STORMBYTE_CRYPTO_PUBLIC ED25519 final: public Generic {
+				public:
+					/**
+					 * @name Construction
+					 * @{
+					 */
+					/**
+					 * @brief Construct from public material and optional private Password.
+					 * @param publicKey Public key.
+					 * @param privateKey Optional private key.
+					 */
+					inline ED25519(std::string publicKey, std::optional<Password> privateKey = std::nullopt):
+						Generic(Type::ED25519, std::move(publicKey), std::move(privateKey)) {}
 
-			/**
-			 * @brief Copy constructor.
-			 * @param other Keypair to copy.
-			 */
-			ED25519(const ED25519& other) = default;
+					/**
+					 * @brief Copy constructor.
+					 * @param other Keypair to copy.
+					 */
+					ED25519(const ED25519& other) = default;
 
-			/**
-			 * @brief Move constructor.
-			 * @param other Keypair to move.
-			 */
-			ED25519(ED25519&& other) noexcept = default;
+					/**
+					 * @brief Move constructor.
+					 * @param other Keypair to move.
+					 */
+					ED25519(ED25519&& other) noexcept = default;
 
-			/**
-			 * @brief Destructor.
-			 */
-			~ED25519() noexcept override = default;
+					/**
+					 * @brief Destructor.
+					 */
+					~ED25519() noexcept override = default;
 
-			/**
-			 * @brief Copy assignment.
-			 * @param other Keypair to copy.
-			 * @return Reference to this keypair.
-			 */
-			ED25519& operator=(const ED25519& other) = default;
+					/**
+					 * @brief Copy assignment.
+					 * @param other Keypair to copy.
+					 * @return Reference to this keypair.
+					 */
+					ED25519& operator=(const ED25519& other) = default;
 
-			/**
-			 * @brief Move assignment.
-			 * @param other Keypair to move.
-			 * @return Reference to this keypair.
-			 */
-			ED25519& operator=(ED25519&& other) noexcept = default;
-			/** @} */
+					/**
+					 * @brief Move assignment.
+					 * @param other Keypair to move.
+					 * @return Reference to this keypair.
+					 */
+					ED25519& operator=(ED25519&& other) noexcept = default;
+					/** @} */
 
-			/**
-			 * @brief Clone this keypair.
-			 * @return Shared pointer to the clone.
-			 */
-			PointerType Clone() const override {
-				return std::make_shared<ED25519>(*this);
-			}
+					/**
+					 * @brief Clone this keypair.
+					 * @return Shared pointer to the clone.
+					 */
+					PointerType Clone() const override {
+						return MakePointer<ED25519>(*this);
+					}
 
-			/**
-			 * @brief Move this keypair into a new instance.
-			 * @return Shared pointer to the moved keypair.
-			 */
-			PointerType Move() override {
-				return std::make_shared<ED25519>(std::move(*this));
-			}
+					/**
+					 * @brief Move this keypair into a new instance.
+					 * @return Shared pointer to the moved keypair.
+					 */
+					PointerType Move() override {
+						return MakePointer<ED25519>(std::move(*this));
+					}
 
-			/**
-			 * @brief Generate an Ed25519 keypair.
-			 * @param bits Ignored (fixed size). Kept for API uniformity.
-			 * @return Keypair pointer, or nullptr.
-			 */
-			static PointerType Generate(unsigned short bits = 0) noexcept;
-	};
+					/**
+					 * @brief Generate an Ed25519 keypair.
+					 * @param bits Ignored (fixed size).
+					 * @return Keypair pointer, or nullptr.
+					 */
+					static PointerType Generate(unsigned short bits) noexcept;
+			};
+		}
+	}
 }

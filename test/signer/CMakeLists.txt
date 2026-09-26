@@ -13,7 +13,7 @@ target_link_libraries(Ed25519Tests StormByte::Crypto tests)
 add_test(NAME Ed25519Tests COMMAND Ed25519Tests)
 set_tests_properties(Ed25519Tests PROPERTIES LABELS "signer")
 
-add_executable(RSASignTests rsa_sign_test.cxx)
+add_executable(RSASignTests rsa_test.cxx)
 target_link_libraries(RSASignTests StormByte::Crypto tests)
 add_test(NAME RSASignTests COMMAND RSASignTests)
 set_tests_properties(RSASignTests PROPERTIES LABELS "signer")

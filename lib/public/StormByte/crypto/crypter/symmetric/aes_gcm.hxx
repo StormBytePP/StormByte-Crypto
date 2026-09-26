@@ -43,105 +43,118 @@
 #include <StormByte/crypto/crypter/symmetric/generic.hxx>
 
 /**
- * @brief Ciphers of the Crypto module.
+ * @namespace StormByte
+ * @brief Root namespace of the StormByte suite.
  */
-namespace StormByte::Crypto::Crypter {
+namespace StormByte {
 	/**
-	 * @class AES_GCM
-	 * @brief AES-GCM crypter.
+	 * @namespace StormByte::Crypto
+	 * @brief Crypto module of the StormByte suite.
 	 */
-	class STORMBYTE_CRYPTO_PUBLIC AES_GCM final: public Symmetric {
-		public:
+	namespace Crypto {
+		/**
+		 * @namespace StormByte::Crypto::Crypter
+		 * @brief Ciphers of the Crypto module.
+		 */
+		namespace Crypter {
 			/**
-			 * @name Construction
-			 * @{
+			 * @class AES_GCM
+			 * @brief AES-GCM crypter.
 			 */
-			/**
-			 * @brief Construct with a password.
-			 * @param password Password.
-			 */
-			inline AES_GCM(class Password password):
-				Symmetric(Type::AES_GCM, std::move(password)) {}
+			class STORMBYTE_CRYPTO_PUBLIC AES_GCM final: public Symmetric {
+				public:
+					/**
+					 * @name Construction
+					 * @{
+					 */
+					/**
+					 * @brief Construct with a password.
+					 * @param password Password.
+					 */
+					inline AES_GCM(class Password password):
+						Symmetric(Type::AES_GCM, std::move(password)) {}
 
-			/**
-			 * @brief Copy constructor.
-			 * @param other Crypter to copy.
-			 */
-			AES_GCM(const AES_GCM& other) = default;
+					/**
+					 * @brief Copy constructor.
+					 * @param other Crypter to copy.
+					 */
+					AES_GCM(const AES_GCM& other) = default;
 
-			/**
-			 * @brief Move constructor.
-			 * @param other Crypter to move.
-			 */
-			AES_GCM(AES_GCM&& other) noexcept = default;
+					/**
+					 * @brief Move constructor.
+					 * @param other Crypter to move.
+					 */
+					AES_GCM(AES_GCM&& other) noexcept = default;
 
-			/**
-			 * @brief Destructor.
-			 */
-			virtual ~AES_GCM() noexcept = default;
+					/**
+					 * @brief Destructor.
+					 */
+					virtual ~AES_GCM() noexcept = default;
 
-			/**
-			 * @brief Copy assignment.
-			 * @param other Crypter to copy.
-			 * @return Reference to this crypter.
-			 */
-			AES_GCM& operator=(const AES_GCM& other) = default;
+					/**
+					 * @brief Copy assignment.
+					 * @param other Crypter to copy.
+					 * @return Reference to this crypter.
+					 */
+					AES_GCM& operator=(const AES_GCM& other) = default;
 
-			/**
-			 * @brief Move assignment.
-			 * @param other Crypter to move.
-			 * @return Reference to this crypter.
-			 */
-			AES_GCM& operator=(AES_GCM&& other) noexcept = default;
-			/** @} */
+					/**
+					 * @brief Move assignment.
+					 * @param other Crypter to move.
+					 * @return Reference to this crypter.
+					 */
+					AES_GCM& operator=(AES_GCM&& other) noexcept = default;
+					/** @} */
 
-			/**
-			 * @brief Clone this crypter.
-			 * @return Shared pointer to the clone.
-			 */
-			inline PointerType Clone() const noexcept override {
-				return std::make_shared<AES_GCM>(*this);
-			}
+					/**
+					 * @brief Clone this crypter.
+					 * @return Shared pointer to the clone.
+					 */
+					inline PointerType Clone() const noexcept override {
+						return AES_GCM::MakePointer<AES_GCM>(*this);
+					}
 
-			/**
-			 * @brief Move this crypter into a new instance.
-			 * @return Shared pointer to the moved crypter.
-			 */
-			inline PointerType Move() noexcept override {
-				return std::make_shared<AES_GCM>(std::move(*this));
-			}
+					/**
+					 * @brief Move this crypter into a new instance.
+					 * @return Shared pointer to the moved crypter.
+					 */
+					inline PointerType Move() noexcept override {
+						return AES_GCM::MakePointer<AES_GCM>(std::move(*this));
+					}
 
-		private:
-			/**
-			 * @brief Encrypt a byte span.
-			 * @param input Input bytes.
-			 * @param output Destination buffer.
-			 * @return true on success.
-			 */
-			bool DoEncrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
+				private:
+					/**
+					 * @brief Encrypt a byte span.
+					 * @param input Input bytes.
+					 * @param output Destination buffer.
+					 * @return true on success.
+					 */
+					bool DoEncrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
 
-			/**
-			 * @brief Encrypt a Consumer.
-			 * @param consumer Input consumer.
-			 * @param mode Copy or move.
-			 * @return Consumer with ciphertext.
-			 */
-			Buffer::Consumer DoEncrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
+					/**
+					 * @brief Encrypt a Consumer.
+					 * @param consumer Input consumer.
+					 * @param mode Copy or move.
+					 * @return Consumer with ciphertext.
+					 */
+					Buffer::Consumer DoEncrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
 
-			/**
-			 * @brief Decrypt a byte span.
-			 * @param input Input bytes.
-			 * @param output Destination buffer.
-			 * @return true on success.
-			 */
-			bool DoDecrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
+					/**
+					 * @brief Decrypt a byte span.
+					 * @param input Input bytes.
+					 * @param output Destination buffer.
+					 * @return true on success.
+					 */
+					bool DoDecrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
 
-			/**
-			 * @brief Decrypt a Consumer.
-			 * @param consumer Input consumer.
-			 * @param mode Copy or move.
-			 * @return Consumer with plaintext.
-			 */
-			Buffer::Consumer DoDecrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
-	};
+					/**
+					 * @brief Decrypt a Consumer.
+					 * @param consumer Input consumer.
+					 * @param mode Copy or move.
+					 * @return Consumer with plaintext.
+					 */
+					Buffer::Consumer DoDecrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
+			};
+		}
+	}
 }

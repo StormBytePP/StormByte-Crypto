@@ -48,32 +48,50 @@
 #include <string>
 
 /**
- * @brief Private keypair implementation.
+ * @namespace StormByte
+ * @brief Root namespace of the StormByte suite.
  */
-namespace StormByte::Crypto::Implementation::KeyPair {
+namespace StormByte {
 	/**
-	 * @brief Encode a SecByteBlock as Base64.
-	 * @param block Source.
-	 * @return Base64 string.
+	 * @namespace StormByte::Crypto
+	 * @brief Crypto module of the StormByte suite.
 	 */
-	std::string EncodeSecBlockBase64(const CryptoPP::SecByteBlock& block) noexcept;
+	namespace Crypto {
+		/**
+		 * @namespace StormByte::Crypto::Implementation
+		 * @brief Private implementation of the Crypto module.
+		 */
+		namespace Implementation {
+			/**
+			 * @namespace StormByte::Crypto::Implementation::KeyPair
+			 * @brief Private keypair implementation.
+			 */
+			namespace KeyPair {
+				/**
+				 * @brief Encode a SecByteBlock as Base64.
+				 * @param block Source.
+				 * @return Base64 string.
+				 */
+				std::string EncodeSecBlockBase64(const CryptoPP::SecByteBlock& block) noexcept;
 
-	/**
-	 * @brief Decode Base64 into a SecByteBlock.
-	 * @param encoded Base64.
-	 * @return Decoded block.
-	 */
-	CryptoPP::SecByteBlock DecodeSecBlockBase64(const std::string& encoded) noexcept;
+				/**
+				 * @brief Decode Base64 into a SecByteBlock.
+				 * @param encoded Base64.
+				 * @return Decoded block.
+				 */
+				CryptoPP::SecByteBlock DecodeSecBlockBase64(const std::string& encoded) noexcept;
 
-	/**
-	 * @brief Wrap raw key bytes into a Password and wipe the source.
-	 * @param block Source block (wiped).
-	 * @return Password.
-	 */
-	inline Password PasswordFromSecBlock(CryptoPP::SecByteBlock& block) noexcept
-	{
-		Password result(block.data(), block.size());
-		Helpers::SecureWipe(block);
-		return result;
+				/**
+				 * @brief Wrap raw key bytes into a Password and wipe the source.
+				 * @param block Source block (wiped).
+				 * @return Password.
+				 */
+				inline Password PasswordFromSecBlock(CryptoPP::SecByteBlock& block) noexcept {
+					Password result(block.data(), StormByte::ByteSize{block.size()});
+					Helpers::SecureWipe(block);
+					return result;
+				}
+			}
+		}
 	}
 }

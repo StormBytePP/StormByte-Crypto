@@ -40,41 +40,48 @@
 
 #include <StormByte/crypto/password.hxx>
 #include <StormByte/test_handlers.h>
+
 #include <string>
 #include <utility>
+
 using namespace StormByte::Crypto;
-int TestPasswordConstructFromCString() {
-	const std::string fn_name = "TestPasswordConstructFromCString";
+
+// -------------------
+// Construction
+// -------------------
+
+int test_password_construct_from_c_string() {
+	const std::string fn_name = "test_password_construct_from_c_string";
 	Password p("secret-value");
 	ASSERT_FALSE(fn_name, p.Empty());
-	ASSERT_TRUE(fn_name, p.Size() > 0);
+	ASSERT_TRUE(fn_name, p.Size() > StormByte::ByteSize{0});
 	ASSERT_TRUE(fn_name, static_cast<bool>(p));
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestPasswordConstructFromString() {
-	const std::string fn_name = "TestPasswordConstructFromString";
+int test_password_construct_from_string() {
+	const std::string fn_name = "test_password_construct_from_string";
 	std::string raw = "from-std-string";
 	Password p(std::move(raw));
 	ASSERT_FALSE(fn_name, p.Empty());
-	ASSERT_EQUAL(fn_name, p.Size(), std::string("from-std-string").size());
+	ASSERT_EQUAL(fn_name, p.Size(), StormByte::ByteSize{std::string("from-std-string").size()});
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestPasswordConstructFromBytes() {
-	const std::string fn_name = "TestPasswordConstructFromBytes";
+int test_password_construct_from_bytes() {
+	const std::string fn_name = "test_password_construct_from_bytes";
 	const unsigned char bytes[] = { 0x01, 0x02, 0x03, 0x04, 0xff };
 	Password p(bytes, sizeof(bytes));
 	ASSERT_FALSE(fn_name, p.Empty());
-	ASSERT_EQUAL(fn_name, p.Size(), sizeof(bytes));
+	ASSERT_EQUAL(fn_name, p.Size(), StormByte::ByteSize{sizeof(bytes)});
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestPasswordEmpty() {
-	const std::string fn_name = "TestPasswordEmpty";
+int test_password_empty() {
+	const std::string fn_name = "test_password_empty";
 	Password empty(static_cast<const void*>(nullptr), 0);
 	ASSERT_TRUE(fn_name, empty.Empty());
-	ASSERT_EQUAL(fn_name, empty.Size(), static_cast<std::size_t>(0));
+	ASSERT_EQUAL(fn_name, empty.Size(), StormByte::ByteSize{0});
 	ASSERT_FALSE(fn_name, static_cast<bool>(empty));
 	Password nonempty("x");
 	ASSERT_FALSE(fn_name, nonempty.Empty());
@@ -82,8 +89,12 @@ int TestPasswordEmpty() {
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestPasswordEqualitySameContent() {
-	const std::string fn_name = "TestPasswordEqualitySameContent";
+// -------------------
+// Equality
+// -------------------
+
+int test_password_equality_same_content() {
+	const std::string fn_name = "test_password_equality_same_content";
 	Password a("same-secret");
 	Password b("same-secret");
 	ASSERT_TRUE(fn_name, a == b);
@@ -91,8 +102,8 @@ int TestPasswordEqualitySameContent() {
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestPasswordEqualityDifferentContent() {
-	const std::string fn_name = "TestPasswordEqualityDifferentContent";
+int test_password_equality_different_content() {
+	const std::string fn_name = "test_password_equality_different_content";
 	Password a("alpha");
 	Password b("beta");
 	ASSERT_FALSE(fn_name, a == b);
@@ -100,16 +111,29 @@ int TestPasswordEqualityDifferentContent() {
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestPasswordSelfEquality() {
-	const std::string fn_name = "TestPasswordSelfEquality";
+int test_password_self_equality() {
+	const std::string fn_name = "test_password_self_equality";
 	Password p("self");
 	ASSERT_TRUE(fn_name, p == p);
 	ASSERT_FALSE(fn_name, p != p);
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestPasswordCopySharesContent() {
-	const std::string fn_name = "TestPasswordCopySharesContent";
+int test_password_binary_not_equal_to_text_of_same_length() {
+	const std::string fn_name = "test_password_binary_not_equal_to_text_of_same_length";
+	const unsigned char bin[] = { 'a', 'b', 'c', 0x00 };
+	Password fromBytes(bin, sizeof(bin));
+	Password fromText("abc");
+	ASSERT_FALSE(fn_name, fromBytes == fromText);
+	RETURN_TEST(fn_name, 0);
+}
+
+// -------------------
+// Copy / move
+// -------------------
+
+int test_password_copy_shares_content() {
+	const std::string fn_name = "test_password_copy_shares_content";
 	Password original("shared-bytes");
 	Password copy(original);
 	ASSERT_TRUE(fn_name, original == copy);
@@ -119,45 +143,45 @@ int TestPasswordCopySharesContent() {
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestPasswordMoveLeavesUsableSource() {
-	const std::string fn_name = "TestPasswordMoveLeavesUsableSource";
+int test_password_move_leaves_usable_source() {
+	const std::string fn_name = "test_password_move_leaves_usable_source";
 	Password source("move-me");
 	Password dest(std::move(source));
 	ASSERT_FALSE(fn_name, dest.Empty());
-	ASSERT_TRUE(fn_name, dest.Size() > 0);
-	// After move, source must remain safe to query (empty or still valid; no crash).
+	ASSERT_TRUE(fn_name, dest.Size() > StormByte::ByteSize{0});
 	(void)source.Empty();
 	(void)source.Size();
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestPasswordBinaryNotEqualToTextOfSameLength() {
-	const std::string fn_name = "TestPasswordBinaryNotEqualToTextOfSameLength";
-	const unsigned char bin[] = { 'a', 'b', 'c', 0x00 };
-	Password fromBytes(bin, sizeof(bin));
-	Password fromText("abc");
-	// Different size (4 vs 3) or different content including trailing zero.
-	ASSERT_FALSE(fn_name, fromBytes == fromText);
-	RETURN_TEST(fn_name, 0);
-}
-
 int main() {
 	int result = 0;
-	result += TestPasswordConstructFromCString();
-	result += TestPasswordConstructFromString();
-	result += TestPasswordConstructFromBytes();
-	result += TestPasswordEmpty();
-	result += TestPasswordEqualitySameContent();
-	result += TestPasswordEqualityDifferentContent();
-	result += TestPasswordSelfEquality();
-	result += TestPasswordCopySharesContent();
-	result += TestPasswordMoveLeavesUsableSource();
-	result += TestPasswordBinaryNotEqualToTextOfSameLength();
-	if (result == 0) {
-		std::cout << "All tests passed!" << std::endl;
-	} else {
-		std::cout << result << " tests failed." << std::endl;
-	}
 
+	// -------------------
+	// Construction
+	// -------------------
+	result += test_password_construct_from_c_string();
+	result += test_password_construct_from_string();
+	result += test_password_construct_from_bytes();
+	result += test_password_empty();
+
+	// -------------------
+	// Equality
+	// -------------------
+	result += test_password_equality_same_content();
+	result += test_password_equality_different_content();
+	result += test_password_self_equality();
+	result += test_password_binary_not_equal_to_text_of_same_length();
+
+	// -------------------
+	// Copy / move
+	// -------------------
+	result += test_password_copy_shares_content();
+	result += test_password_move_leaves_usable_source();
+
+	if (result == 0)
+		std::cout << "All tests passed!" << std::endl;
+	else
+		std::cout << result << " tests failed." << std::endl;
 	return result;
 }

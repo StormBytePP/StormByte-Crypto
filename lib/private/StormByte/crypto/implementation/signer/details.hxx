@@ -49,102 +49,112 @@
 #include <string>
 
 /**
- * @brief Private signer implementation.
+ * @namespace StormByte
+ * @brief Root namespace of the StormByte suite.
  */
-namespace StormByte::Crypto::Implementation::Signer {
+namespace StormByte {
 	/**
-	 * @struct SignBox
-	 * @brief Type-erased streaming signer.
+	 * @namespace StormByte::Crypto
+	 * @brief Crypto module of the StormByte suite.
 	 */
-	struct SignBox {
-		virtual ~SignBox() = default;
-
+	namespace Crypto {
 		/**
-		 * @brief Feed one message chunk.
-		 * @param in Input bytes.
-		 * @return true on success.
+		 * @namespace StormByte::Crypto::Implementation
+		 * @brief Private implementation of the Crypto module.
 		 */
-		virtual bool Update(std::span<const std::byte> in) = 0;
+		namespace Implementation {
+			/**
+			 * @namespace StormByte::Crypto::Implementation::Signer
+			 * @brief Private signer implementation.
+			 */
+			namespace Signer {
+				/**
+				 * @struct SignBox
+				 * @brief Type-erased streaming signer.
+				 */
+				struct SignBox {
+					virtual ~SignBox() = default;
 
-		/**
-		 * @brief Finish and write the signature.
-		 * @param out Destination.
-		 * @return true on success.
-		 */
-		virtual bool Finalize(Buffer::DataType& out) = 0;
-	};
+					/**
+					 * @brief Feed one message chunk.
+					 * @param in Input bytes.
+					 * @return true on success.
+					 */
+					virtual bool Update(std::span<const std::byte> in) = 0;
 
-	/**
-	 * @struct VerifyBox
-	 * @brief Type-erased streaming verifier. Call Begin first.
-	 */
-	struct VerifyBox {
-		virtual ~VerifyBox() = default;
+					/**
+					 * @brief Finish and write the signature.
+					 * @param out Destination.
+					 * @return true on success.
+					 */
+					virtual bool Finalize(StormByte::BinaryData& out) = 0;
+				};
 
-		/**
-		 * @brief Supply the signature before any Update.
-		 * @param signature Signature.
-		 * @return true on success.
-		 */
-		virtual bool Begin(const std::string& signature) = 0;
+				/**
+				 * @struct VerifyBox
+				 * @brief Type-erased streaming verifier. Call Begin first.
+				 */
+				struct VerifyBox {
+					virtual ~VerifyBox() = default;
 
-		/**
-		 * @brief Feed one message chunk.
-		 * @param in Input bytes.
-		 * @return true on success.
-		 */
-		virtual bool Update(std::span<const std::byte> in) = 0;
+					/**
+					 * @brief Supply the signature before any Update.
+					 * @param signature Signature.
+					 * @return true on success.
+					 */
+					virtual bool Begin(const std::string& signature) = 0;
 
-		/**
-		 * @brief Finish verification.
-		 * @return true if valid.
-		 */
-		virtual bool Finalize() = 0;
-	};
+					/**
+					 * @brief Feed one message chunk.
+					 * @param in Input bytes.
+					 * @return true on success.
+					 */
+					virtual bool Update(std::span<const std::byte> in) = 0;
 
-	/**
-	 * @brief One-shot sign.
-	 * @param data Input.
-	 * @param output Destination.
-	 * @param box Engine.
-	 * @return true on success.
-	 */
-	bool SignSpan(std::span<const std::byte> data,
-				Buffer::WriteOnly& output,
-				std::unique_ptr<SignBox> box) noexcept;
+					/**
+					 * @brief Finish verification.
+					 * @return true if valid.
+					 */
+					virtual bool Finalize() = 0;
+				};
 
-	/**
-	 * @brief Streaming sign.
-	 * @param consumer Input consumer.
-	 * @param mode Copy or move.
-	 * @param box Engine.
-	 * @return Consumer with the signature.
-	 */
-	Buffer::Consumer SignStream(Buffer::Consumer consumer,
-								ReadMode mode,
-								std::unique_ptr<SignBox> box) noexcept;
+				/**
+				 * @brief One-shot sign.
+				 * @param data Input.
+				 * @param output Destination.
+				 * @param box Engine.
+				 * @return true on success.
+				 */
+				bool SignSpan(std::span<const std::byte> data, Buffer::WriteOnly& output, std::unique_ptr<SignBox> box) noexcept;
 
-	/**
-	 * @brief One-shot verify.
-	 * @param data Input.
-	 * @param signature Signature.
-	 * @param box Engine.
-	 * @return true if valid.
-	 */
-	bool VerifySpan(std::span<const std::byte> data,
-					const std::string& signature,
-					std::unique_ptr<VerifyBox> box) noexcept;
+				/**
+				 * @brief Streaming sign.
+				 * @param consumer Input consumer.
+				 * @param mode Copy or move.
+				 * @param box Engine.
+				 * @return Consumer with the signature.
+				 */
+				Buffer::Consumer SignStream(Buffer::Consumer consumer, ReadMode mode, std::unique_ptr<SignBox> box) noexcept;
 
-	/**
-	 * @brief Streaming verify.
-	 * @param consumer Input consumer.
-	 * @param mode Copy or move.
-	 * @param signature Signature.
-	 * @param box Engine.
-	 * @return true if valid.
-	 */
-	bool VerifyStream(Buffer::Consumer consumer,
-					ReadMode mode,
-					const std::string& signature,
-					std::unique_ptr<VerifyBox> box) noexcept;
+				/**
+				 * @brief One-shot verify.
+				 * @param data Input.
+				 * @param signature Signature.
+				 * @param box Engine.
+				 * @return true if valid.
+				 */
+				bool VerifySpan(std::span<const std::byte> data, const std::string& signature, std::unique_ptr<VerifyBox> box) noexcept;
+
+				/**
+				 * @brief Streaming verify.
+				 * @param consumer Input consumer.
+				 * @param mode Copy or move.
+				 * @param signature Signature.
+				 * @param box Engine.
+				 * @return true if valid.
+				 */
+				bool VerifyStream(Buffer::Consumer consumer, ReadMode mode, const std::string& signature, std::unique_ptr<VerifyBox> box) noexcept;
+			}
+		}
+	}
 }

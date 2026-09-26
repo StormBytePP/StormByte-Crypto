@@ -48,85 +48,94 @@
 #include <span>
 
 /**
- * @brief Private crypter implementation.
+ * @namespace StormByte
+ * @brief Root namespace of the StormByte suite.
  */
-namespace StormByte::Crypto::Implementation::Crypter {
+namespace StormByte {
 	/**
-	 * @struct Ops
-	 * @brief Chunk encrypt/decrypt engine (symmetric and asymmetric).
+	 * @namespace StormByte::Crypto
+	 * @brief Crypto module of the StormByte suite.
 	 */
-	struct Ops {
-		virtual ~Ops() = default;
-
+	namespace Crypto {
 		/**
-		 * @brief Optional header write (salt||IV, hybrid envelope).
-		 * @param outChunk Destination.
-		 * @return true on success.
+		 * @namespace StormByte::Crypto::Implementation
+		 * @brief Private implementation of the Crypto module.
 		 */
-		virtual bool WriteHeader(Buffer::DataType& outChunk)
-		{
-			outChunk.clear();
-			return true;
+		namespace Implementation {
+			/**
+			 * @namespace StormByte::Crypto::Implementation::Crypter
+			 * @brief Private crypter implementation.
+			 */
+			namespace Crypter {
+				/**
+				 * @struct Ops
+				 * @brief Chunk encrypt/decrypt engine (symmetric and asymmetric).
+				 */
+				struct Ops {
+					virtual ~Ops() = default;
+
+					/**
+					 * @brief Optional header write (salt||IV, hybrid envelope).
+					 * @param outChunk Destination.
+					 * @return true on success.
+					 */
+					virtual bool WriteHeader(StormByte::BinaryData& outChunk) {
+						outChunk.clear();
+						return true;
+					}
+
+					/**
+					 * @brief Optional header read from a span (one-shot decrypt).
+					 * @param in Input; advanced past the header.
+					 * @return true on success.
+					 */
+					virtual bool ReadHeader(std::span<const std::byte>& /*in*/) {
+						return true;
+					}
+
+					/**
+					 * @brief Optional header read from a Consumer (streaming decrypt).
+					 * @param consumer Input consumer.
+					 * @return true on success.
+					 */
+					virtual bool ReadHeader(Buffer::Consumer& /*consumer*/) {
+						return true;
+					}
+
+					/**
+					 * @brief Process one chunk.
+					 * @param in Input bytes.
+					 * @param outChunk Output chunk.
+					 * @return true on success.
+					 */
+					virtual bool Process(std::span<const std::byte> in, StormByte::BinaryData& outChunk) = 0;
+
+					/**
+					 * @brief Finish and emit padding/tag.
+					 * @param outChunk Output chunk.
+					 * @return true on success.
+					 */
+					virtual bool Finalize(StormByte::BinaryData& outChunk) = 0;
+				};
+
+				/**
+				 * @brief One-shot encrypt/decrypt.
+				 * @param data Input.
+				 * @param output Destination.
+				 * @param ops Engine.
+				 * @return true on success.
+				 */
+				bool ProcessSpan(std::span<const std::byte> data, Buffer::WriteOnly& output, std::unique_ptr<Ops> ops) noexcept;
+
+				/**
+				 * @brief Streaming encrypt/decrypt.
+				 * @param consumer Input consumer.
+				 * @param mode Copy or move.
+				 * @param ops Engine.
+				 * @return Consumer with the result.
+				 */
+				Buffer::Consumer Stream(Buffer::Consumer consumer, ReadMode mode, std::unique_ptr<Ops> ops) noexcept;
+			}
 		}
-
-		/**
-		 * @brief Optional header read from a span (one-shot decrypt).
-		 * @param in Input; advanced past the header.
-		 * @return true on success.
-		 */
-		virtual bool ReadHeader(std::span<const std::byte>& /*in*/)
-		{
-			return true;
-		}
-
-		/**
-		 * @brief Optional header read from a Consumer (streaming decrypt).
-		 * @param consumer Input consumer.
-		 * @return true on success.
-		 */
-		virtual bool ReadHeader(Buffer::Consumer& /*consumer*/)
-		{
-			return true;
-		}
-
-		/**
-		 * @brief Process one chunk.
-		 * @param in Input bytes.
-		 * @param outChunk Output chunk.
-		 * @return true on success.
-		 */
-		virtual bool Process(std::span<const std::byte> in,
-							Buffer::DataType& outChunk) = 0;
-
-		/**
-		 * @brief Finish and emit padding/tag.
-		 * @param outChunk Output chunk.
-		 * @return true on success.
-		 */
-		virtual bool Finalize(Buffer::DataType& outChunk) = 0;
-	};
-
-	/**
-	 * @brief One-shot encrypt/decrypt.
-	 * @param data Input.
-	 * @param output Destination.
-	 * @param ops Engine.
-	 * @return true on success.
-	 */
-	bool ProcessSpan(
-		std::span<const std::byte> data,
-		Buffer::WriteOnly& output,
-		std::unique_ptr<Ops> ops) noexcept;
-
-	/**
-	 * @brief Streaming encrypt/decrypt.
-	 * @param consumer Input consumer.
-	 * @param mode Copy or move.
-	 * @param ops Engine.
-	 * @return Consumer with the result.
-	 */
-	Buffer::Consumer Stream(
-		Buffer::Consumer consumer,
-		ReadMode mode,
-		std::unique_ptr<Ops> ops) noexcept;
+	}
 }

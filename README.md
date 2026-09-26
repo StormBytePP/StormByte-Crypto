@@ -3,15 +3,15 @@
 ![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows%20%7C%20macOS-lightgrey)
 ![C++26](https://img.shields.io/badge/C%2B%2B-26-00599C?logo=c%2B%2B&logoColor=white)
 ![CMake](https://img.shields.io/badge/CMake-3.28+-064F8C?logo=cmake&logoColor=white)
-![License: LGPL v3](https://img.shields.io/badge/License-LGPL_v3-blue.svg)
+![License: LGPL v3 or commercial](https://img.shields.io/badge/License-LGPL_v3_or_commercial-blue.svg)
 [![CI](https://github.com/StormBytePP/StormByte-Crypto/actions/workflows/ci.yml/badge.svg)](https://github.com/StormBytePP/StormByte-Crypto/actions/workflows/ci.yml)
 [![Sponsor](https://img.shields.io/badge/Sponsor-StormBytePP-ea4aaa?logo=githubsponsors)](https://github.com/sponsors/StormBytePP)
 
 This repository is **StormByte Crypto**: hash, compress, encrypt, sign and key agreement for the StormByte C++ suite.
 
-It depends on [StormByte Base](https://github.com/StormBytePP/StormByte) and [StormByte Buffer](https://github.com/StormBytePP/StormByte-Buffer). Public headers live under `StormByte/crypto/`. Crypto++ stays in the private tree: installed headers never mention `CryptoPP::`. With a static Crypto++ link, consumers do not install it.
+It depends on [StormByte Base ≥ 2.0.0](https://github.com/StormBytePP/StormByte/releases/tag/2.0.0), [StormByte Buffer ≥ 2.0.0](https://github.com/StormBytePP/StormByte-Buffer/releases/tag/2.0.0), [StormByte System ≥ 2.0.0](https://github.com/StormBytePP/StormByte-System/releases/tag/2.0.0) and [StormByte String ≥ 1.0.0](https://github.com/StormBytePP/StormByte-String/releases/tag/1.0.0). Public headers live under `StormByte/crypto/`. Crypto++ stays in the private tree: installed headers never mention `CryptoPP::`. With a static Crypto++ link, consumers do not install it.
 
-The suite is split on purpose. Base, Buffer, Config, Database, Logger, Multimedia, Network and System are **other repositories**. This one does not implement them.
+The suite is split on purpose. Base, Buffer, Config, Database, Logger, Multimedia, Network, String and System are **other repositories**. This one does not implement them.
 
 ## What this module does
 
@@ -21,22 +21,23 @@ The suite is split on purpose. Base, Buffer, Config, Database, Logger, Multimedi
 - **Asymmetric crypter** — RSA OAEP-SHA and ECC ECIES. `Strategy::Native` is one PK transform per blob. `Strategy::Hybrid` wraps a random AES-256-GCM session key. Decrypt auto-detects the envelope.
 - **Signer** — DSA, RSA PKCS#1 v1.5 + SHA-256, ECDSA, Ed25519. Block and streaming sign / verify.
 - **Secret** — ECDH on secp256r1 / secp384r1 / secp521r1, and X25519. The shared secret is a `Password`, not a `std::string`.
-- **KeyPair** — Generate, persist PEM or DER, optional PKCS#8 (PBES2 + PBKDF2 + AES-256-CBC, OpenSSL-compatible). Public key travels as Base64 SPKI; private key stays in a `Password`.
-- **Password / Vault** — reference-counted wiped buffer; named store. Last owner zeros the bytes. Vault is movable, not copyable.
-- **Buffer-first I/O** — `std::span<const std::byte>` → `Buffer::WriteOnly` for blocks; `Buffer::Consumer` in / out for pipelines (Network, Multimedia).
+- **KeyPair** — Generate, persist PEM or DER, optional PKCS#8 (PBES2 + PBKDF2 + AES-256-CBC, OpenSSL-compatible). Public key travels as Base64 SPKI; private key stays in a `Password`. Handles are `Clonable` + `MakePointer` / `Shared` (`KeyPair::Generic::PointerType`).
+- **Password / Vault** — reference-counted wiped buffer; named store. Last owner zeros the bytes. Vault is movable, not copyable. `Password::Size()` is `StormByte::ByteSize`. A missing `Vault::Get` is `StormByte.Crypto.Vault: …`.
+- **Buffer-first I/O** — `std::span<const std::byte>` → `Buffer::WriteOnly` for blocks; `Buffer::Consumer` in / out for pipelines (Network, Multimedia). Octet payloads are `StormByte::BinaryData`. Abstract counts use `StormByte::Size`; octet lengths use `StormByte::ByteSize`.
 
 ## The rest of the suite
 
 | Module | Role | API |
 | --- | --- | --- |
-| [Base](https://github.com/StormBytePP/StormByte) | Exceptions, Expected, serialization, strings, UUID, concepts | [/StormByte](https://dev.stormbyte.org/StormByte) |
+| [Base](https://github.com/StormBytePP/StormByte) | Exceptions, Expected, serialization, UUID, concepts, `CString` / `WCString` / `Size` / `ByteSize` | [/StormByte](https://dev.stormbyte.org/StormByte) |
 | [Buffer](https://github.com/StormBytePP/StormByte-Buffer) | FIFO, SharedFIFO, Ring, Producer/Consumer and multi-stage pipelines | [/StormByte-Buffer](https://dev.stormbyte.org/StormByte-Buffer) |
 | [Config](https://github.com/StormBytePP/StormByte-Config) | Human-readable text and versioned binary documents (groups, lists, raw bytes) | [/StormByte-Config](https://dev.stormbyte.org/StormByte-Config) |
 | **Crypto** | This repository | [/StormByte-Crypto](https://dev.stormbyte.org/StormByte-Crypto) |
 | [Database](https://github.com/StormBytePP/StormByte-Database) | One API over SQLite, PostgreSQL and MariaDB | [/StormByte-Database](https://dev.stormbyte.org/StormByte-Database) |
-| [Logger](https://github.com/StormBytePP/StormByte-Logger) | Stream logger with levels, headers, human-readable sizes and redaction (`ThreadedLog`) | [/StormByte-Logger](https://dev.stormbyte.org/StormByte-Logger) |
+| [Logger](https://github.com/StormBytePP/StormByte-Logger) | Stream logger with levels, headers, hierarchical components and `Scope` | [/StormByte-Logger](https://dev.stormbyte.org/StormByte-Logger) |
 | [Multimedia](https://github.com/StormBytePP/StormByte-Multimedia) | Decode, encode and containers without raw FFmpeg types; codecs enabled only if present | [/StormByte-Multimedia](https://dev.stormbyte.org/StormByte-Multimedia) |
 | [Network](https://github.com/StormBytePP/StormByte-Network) | Framed packets, Client/Server, IPv4/IPv6 TCP and Buffer pipelines (compress/encrypt) | [/StormByte-Network](https://dev.stormbyte.org/StormByte-Network) |
+| [String](https://github.com/StormBytePP/StormByte-String) | Owned UTF-8 / wide text over `CString` / `WCString` for DLL-safe return and storage | [/StormByte-String](https://dev.stormbyte.org/StormByte-String) |
 | [System](https://github.com/StormBytePP/StormByte-System) | Processes, pipes and environment variables across Linux, Windows and macOS | [/StormByte-System](https://dev.stormbyte.org/StormByte-System) |
 
 ## Table of Contents
@@ -53,12 +54,14 @@ The suite is split on purpose. Base, Buffer, Config, Database, Logger, Multimedi
   - [KeyPair on disk](#keypair-on-disk)
   - [Sign and verify](#sign-and-verify)
   - [Key agreement](#key-agreement)
+- [Security notes](#security-notes)
 - [Contributing](#contributing)
 - [License](#license)
+- [Support](#support)
 
 ## Installation
 
-Needs a C++26 compiler, CMake 3.28 or newer, [StormByte Base ≥ 1.1.0](https://github.com/StormBytePP/StormByte/releases/tag/1.1.0) and [StormByte Buffer ≥ 1.1.0](https://github.com/StormBytePP/StormByte-Buffer/releases/tag/1.1.0). Crypto++ and libbzip2 are build dependencies. Prefer a **static** Crypto++ link when you redistribute.
+Needs a C++26 compiler, CMake 3.28 or newer, [StormByte Base ≥ 2.0.0](https://github.com/StormBytePP/StormByte/releases/tag/2.0.0), [StormByte Buffer ≥ 2.0.0](https://github.com/StormBytePP/StormByte-Buffer/releases/tag/2.0.0), [StormByte System ≥ 2.0.0](https://github.com/StormBytePP/StormByte-System/releases/tag/2.0.0) and [StormByte String ≥ 1.0.0](https://github.com/StormBytePP/StormByte-String/releases/tag/1.0.0). Crypto++ and libbzip2 are build dependencies. Prefer a **static** Crypto++ link when you redistribute.
 
 ```sh
 git clone --recursive https://github.com/StormBytePP/StormByte-Crypto.git
@@ -72,6 +75,8 @@ cmake --build build
 Headers are `#include <StormByte/crypto/….hxx>`. Namespace root is `StormByte::Crypto`.
 
 Nothing in the public tree includes Crypto++. Private headers are not installed.
+
+Public handles are `Clonable` + `MakePointer` / `Shared`. KeyPair, Signer, Crypter and Secret take `KeyPair::Generic::PointerType`, not `std::shared_ptr`. Exceptions use `Path{"Crypto"}`; child offices add their own segment. `what()` is `StormByte.Crypto` or `StormByte.Crypto.<Child>: message`.
 
 ### Factories
 
@@ -89,7 +94,7 @@ Concrete types (`Crypter::AES_GCM`, `KeyPair::X25519`, `Signer::ED25519`, …) c
 
 ### Password and Vault
 
-`Password` is the only public container for secret bytes (passphrases, private key DER, shared secrets). Copies share the buffer; the last owner wipes it.
+`Password` is the only public container for secret bytes (passphrases, private key DER, shared secrets). Copies share the buffer; the last owner wipes it. `Size()` is `StormByte::ByteSize`.
 
 ```cpp
 #include <StormByte/crypto/password.hxx>
@@ -224,7 +229,7 @@ auto loaded = KeyPair::Load("/tmp/keys/app.pub.pem", "/tmp/keys/app.pem");
 auto enc    = KeyPair::Load("/tmp/keys/app-enc.pub.pem", "/tmp/keys/app-enc.pem", wrap);
 ```
 
-Wrong or missing wrap password fails closed (`nullptr`). Type comes from the OID (RSA, DSA, EC, Ed25519, X25519). Generate → Save → Load stays usable for encrypt, sign and share. X25519 also understands raw 32-byte library form.
+Wrong or missing wrap password fails closed. Type comes from the OID (RSA, DSA, EC, Ed25519, X25519). Generate → Save → Load stays usable for encrypt, sign and share. X25519 also understands raw 32-byte library form.
 
 ### Sign and verify
 
@@ -274,4 +279,16 @@ Issues only on this repository. Fork and open a pull request against `master`.
 
 ## License
 
-GNU Lesser General Public License version 3 or later. See [LICENSE](LICENSE) and <https://www.gnu.org/licenses/lgpl-3.0.html>.
+From 2.0.0, original StormByte-Crypto source is dual-licensed:
+
+1. GNU Lesser General Public License version 3 or later. See [LICENSE](LICENSE) and <https://www.gnu.org/licenses/lgpl-3.0.html>.
+2. A commercial license from the copyright holder (David C. Manuelda, StormBytePP).
+
+Neither license covers other StormByte modules or third-party material shipped under `thirdparty/` (including Crypto++, bundled libbzip2, and vendored StormByte trees). Those keep their own licenses. Neither license grants patent rights.
+
+## Support
+
+StormByte is developed in spare time. Sponsorship is optional and does not buy features, priority or support.
+
+- [GitHub Sponsors](https://github.com/sponsors/StormBytePP)
+- [PayPal](https://paypal.me/StormBytePP)

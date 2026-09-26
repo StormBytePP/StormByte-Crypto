@@ -46,258 +46,271 @@
 #include <StormByte/crypto/visibility.h>
 #include <StormByte/type_traits.hxx>
 
-#include <vector>
+#include <span>
 
 /**
- * @brief Ciphers of the Crypto module.
+ * @namespace StormByte
+ * @brief Root namespace of the StormByte suite.
  */
-namespace StormByte::Crypto::Crypter {
+namespace StormByte {
 	/**
-	 * @enum Type
-	 * @brief Available ciphers.
+	 * @namespace StormByte::Crypto
+	 * @brief Crypto module of the StormByte suite.
 	 */
-	enum class Type {
-		AES_GCM,		///< AES-GCM
-		AES,			///< AES-CBC
-		Camellia,		///< Camellia-CBC
-		ChaChaPoly,		///< ChaCha20-Poly1305
-		ECC,			///< Elliptic-curve encryption
-		Serpent,		///< Serpent-CBC
-		RSA,			///< RSA
-		TwoFish,		///< Twofish-CBC
-	};
-
-	/**
-	 * @class Generic
-	 * @brief Abstract crypter. Concrete ciphers derive from this.
-	 */
-	class STORMBYTE_CRYPTO_PUBLIC Generic: public StormByte::Clonable<Generic> {
-		public:
+	namespace Crypto {
+		/**
+		 * @namespace StormByte::Crypto::Crypter
+		 * @brief Ciphers of the Crypto module.
+		 */
+		namespace Crypter {
 			/**
-			 * @name Construction
-			 * @{
+			 * @enum Type
+			 * @brief Available ciphers.
 			 */
-			/**
-			 * @brief Copy constructor.
-			 * @param other Crypter to copy.
-			 */
-			Generic(const Generic& other) = default;
+			enum class Type {
+				AES_GCM,	///< AES-GCM
+				AES,		///< AES-CBC
+				Camellia,	///< Camellia-CBC
+				ChaChaPoly,	///< ChaCha20-Poly1305
+				ECC,		///< Elliptic-curve encryption
+				Serpent,	///< Serpent-CBC
+				RSA,		///< RSA
+				TwoFish		///< Twofish-CBC
+			};
 
 			/**
-			 * @brief Move constructor.
-			 * @param other Crypter to move.
+			 * @class Generic
+			 * @brief Abstract crypter. Concrete ciphers derive from this.
 			 */
-			Generic(Generic&& other) noexcept = default;
+			class STORMBYTE_CRYPTO_PUBLIC Generic: public StormByte::Clonable<Generic> {
+				public:
+					/**
+					 * @name Construction
+					 * @{
+					 */
+					/**
+					 * @brief Copy constructor.
+					 * @param other Crypter to copy.
+					 */
+					Generic(const Generic& other) = default;
 
-			/**
-			 * @brief Destructor.
-			 */
-			virtual ~Generic() noexcept = default;
+					/**
+					 * @brief Move constructor.
+					 * @param other Crypter to move.
+					 */
+					Generic(Generic&& other) noexcept = default;
 
-			/**
-			 * @brief Copy assignment.
-			 * @param other Crypter to copy.
-			 * @return Reference to this crypter.
-			 */
-			Generic& operator=(const Generic& other) = default;
+					/**
+					 * @brief Destructor.
+					 */
+					virtual ~Generic() noexcept = default;
 
-			/**
-			 * @brief Move assignment.
-			 * @param other Crypter to move.
-			 * @return Reference to this crypter.
-			 */
-			Generic& operator=(Generic&& other) noexcept = default;
-			/** @} */
+					/**
+					 * @brief Copy assignment.
+					 * @param other Crypter to copy.
+					 * @return Reference to this crypter.
+					 */
+					Generic& operator=(const Generic& other) = default;
 
-			/**
-			 * @name Encrypt
-			 * @{
-			 */
-			/**
-			 * @brief Encrypt a byte span.
-			 * @param input Input bytes.
-			 * @param output Destination buffer.
-			 * @return true on success.
-			 */
-			inline bool Encrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept {
-				return DoEncrypt(input, output);
-			}
+					/**
+					 * @brief Move assignment.
+					 * @param other Crypter to move.
+					 * @return Reference to this crypter.
+					 */
+					Generic& operator=(Generic&& other) noexcept = default;
+					/** @} */
 
-			/**
-			 * @brief Encrypt an input range of byte-convertible values.
-			 * @tparam Range Input range type.
-			 * @param input Input values.
-			 * @param output Destination buffer.
-			 * @return true on success.
-			 */
-			template<StormByte::Type::ByteInputRange Range>
-			bool Encrypt(const Range& input, Buffer::WriteOnly& output) const {
-				Buffer::DataType data;
-				for (const auto value: input) {
-					data.emplace_back(static_cast<std::byte>(value));
-				}
-				return Encrypt(std::span<const std::byte>(data), output);
-			}
+					/**
+					 * @name Encrypt
+					 * @{
+					 */
+					/**
+					 * @brief Encrypt a byte span.
+					 * @param input Input bytes.
+					 * @param output Destination buffer.
+					 * @return true on success.
+					 */
+					inline bool Encrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept {
+						return DoEncrypt(input, output);
+					}
 
-			/**
-			 * @brief Encrypt a read-only buffer (copy).
-			 * @param input Input buffer.
-			 * @param output Destination buffer.
-			 * @return true on success.
-			 */
-			inline bool Encrypt(const Buffer::ReadOnly& input, Buffer::WriteOnly& output) const noexcept {
-				return DoEncrypt(const_cast<Buffer::ReadOnly&>(input), output, ReadMode::Copy);
-			}
+					/**
+					 * @brief Encrypt an input range of byte-convertible values.
+					 * @tparam Range Input range type.
+					 * @param input Input values.
+					 * @param output Destination buffer.
+					 * @return true on success.
+					 */
+					template<StormByte::Type::ByteInputRange Range>
+					bool Encrypt(const Range& input, Buffer::WriteOnly& output) const {
+						StormByte::BinaryData data;
+						for (const auto value: input) {
+							data.emplace_back(static_cast<std::byte>(value));
+						}
+						return Encrypt(std::span<const std::byte>(data), output);
+					}
 
-			/**
-			 * @brief Encrypt a buffer, consuming it.
-			 * @param input Input buffer.
-			 * @param output Destination buffer.
-			 * @return true on success.
-			 */
-			inline bool Encrypt(Buffer::ReadOnly& input, Buffer::WriteOnly& output) const noexcept {
-				return DoEncrypt(input, output, ReadMode::Move);
-			}
+					/**
+					 * @brief Encrypt a read-only buffer (copy).
+					 * @param input Input buffer.
+					 * @param output Destination buffer.
+					 * @return true on success.
+					 */
+					inline bool Encrypt(const Buffer::ReadOnly& input, Buffer::WriteOnly& output) const noexcept {
+						return DoEncrypt(const_cast<Buffer::ReadOnly&>(input), output, ReadMode::Copy);
+					}
 
-			/**
-			 * @brief Encrypt a Consumer into another Consumer.
-			 * @param consumer Input consumer.
-			 * @param mode Copy or move.
-			 * @return Consumer with ciphertext.
-			 */
-			inline Buffer::Consumer Encrypt(Buffer::Consumer consumer, ReadMode mode = ReadMode::Move) const noexcept {
-				return DoEncrypt(consumer, mode);
-			}
-			/** @} */
+					/**
+					 * @brief Encrypt a buffer, consuming it.
+					 * @param input Input buffer.
+					 * @param output Destination buffer.
+					 * @return true on success.
+					 */
+					inline bool Encrypt(Buffer::ReadOnly& input, Buffer::WriteOnly& output) const noexcept {
+						return DoEncrypt(input, output, ReadMode::Move);
+					}
 
-			/**
-			 * @name Decrypt
-			 * @{
-			 */
-			/**
-			 * @brief Decrypt a byte span.
-			 * @param input Input bytes.
-			 * @param output Destination buffer.
-			 * @return true on success.
-			 */
-			inline bool Decrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept {
-				return DoDecrypt(input, output);
-			}
+					/**
+					 * @brief Encrypt a Consumer into another Consumer.
+					 * @param consumer Input consumer.
+					 * @param mode Copy or move.
+					 * @return Consumer with ciphertext.
+					 */
+					inline Buffer::Consumer Encrypt(Buffer::Consumer consumer, ReadMode mode = ReadMode::Move) const noexcept {
+						return DoEncrypt(consumer, mode);
+					}
+					/** @} */
 
-			/**
-			 * @brief Decrypt an input range of byte-convertible values.
-			 * @tparam Range Input range type.
-			 * @param input Input values.
-			 * @param output Destination buffer.
-			 * @return true on success.
-			 */
-			template<StormByte::Type::ByteInputRange Range>
-			bool Decrypt(const Range& input, Buffer::WriteOnly& output) const {
-				Buffer::DataType data;
-				for (const auto value: input) {
-					data.emplace_back(static_cast<std::byte>(value));
-				}
-				return Decrypt(std::span<const std::byte>(data), output);
-			}
+					/**
+					 * @name Decrypt
+					 * @{
+					 */
+					/**
+					 * @brief Decrypt a byte span.
+					 * @param input Input bytes.
+					 * @param output Destination buffer.
+					 * @return true on success.
+					 */
+					inline bool Decrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept {
+						return DoDecrypt(input, output);
+					}
 
-			/**
-			 * @brief Decrypt a read-only buffer (copy).
-			 * @param input Input buffer.
-			 * @param output Destination buffer.
-			 * @return true on success.
-			 */
-			inline bool Decrypt(const Buffer::ReadOnly& input, Buffer::WriteOnly& output) const noexcept {
-				return DoDecrypt(const_cast<Buffer::ReadOnly&>(input), output, ReadMode::Copy);
-			}
+					/**
+					 * @brief Decrypt an input range of byte-convertible values.
+					 * @tparam Range Input range type.
+					 * @param input Input values.
+					 * @param output Destination buffer.
+					 * @return true on success.
+					 */
+					template<StormByte::Type::ByteInputRange Range>
+					bool Decrypt(const Range& input, Buffer::WriteOnly& output) const {
+						StormByte::BinaryData data;
+						for (const auto value: input) {
+							data.emplace_back(static_cast<std::byte>(value));
+						}
+						return Decrypt(std::span<const std::byte>(data), output);
+					}
 
-			/**
-			 * @brief Decrypt a buffer, consuming it.
-			 * @param input Input buffer.
-			 * @param output Destination buffer.
-			 * @return true on success.
-			 */
-			inline bool Decrypt(Buffer::ReadOnly& input, Buffer::WriteOnly& output) const noexcept {
-				return DoDecrypt(input, output, ReadMode::Move);
-			}
+					/**
+					 * @brief Decrypt a read-only buffer (copy).
+					 * @param input Input buffer.
+					 * @param output Destination buffer.
+					 * @return true on success.
+					 */
+					inline bool Decrypt(const Buffer::ReadOnly& input, Buffer::WriteOnly& output) const noexcept {
+						return DoDecrypt(const_cast<Buffer::ReadOnly&>(input), output, ReadMode::Copy);
+					}
 
-			/**
-			 * @brief Decrypt a Consumer into another Consumer.
-			 * @param consumer Input consumer.
-			 * @param mode Copy or move.
-			 * @return Consumer with plaintext.
-			 */
-			inline Buffer::Consumer Decrypt(Buffer::Consumer consumer, ReadMode mode = ReadMode::Move) const noexcept {
-				return DoDecrypt(consumer, mode);
-			}
-			/** @} */
+					/**
+					 * @brief Decrypt a buffer, consuming it.
+					 * @param input Input buffer.
+					 * @param output Destination buffer.
+					 * @return true on success.
+					 */
+					inline bool Decrypt(Buffer::ReadOnly& input, Buffer::WriteOnly& output) const noexcept {
+						return DoDecrypt(input, output, ReadMode::Move);
+					}
 
-			/**
-			 * @brief Cipher of this crypter.
-			 * @return Crypter type.
-			 */
-			inline enum Type Type() const noexcept {
-				return m_type;
-			}
+					/**
+					 * @brief Decrypt a Consumer into another Consumer.
+					 * @param consumer Input consumer.
+					 * @param mode Copy or move.
+					 * @return Consumer with plaintext.
+					 */
+					inline Buffer::Consumer Decrypt(Buffer::Consumer consumer, ReadMode mode = ReadMode::Move) const noexcept {
+						return DoDecrypt(consumer, mode);
+					}
+					/** @} */
 
-		protected:
-			enum Type m_type;	///< Cipher
+					/**
+					 * @brief Cipher of this crypter.
+					 * @return Crypter type.
+					 */
+					inline enum Type Type() const noexcept {
+						return m_type;
+					}
 
-			/**
-			 * @brief Construct with a cipher.
-			 * @param type Cipher.
-			 */
-			inline Generic(enum Type type):
-				m_type(type) {}
+				protected:
+					enum Type m_type;	///< Cipher
 
-			/**
-			 * @brief Encrypt a byte span.
-			 * @param input Input bytes.
-			 * @param output Destination buffer.
-			 * @return true on success.
-			 */
-			virtual bool DoEncrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept = 0;
+					/**
+					 * @brief Construct with a cipher.
+					 * @param type Cipher.
+					 */
+					inline Generic(enum Type type):
+						m_type(type) {}
 
-			/**
-			 * @brief Encrypt a Consumer.
-			 * @param consumer Input consumer.
-			 * @param mode Copy or move.
-			 * @return Consumer with ciphertext.
-			 */
-			virtual Buffer::Consumer DoEncrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept = 0;
+					/**
+					 * @brief Encrypt a byte span.
+					 * @param input Input bytes.
+					 * @param output Destination buffer.
+					 * @return true on success.
+					 */
+					virtual bool DoEncrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept = 0;
 
-			/**
-			 * @brief Decrypt a byte span.
-			 * @param input Input bytes.
-			 * @param output Destination buffer.
-			 * @return true on success.
-			 */
-			virtual bool DoDecrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept = 0;
+					/**
+					 * @brief Encrypt a Consumer.
+					 * @param consumer Input consumer.
+					 * @param mode Copy or move.
+					 * @return Consumer with ciphertext.
+					 */
+					virtual Buffer::Consumer DoEncrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept = 0;
 
-			/**
-			 * @brief Decrypt a Consumer.
-			 * @param consumer Input consumer.
-			 * @param mode Copy or move.
-			 * @return Consumer with plaintext.
-			 */
-			virtual Buffer::Consumer DoDecrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept = 0;
+					/**
+					 * @brief Decrypt a byte span.
+					 * @param input Input bytes.
+					 * @param output Destination buffer.
+					 * @return true on success.
+					 */
+					virtual bool DoDecrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept = 0;
 
-		private:
-			/**
-			 * @brief Encrypt a buffer with an explicit read mode.
-			 * @param input Input buffer.
-			 * @param output Destination buffer.
-			 * @param mode Copy or move.
-			 * @return true on success.
-			 */
-			bool DoEncrypt(Buffer::ReadOnly& input, Buffer::WriteOnly& output, ReadMode mode) const noexcept;
+					/**
+					 * @brief Decrypt a Consumer.
+					 * @param consumer Input consumer.
+					 * @param mode Copy or move.
+					 * @return Consumer with plaintext.
+					 */
+					virtual Buffer::Consumer DoDecrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept = 0;
 
-			/**
-			 * @brief Decrypt a buffer with an explicit read mode.
-			 * @param input Input buffer.
-			 * @param output Destination buffer.
-			 * @param mode Copy or move.
-			 * @return true on success.
-			 */
-			bool DoDecrypt(Buffer::ReadOnly& input, Buffer::WriteOnly& output, ReadMode mode) const noexcept;
-	};
+				private:
+					/**
+					 * @brief Encrypt a buffer with an explicit read mode.
+					 * @param input Input buffer.
+					 * @param output Destination buffer.
+					 * @param mode Copy or move.
+					 * @return true on success.
+					 */
+					bool DoEncrypt(Buffer::ReadOnly& input, Buffer::WriteOnly& output, ReadMode mode) const noexcept;
+
+					/**
+					 * @brief Decrypt a buffer with an explicit read mode.
+					 * @param input Input buffer.
+					 * @param output Destination buffer.
+					 * @param mode Copy or move.
+					 * @return true on success.
+					 */
+					bool DoDecrypt(Buffer::ReadOnly& input, Buffer::WriteOnly& output, ReadMode mode) const noexcept;
+			};
+		}
+	}
 }

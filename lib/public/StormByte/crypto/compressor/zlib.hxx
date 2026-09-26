@@ -43,104 +43,117 @@
 #include <StormByte/crypto/compressor/generic.hxx>
 
 /**
- * @brief Compressors of the Crypto module.
+ * @namespace StormByte
+ * @brief Root namespace of the StormByte suite.
  */
-namespace StormByte::Crypto::Compressor {
+namespace StormByte {
 	/**
-	 * @class Zlib
-	 * @brief zlib compressor.
+	 * @namespace StormByte::Crypto
+	 * @brief Crypto module of the StormByte suite.
 	 */
-	class STORMBYTE_CRYPTO_PUBLIC Zlib final: public Generic {
-		public:
+	namespace Crypto {
+		/**
+		 * @namespace StormByte::Crypto::Compressor
+		 * @brief Compressors of the Crypto module.
+		 */
+		namespace Compressor {
 			/**
-			 * @name Construction
-			 * @{
+			 * @class Zlib
+			 * @brief zlib compressor.
 			 */
-			/**
-			 * @brief Construct with a compression level.
-			 * @param level Compression level.
-			 */
-			Zlib(unsigned short level = 5);
+			class STORMBYTE_CRYPTO_PUBLIC Zlib final: public Generic {
+				public:
+					/**
+					 * @name Construction
+					 * @{
+					 */
+					/**
+					 * @brief Construct with a compression level.
+					 * @param level Compression level.
+					 */
+					Zlib(unsigned short level = 5);
 
-			/**
-			 * @brief Copy constructor.
-			 * @param other Compressor to copy.
-			 */
-			Zlib(const Zlib& other) = default;
+					/**
+					 * @brief Copy constructor.
+					 * @param other Compressor to copy.
+					 */
+					Zlib(const Zlib& other) = default;
 
-			/**
-			 * @brief Move constructor.
-			 * @param other Compressor to move.
-			 */
-			Zlib(Zlib&& other) noexcept = default;
+					/**
+					 * @brief Move constructor.
+					 * @param other Compressor to move.
+					 */
+					Zlib(Zlib&& other) noexcept = default;
 
-			/**
-			 * @brief Destructor.
-			 */
-			~Zlib() noexcept = default;
+					/**
+					 * @brief Destructor.
+					 */
+					~Zlib() noexcept = default;
 
-			/**
-			 * @brief Copy assignment.
-			 * @param other Compressor to copy.
-			 * @return Reference to this compressor.
-			 */
-			Zlib& operator=(const Zlib& other) = default;
+					/**
+					 * @brief Copy assignment.
+					 * @param other Compressor to copy.
+					 * @return Reference to this compressor.
+					 */
+					Zlib& operator=(const Zlib& other) = default;
 
-			/**
-			 * @brief Move assignment.
-			 * @param other Compressor to move.
-			 * @return Reference to this compressor.
-			 */
-			Zlib& operator=(Zlib&& other) noexcept = default;
-			/** @} */
+					/**
+					 * @brief Move assignment.
+					 * @param other Compressor to move.
+					 * @return Reference to this compressor.
+					 */
+					Zlib& operator=(Zlib&& other) noexcept = default;
+					/** @} */
 
-			/**
-			 * @brief Clone this compressor.
-			 * @return Unique pointer to the clone.
-			 */
-			inline PointerType Clone() const override {
-				return std::make_unique<Zlib>(*this);
-			}
+					/**
+					 * @brief Clone this compressor.
+					 * @return Shared pointer to the clone.
+					 */
+					inline PointerType Clone() const override {
+						return MakePointer<Zlib>(*this);
+					}
 
-			/**
-			 * @brief Move this compressor into a new instance.
-			 * @return Unique pointer to the moved compressor.
-			 */
-			inline PointerType Move() noexcept override {
-				return std::make_unique<Zlib>(std::move(*this));
-			}
+					/**
+					 * @brief Move this compressor into a new instance.
+					 * @return Shared pointer to the moved compressor.
+					 */
+					inline PointerType Move() noexcept override {
+						return MakePointer<Zlib>(std::move(*this));
+					}
 
-		private:
-			/**
-			 * @brief Compress a byte span.
-			 * @param input Input bytes.
-			 * @param output Destination buffer.
-			 * @return true on success.
-			 */
-			bool DoCompress(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
+				private:
+					/**
+					 * @brief Compress a byte span.
+					 * @param input Input bytes.
+					 * @param output Destination buffer.
+					 * @return true on success.
+					 */
+					bool DoCompress(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
 
-			/**
-			 * @brief Compress a Consumer.
-			 * @param consumer Input consumer.
-			 * @param mode Copy or move.
-			 * @return Consumer with compressed data.
-			 */
-			Buffer::Consumer DoCompress(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
+					/**
+					 * @brief Compress a Consumer.
+					 * @param consumer Input consumer.
+					 * @param mode Copy or move.
+					 * @return Consumer with compressed data.
+					 */
+					Buffer::Consumer DoCompress(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
 
-			/**
-			 * @brief Decompress a byte span.
-			 * @param input Input bytes.
-			 * @param output Destination buffer.
-			 * @return true on success.
-			 */
-			bool DoDecompress(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
+					/**
+					 * @brief Decompress a byte span.
+					 * @param input Input bytes.
+					 * @param output Destination buffer.
+					 * @return true on success.
+					 */
+					bool DoDecompress(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept override;
 
-			/**
-			 * @brief Decompress a Consumer.
-			 * @param consumer Input consumer.
-			 * @param mode Copy or move.
-			 * @return Consumer with decompressed data.
-			 */
-			Buffer::Consumer DoDecompress(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
-	};
+					/**
+					 * @brief Decompress a Consumer.
+					 * @param consumer Input consumer.
+					 * @param mode Copy or move.
+					 * @return Consumer with decompressed data.
+					 */
+					Buffer::Consumer DoDecompress(Buffer::Consumer consumer, ReadMode mode) const noexcept override;
+			};
+		}
+	}
 }

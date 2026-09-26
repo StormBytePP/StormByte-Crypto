@@ -38,19 +38,22 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
-#include <StormByte/crypto/keypair/dsa.hxx>
 #include <StormByte/crypto/implementation/keypair/api.hxx>
+#include <StormByte/crypto/keypair/dsa.hxx>
 #include <StormByte/crypto/password.hxx>
 #include <StormByte/crypto/random.hxx>
+
 #include <dsa.h>
+
 using namespace StormByte::Crypto::KeyPair;
+
 DSA::PointerType DSA::Generate(unsigned short bits) noexcept {
 	try {
 		CryptoPP::DSA::PrivateKey privateKey;
 		privateKey.GenerateRandomWithKeySize(RNG(), bits);
 		CryptoPP::DSA::PublicKey publicKey;
 		privateKey.MakePublicKey(publicKey);
-		return std::make_shared<DSA>(
+		return MakePointer<DSA>(
 			Implementation::KeyPair::SerializeKey(publicKey),
 			Implementation::KeyPair::SerializeKeyBinary(privateKey)
 		);

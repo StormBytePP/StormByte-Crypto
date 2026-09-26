@@ -38,36 +38,41 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
+#include "helpers.hxx"
+
 #include <StormByte/crypto/crypter/symmetric/aes_gcm.hxx>
 #include <StormByte/crypto/password.hxx>
 #include <StormByte/test_handlers.h>
-#include "helpers.hxx"
+
 #include <cstdint>
-#include <iostream>
 #include <string_view>
+#include <vector>
+
 using StormByte::Buffer::FIFO;
 using namespace StormByte::Crypto;
-int TestAESGCMEncryptDecryptConsistency() {
-	const std::string fn_name = "TestAESGCMEncryptDecryptConsistency";
+
+// -------------------
+// Round trip
+// -------------------
+
+int test_aes_gcm_encrypt_decrypt_consistency() {
+	const std::string fn_name = "test_aes_gcm_encrypt_decrypt_consistency";
 	const std::string original = "The quick brown fox jumps over the lazy dog";
 	Password password("SecurePassword123!");
 	Crypter::AES_GCM aes_gcm(password);
-	// Encrypt
 	FIFO encrypted_data;
-	auto encrypted = aes_gcm.Encrypt(std::span<const std::byte>(reinterpret_cast<const std::byte*>(original.data()), original.size()), encrypted_data);
-	ASSERT_TRUE(fn_name, encrypted);
+	ASSERT_TRUE(fn_name, aes_gcm.Encrypt(std::span<const std::byte>(
+		reinterpret_cast<const std::byte*>(original.data()), original.size()), encrypted_data));
 	ASSERT_FALSE(fn_name, encrypted_data.Empty());
-	// Decrypt
 	FIFO decrypted_data;
-	auto decrypted = aes_gcm.Decrypt(std::span<const std::byte>(reinterpret_cast<const std::byte*>(encrypted_data.Data().data()), encrypted_data.Data().size()), decrypted_data);
-	ASSERT_TRUE(fn_name, decrypted);
+	ASSERT_TRUE(fn_name, aes_gcm.Decrypt(encrypted_data.Data(), decrypted_data));
 	ASSERT_FALSE(fn_name, decrypted_data.Empty());
-	ASSERT_EQUAL(fn_name, std::string(reinterpret_cast<const char*>(decrypted_data.Data().data()), decrypted_data.Data().size()), original);
+	ASSERT_EQUAL(fn_name, DeserializeString(decrypted_data.Data()), original);
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestAESGCMByteInputRanges() {
-	const std::string fn_name = "TestAESGCMByteInputRanges";
+int test_aes_gcm_byte_input_ranges() {
+	const std::string fn_name = "test_aes_gcm_byte_input_ranges";
 	const std::string_view input = "AES-GCM byte input range";
 	const std::vector<std::uint8_t> bytes(input.begin(), input.end());
 	Password password("SecurePassword123!");
@@ -76,85 +81,84 @@ int TestAESGCMByteInputRanges() {
 	ASSERT_TRUE(fn_name, aes_gcm.Encrypt(input, encrypted));
 	FIFO decrypted;
 	ASSERT_TRUE(fn_name, aes_gcm.Decrypt(encrypted.Data(), decrypted));
-	ASSERT_EQUAL(fn_name, StormByte::String::FromByteVector(decrypted.Data()), input);
+	ASSERT_EQUAL(fn_name, DeserializeString(decrypted.Data()), input);
 	FIFO span_encrypted;
 	ASSERT_TRUE(fn_name, aes_gcm.Encrypt(std::span<const std::uint8_t>(bytes), span_encrypted));
 	FIFO span_decrypted;
 	ASSERT_TRUE(fn_name, aes_gcm.Decrypt(std::span<const std::byte>(span_encrypted.Data()), span_decrypted));
-	ASSERT_EQUAL(fn_name, StormByte::String::FromByteVector(span_decrypted.Data()), input);
+	ASSERT_EQUAL(fn_name, DeserializeString(span_decrypted.Data()), input);
 	RETURN_TEST(fn_name, 0);
 }
 
-int TestAESGCMWrongPassword() {
-	const std::string fn_name = "TestAESGCMWrongPassword";
-	const std::string original = "AES-GCM provides authenticated encryption";
-	Password password("CorrectPassword");
-	Password wrongPassword("WrongPassword");
-	Crypter::AES_GCM aes_gcm(password);
-	Crypter::AES_GCM wrongAESGCM(wrongPassword);
-	// Encrypt with correct password
-	FIFO encrypted_data;
-	auto encrypted = aes_gcm.Encrypt(std::span<const std::byte>(reinterpret_cast<const std::byte*>(original.data()), original.size()), encrypted_data);
-	ASSERT_TRUE(fn_name, encrypted);
-	// Decrypt with wrong password should FAIL (authentication error)
-	// Unlike CBC mode, GCM will detect the authentication tag mismatch
-	auto decrypted = wrongAESGCM.Decrypt(std::span<const std::byte>(reinterpret_cast<const std::byte*>(encrypted_data.Data().data()), encrypted_data.Data().size()), encrypted_data);
-	// GCM authentication should fail with wrong password
-	ASSERT_FALSE(fn_name, decrypted);
-	RETURN_TEST(fn_name, 0);
-}
-
-int TestAESGCMAuthenticationIntegrity() {
-	const std::string fn_name = "TestAESGCMAuthenticationIntegrity";
-	const std::string original = "Data integrity is crucial";
-	Password password("MyPassword");
-	Crypter::AES_GCM aes_gcm(password);
-	// Encrypt
-	FIFO encrypted_data;
-	auto encrypted = aes_gcm.Encrypt(std::span<const std::byte>(reinterpret_cast<const std::byte*>(original.data()), original.size()), encrypted_data);
-	ASSERT_TRUE(fn_name, encrypted);
-	// Corrupt a byte in the ciphertext (after salt+IV)
-	std::string corrupted = StormByte::String::FromByteVector(encrypted_data.Data());
-	if (corrupted.size() > 30) {
-		corrupted[30] = ~corrupted[30];  // Flip bits
-	}
-
-	// Decryption should fail due to authentication tag mismatch
-	FIFO corrupted_data;
-	auto decrypted = aes_gcm.Decrypt(std::span<const std::byte>(reinterpret_cast<const std::byte*>(corrupted.data()), corrupted.size()), corrupted_data);
-	ASSERT_FALSE(fn_name, decrypted);
-	RETURN_TEST(fn_name, 0);
-}
-
-int TestAESGCMEncryptionProducesDifferentContent() {
-	const std::string fn_name = "TestAESGCMEncryptionProducesDifferentContent";
+int test_aes_gcm_encryption_produces_different_content() {
+	const std::string fn_name = "test_aes_gcm_encryption_produces_different_content";
 	Password password("SecurePassword123!");
 	const std::string original_data = "Important data to encrypt";
 	Crypter::AES_GCM aes_gcm(password);
 	FIFO encrypted_data;
-	auto encrypt_result = aes_gcm.Encrypt(
-		std::span<const std::byte>(reinterpret_cast<const std::byte*>(original_data.data()), original_data.size()),
-		encrypted_data
-	);
-	ASSERT_TRUE(fn_name, encrypt_result);
-	auto encrypted_string = StormByte::String::FromByteVector(encrypted_data.Data());
+	ASSERT_TRUE(fn_name, aes_gcm.Encrypt(std::span<const std::byte>(
+		reinterpret_cast<const std::byte*>(original_data.data()), original_data.size()), encrypted_data));
+	const std::string encrypted_string = DeserializeString(encrypted_data.Data());
 	ASSERT_FALSE(fn_name, encrypted_string.empty());
 	ASSERT_NOT_EQUAL(fn_name, encrypted_string, original_data);
 	RETURN_TEST(fn_name, 0);
 }
 
+// -------------------
+// Authentication
+// -------------------
+
+int test_aes_gcm_wrong_password() {
+	const std::string fn_name = "test_aes_gcm_wrong_password";
+	const std::string original = "AES-GCM provides authenticated encryption";
+	Password password("CorrectPassword");
+	Password wrongPassword("WrongPassword");
+	Crypter::AES_GCM aes_gcm(password);
+	Crypter::AES_GCM wrongAESGCM(wrongPassword);
+	FIFO encrypted_data;
+	ASSERT_TRUE(fn_name, aes_gcm.Encrypt(std::span<const std::byte>(
+		reinterpret_cast<const std::byte*>(original.data()), original.size()), encrypted_data));
+	FIFO unused;
+	ASSERT_FALSE(fn_name, wrongAESGCM.Decrypt(encrypted_data.Data(), unused));
+	RETURN_TEST(fn_name, 0);
+}
+
+int test_aes_gcm_authentication_integrity() {
+	const std::string fn_name = "test_aes_gcm_authentication_integrity";
+	const std::string original = "Data integrity is crucial";
+	Password password("MyPassword");
+	Crypter::AES_GCM aes_gcm(password);
+	FIFO encrypted_data;
+	ASSERT_TRUE(fn_name, aes_gcm.Encrypt(std::span<const std::byte>(
+		reinterpret_cast<const std::byte*>(original.data()), original.size()), encrypted_data));
+	std::string corrupted = DeserializeString(encrypted_data.Data());
+	if (corrupted.size() > 30)
+		corrupted[30] = static_cast<char>(~corrupted[30]);
+	FIFO corrupted_data;
+	ASSERT_FALSE(fn_name, aes_gcm.Decrypt(std::span<const std::byte>(
+		reinterpret_cast<const std::byte*>(corrupted.data()), corrupted.size()), corrupted_data));
+	RETURN_TEST(fn_name, 0);
+}
+
 int main() {
 	int result = 0;
-	result += TestAESGCMEncryptDecryptConsistency();
-	result += TestAESGCMByteInputRanges();
-	result += TestAESGCMWrongPassword();
-	result += TestAESGCMAuthenticationIntegrity();
-	result += TestAESGCMEncryptionProducesDifferentContent();
-	if (result == 0) {
-		std::cout << "AES-GCM tests passed" << std::endl;
-	} else {
-		std::cout << "AES-GCM tests failed" << std::endl;
-	}
 
+	// -------------------
+	// Round trip
+	// -------------------
+	result += test_aes_gcm_encrypt_decrypt_consistency();
+	result += test_aes_gcm_byte_input_ranges();
+	result += test_aes_gcm_encryption_produces_different_content();
+
+	// -------------------
+	// Authentication
+	// -------------------
+	result += test_aes_gcm_wrong_password();
+	result += test_aes_gcm_authentication_integrity();
+
+	if (result == 0)
+		std::cout << "All tests passed!" << std::endl;
+	else
+		std::cout << result << " tests failed." << std::endl;
 	return result;
 }
