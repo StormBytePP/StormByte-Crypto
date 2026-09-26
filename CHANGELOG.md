@@ -20,6 +20,10 @@ If you landed here from a release link and have not read the tree:
 
 ## [Unreleased]
 
+[Unreleased]: https://github.com/StormBytePP/StormByte-Crypto/compare/2.0.0...HEAD
+
+## [2.0.0] - 2026-09-27
+
 ### Changed
 
 - **Breaking**: Port to StormByte Base 2.0.0, Buffer 2.0.0, System 2.0.0 and String 1.0.0. Public types follow Base 2.0: `Clonable` + `MakePointer` / `Shared` instead of `std::shared_ptr`, `StormByte::BinaryData` instead of Buffer `DataType` / raw vectors at the public edge, `StormByte::Size` for abstract counts and `StormByte::ByteSize` for octet lengths (`Password::Size()` is `ByteSize`). `std::size` is gone from the public API.
@@ -31,14 +35,14 @@ If you landed here from a release link and have not read the tree:
 - **Breaking**: `Password` no longer takes `std::string` by value. Ingest is a non-const `std::string&` or `StormByte::String::String&`: the bytes are copied into wiped storage and the caller's object is overwritten and cleared. Literals use `explicit Password(const char*)` and are not wiped. Raw bytes (`const void*` + `ByteSize`) are copied and not wiped. `string_view` is rejected so a live password buffer cannot remain in the caller after construction, and so a `std::string` is not moved across the DLL heap.
 - **Breaking**: `Password` and `Vault` move to `StormByte::Crypto::Secure` (`StormByte/crypto/secure/{password,vault,exception}.{hxx,cxx}`). `Crypto::VaultException` is now `Crypto::Secure::VaultException` (`what()` is `StormByte.Crypto.Secure.Vault: message`). `Secure::Exception` is `StormByte.Crypto.Secure`. `ExpectedPassword` lives next to Vault. Headers `StormByte/crypto/password.hxx` and `StormByte/crypto/vault.hxx` are gone.
 - Tests rewritten to the suite format (section headers, snake_case functions, accumulating `main`). Coverage of hasher, compressor, crypter, signer, secret, password, vault and keypair (save/load and OpenSSL fixtures) updated to the new pins.
-- Doxygen (`ENABLE_DOC`) resolves Buffer, Logger and Base headers via `INCLUDE_PATH` and skips `thirdparty`.
+- Doxygen (`ENABLE_DOC`) resolves Buffer, Logger, System, String and Base headers via `INCLUDE_PATH` and skips `thirdparty`.
 
 ### Notes
 
 - Installed headers still do not include Crypto++. Crypto++ stays under `lib/private` and `thirdparty`.
 - Needs a C++26 compiler, [StormByte Base ≥ 2.0.0](https://github.com/StormBytePP/StormByte/releases/tag/2.0.0), [StormByte Buffer ≥ 2.0.0](https://github.com/StormBytePP/StormByte-Buffer/releases/tag/2.0.0), [StormByte System ≥ 2.0.0](https://github.com/StormBytePP/StormByte-System/releases/tag/2.0.0), [StormByte String ≥ 1.0.0](https://github.com/StormBytePP/StormByte-String/releases/tag/1.0.0), and Crypto++ at build time.
 
-[Unreleased]: https://github.com/StormBytePP/StormByte-Crypto/compare/1.1.0...HEAD
+[2.0.0]: https://github.com/StormBytePP/StormByte-Crypto/compare/1.1.0...2.0.0
 
 ## [1.1.0] - 2026-09-13
 
