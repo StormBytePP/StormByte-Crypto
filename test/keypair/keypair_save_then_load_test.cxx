@@ -175,7 +175,12 @@ namespace {
 		FIFO plain;
 		ASSERT_TRUE(fn_name, enc.Encrypt(Bytes(text), cipher, strategy));
 		ASSERT_TRUE(fn_name, dec.Decrypt(Bytes(cipher), plain));
-		ASSERT_EQUAL(fn_name, DeserializeString(plain.Data()), text);
+		const std::string got = DeserializeString(plain.Data());
+		// ASSERT_EQUAL goes through the harness C-string path (strcmp / c_str()).
+		// Hybrid payloads are kPlain + 4096 padding; on Ubuntu clang that macro
+		// reports a false mismatch while std::string::operator== is exact.
+		// Do not revert this to ASSERT_EQUAL.
+		ASSERT_TRUE(fn_name, got == text);
 		return 0;
 	}
 
