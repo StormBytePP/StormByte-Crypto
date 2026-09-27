@@ -34,8 +34,12 @@ If you landed here from a release link and have not read the tree:
 - **Breaking**: Non-secret public text is ingested as `std::string_view` and copied inside the library. That includes KeyPair leaf constructors, `Secret::Share`, Vault names (`Store`/`Get`/`Contains`/`Remove`), `KeyPair::Generic::Save` `baseName`, and `Signer::Verify` / `DoVerify` signatures. `String` and `std::string` convert to `string_view`. Owned public text (`PublicKey()`) is `const StormByte::String::String&`. Conversion from `String` to `std::string` is explicit (`std::string{std::string_view{...}}`).
 - **Breaking**: `Password` no longer takes `std::string` by value. Ingest is a non-const `std::string&` or `StormByte::String::String&`: the bytes are copied into wiped storage and the caller's object is overwritten and cleared. Literals use `explicit Password(const char*)` and are not wiped. Raw bytes (`const void*` + `ByteSize`) are copied and not wiped. `string_view` is rejected so a live password buffer cannot remain in the caller after construction, and so a `std::string` is not moved across the DLL heap.
 - **Breaking**: `Password` and `Vault` move to `StormByte::Crypto::Secure` (`StormByte/crypto/secure/{password,vault,exception}.{hxx,cxx}`). `Crypto::VaultException` is now `Crypto::Secure::VaultException` (`what()` is `StormByte.Crypto.Secure.Vault: message`). `Secure::Exception` is `StormByte.Crypto.Secure`. `ExpectedPassword` lives next to Vault. Headers `StormByte/crypto/password.hxx` and `StormByte/crypto/vault.hxx` are gone.
+- **Breaking**: Private backend namespace `Implementation` is `Engine` (`StormByte::Crypto::Engine`). Public headers do not mention it.
+- Dual license on sources and `LICENSE`: LGPL-3.0-or-later or commercial. Neither covers Crypto++, bundled libbzip2, or vendored StormByte trees under `thirdparty/`.
 - Tests rewritten to the suite format (section headers, snake_case functions, accumulating `main`). Coverage of hasher, compressor, crypter, signer, secret, password, vault and keypair (save/load and OpenSSL fixtures) updated to the new pins.
+- Hybrid encrypt/decrypt tests compare plaintext with `std::string::operator==` (`ASSERT_TRUE`), not `ASSERT_EQUAL`. The harness C-string path false-failed prefix+4096 payloads on Ubuntu clang while the bytes already matched.
 - Doxygen (`ENABLE_DOC`) resolves Buffer, Logger, System, String and Base headers via `INCLUDE_PATH` and skips `thirdparty`.
+- `CONTRIBUTING.md` and `CODING_STYLE.md` aligned with Logger.
 
 ### Notes
 
