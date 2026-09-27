@@ -39,7 +39,7 @@
  */
 
 #include <StormByte/crypto/crypter/symmetric/camellia.hxx>
-#include <StormByte/crypto/implementation/crypter/symmetric/api.hxx>
+#include <StormByte/crypto/engine/crypter/symmetric/api.hxx>
 #include <camellia.h>
 
 using namespace StormByte::Crypto::Crypter;
@@ -47,17 +47,17 @@ using namespace StormByte::Crypto::Crypter;
 Camellia::~Camellia() noexcept = default;
 
 bool Camellia::DoEncrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept {
-	return Implementation::Crypter::Symmetric::EncryptCBC<CryptoPP::Camellia, CryptoPP::CBC_Mode<CryptoPP::Camellia>::Encryption, CryptoPP::SHA256>(input, m_password, output, 16, CryptoPP::Camellia::BLOCKSIZE);
+	return Engine::Crypter::Symmetric::EncryptCBC<CryptoPP::Camellia, CryptoPP::CBC_Mode<CryptoPP::Camellia>::Encryption, CryptoPP::SHA256>(input, m_password, output, 16, CryptoPP::Camellia::BLOCKSIZE);
 }
 
 StormByte::Buffer::Consumer Camellia::DoEncrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept {
-	return Implementation::Crypter::Symmetric::EncryptCBC<CryptoPP::Camellia, CryptoPP::CBC_Mode<CryptoPP::Camellia>::Encryption, CryptoPP::SHA256>(consumer, m_password, mode, 16, CryptoPP::Camellia::BLOCKSIZE);
+	return Engine::Crypter::Symmetric::EncryptCBC<CryptoPP::Camellia, CryptoPP::CBC_Mode<CryptoPP::Camellia>::Encryption, CryptoPP::SHA256>(consumer, m_password, mode, 16, CryptoPP::Camellia::BLOCKSIZE);
 }
 
 bool Camellia::DoDecrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept {
-	return Implementation::Crypter::Symmetric::DecryptCBC<CryptoPP::Camellia, CryptoPP::CBC_Mode<CryptoPP::Camellia>::Decryption, CryptoPP::SHA256>(input, m_password, output, 16, CryptoPP::Camellia::BLOCKSIZE);
+	return Engine::Crypter::Symmetric::DecryptCBC<CryptoPP::Camellia, CryptoPP::CBC_Mode<CryptoPP::Camellia>::Decryption, CryptoPP::SHA256>(input, m_password, output, 16, CryptoPP::Camellia::BLOCKSIZE);
 }
 
 StormByte::Buffer::Consumer Camellia::DoDecrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept {
-	return Implementation::Crypter::Symmetric::DecryptCBC<CryptoPP::Camellia, CryptoPP::CBC_Mode<CryptoPP::Camellia>::Decryption, CryptoPP::SHA256>(consumer, m_password, mode, 16, CryptoPP::Camellia::BLOCKSIZE);
+	return Engine::Crypter::Symmetric::DecryptCBC<CryptoPP::Camellia, CryptoPP::CBC_Mode<CryptoPP::Camellia>::Decryption, CryptoPP::SHA256>(consumer, m_password, mode, 16, CryptoPP::Camellia::BLOCKSIZE);
 }

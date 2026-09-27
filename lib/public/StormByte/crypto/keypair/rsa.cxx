@@ -38,7 +38,7 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
-#include <StormByte/crypto/implementation/keypair/api.hxx>
+#include <StormByte/crypto/engine/keypair/api.hxx>
 #include <StormByte/crypto/keypair/rsa.hxx>
 #include <StormByte/crypto/secure/password.hxx>
 #include <StormByte/crypto/random.hxx>
@@ -58,8 +58,8 @@ RSA::PointerType RSA::Generate(unsigned short bits) noexcept {
 		CryptoPP::RSA::PublicKey publicKey;
 		publicKey.AssignFrom(privateKey);
 		return MakePointer<RSA>(
-			Implementation::KeyPair::SerializeKey(publicKey),
-			Implementation::KeyPair::SerializeKeyBinary(privateKey)
+			Engine::KeyPair::SerializeKey(publicKey),
+			Engine::KeyPair::SerializeKeyBinary(privateKey)
 		);
 	} catch (...) {
 		return nullptr;

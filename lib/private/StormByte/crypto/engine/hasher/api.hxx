@@ -40,11 +40,14 @@
 
 #pragma once
 
-#include <StormByte/buffer/producer.hxx>
+#include <StormByte/crypto/engine/hasher/details.hxx>
 #include <StormByte/crypto/typedefs.hxx>
 #include <StormByte/crypto/visibility.h>
 
+#include <filters.h>
+#include <hex.h>
 #include <memory>
+#include <secblock.h>
 #include <span>
 
 /**
@@ -61,50 +64,85 @@ namespace StormByte {
 		 * @namespace StormByte::Crypto::Implementation
 		 * @brief Private implementation of the Crypto module.
 		 */
-		namespace Implementation {
+		namespace Engine {
 			/**
-			 * @namespace StormByte::Crypto::Implementation::Hasher
+			 * @namespace StormByte::Crypto::Engine::Hasher
 			 * @brief Private hasher implementation.
 			 */
 			namespace Hasher {
 				/**
-				 * @struct Ops
-				 * @brief Chunk-oriented hash engine.
-				 */
-				struct Ops {
-					virtual ~Ops() = default;
-
-					/**
-					 * @brief Feed one chunk.
-					 * @param in Input bytes.
-					 */
-					virtual void Update(std::span<const std::byte> in) = 0;
-
-					/**
-					 * @brief Finish and write the hex digest.
-					 * @param out Destination.
-					 * @return true on success.
-					 */
-					virtual bool Finalize(StormByte::BinaryData& out) = 0;
-				};
-
-				/**
-				 * @brief One-shot hash.
-				 * @param data Input.
-				 * @param output Destination.
-				 * @param ops Engine.
+				 * @brief One-shot hash. Builds Ops and delegates.
+				 * @tparam HasherT Crypto++ hash type.
+				 * @param dataSpan Input.
+				 * @param output Hex digest destination.
 				 * @return true on success.
 				 */
-				STORMBYTE_CRYPTO_PRIVATE bool ProcessSpan(std::span<const std::byte> data, Buffer::WriteOnly& output, std::unique_ptr<Ops> ops) noexcept;
+				template<class HasherT>
+				STORMBYTE_CRYPTO_PRIVATE bool Hash(std::span<const std::byte> dataSpan, Buffer::WriteOnly& output) noexcept {
+					struct ConcreteOps final : Ops {
+						HasherT hash;
+
+						void Update(std::span<const std::byte> in) override {
+							hash.Update(reinterpret_cast<const CryptoPP::byte*>(in.data()), in.size_bytes());
+						}
+
+						bool Finalize(StormByte::BinaryData& out) override {
+							try {
+								const size_t digestSize = hash.DigestSize();
+								CryptoPP::SecByteBlock digest(digestSize);
+								hash.Final(digest);
+
+								CryptoPP::HexEncoder encoder(
+									new CryptoPP::StringSinkTemplate<StormByte::BinaryData>(out)
+								);
+								encoder.Put(digest, digestSize);
+								encoder.MessageEnd();
+								return true;
+							} catch (...) {
+								return false;
+							}
+						}
+					};
+
+					return ProcessSpan(dataSpan, output, std::make_unique<ConcreteOps>());
+				}
 
 				/**
-				 * @brief Streaming hash. Yields a hex digest.
+				 * @brief Streaming hash. Builds Ops and delegates.
+				 * @tparam HasherT Crypto++ hash type.
 				 * @param consumer Input consumer.
 				 * @param mode Copy or move.
-				 * @param ops Engine.
-				 * @return Consumer with the digest.
+				 * @return Consumer with the hex digest.
 				 */
-				STORMBYTE_CRYPTO_PRIVATE Buffer::Consumer Stream(Buffer::Consumer consumer, ReadMode mode, std::unique_ptr<Ops> ops) noexcept;
+				template<class HasherT>
+				STORMBYTE_CRYPTO_PRIVATE Buffer::Consumer Hash(Buffer::Consumer consumer, ReadMode mode) noexcept {
+					struct ConcreteOps final : Ops {
+						HasherT hash;
+
+						void Update(std::span<const std::byte> in) override {
+							hash.Update(reinterpret_cast<const CryptoPP::byte*>(in.data()), in.size_bytes());
+						}
+
+						bool Finalize(StormByte::BinaryData& out) override {
+							try {
+								const size_t digestSize = hash.DigestSize();
+								CryptoPP::SecByteBlock digest(digestSize);
+								hash.Final(digest);
+
+								CryptoPP::HexEncoder encoder(
+									new CryptoPP::StringSinkTemplate<StormByte::BinaryData>(out)
+								);
+								encoder.Put(digest, digestSize);
+								encoder.MessageEnd();
+								return true;
+							} catch (...) {
+								return false;
+							}
+						}
+					};
+
+					return Stream(std::move(consumer), mode, std::make_unique<ConcreteOps>());
+				}
 			}
 		}
 	}

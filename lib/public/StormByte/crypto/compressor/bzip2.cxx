@@ -40,7 +40,7 @@
 
 #include <StormByte/buffer/producer.hxx>
 #include <StormByte/crypto/compressor/bzip2.hxx>
-#include <StormByte/crypto/implementation/compressor/details.hxx>
+#include <StormByte/crypto/engine/compressor/details.hxx>
 
 #include <algorithm>
 #include <bzlib.h>
@@ -56,7 +56,7 @@ using namespace StormByte::Crypto::Compressor;
 namespace {
 	constexpr size_t kOutChunk = 4096;
 
-	struct Bzip2CompressOps final : StormByte::Crypto::Implementation::Compressor::StreamOps {
+	struct Bzip2CompressOps final : StormByte::Crypto::Engine::Compressor::StreamOps {
 		bz_stream strm{};
 		std::vector<char> outChunk;
 		bool ok = false;
@@ -128,7 +128,7 @@ namespace {
 		}
 	};
 
-	struct Bzip2DecompressOps final : StormByte::Crypto::Implementation::Compressor::StreamOps {
+	struct Bzip2DecompressOps final : StormByte::Crypto::Engine::Compressor::StreamOps {
 		bz_stream strm{};
 		std::vector<char> outChunk;
 		bool ok = false;
@@ -219,7 +219,7 @@ bool Bzip2::DoCompress(std::span<const std::byte> input, WriteOnly& output) cons
 }
 
 Consumer Bzip2::DoCompress(Consumer consumer, ReadMode mode) const noexcept {
-	return Implementation::Compressor::Stream(
+	return Engine::Compressor::Stream(
 		std::move(consumer), mode, std::make_unique<Bzip2CompressOps>(m_level));
 }
 
@@ -250,6 +250,6 @@ bool Bzip2::DoDecompress(std::span<const std::byte> input, WriteOnly& output) co
 }
 
 Consumer Bzip2::DoDecompress(Consumer consumer, ReadMode mode) const noexcept {
-	return Implementation::Compressor::Stream(
+	return Engine::Compressor::Stream(
 		std::move(consumer), mode, std::make_unique<Bzip2DecompressOps>());
 }

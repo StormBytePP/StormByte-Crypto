@@ -42,7 +42,7 @@
 
 #include <StormByte/crypto/helpers/password_view.hxx>
 #include <StormByte/crypto/helpers/secure_wipe.hxx>
-#include <StormByte/crypto/implementation/keypair/details.hxx>
+#include <StormByte/crypto/engine/keypair/details.hxx>
 #include <StormByte/crypto/secure/password.hxx>
 #include <StormByte/crypto/random.hxx>
 #include <StormByte/crypto/visibility.h>
@@ -70,9 +70,9 @@ namespace StormByte {
 		 * @namespace StormByte::Crypto::Implementation
 		 * @brief Private implementation of the Crypto module.
 		 */
-		namespace Implementation {
+		namespace Engine {
 			/**
-			 * @namespace StormByte::Crypto::Implementation::KeyPair
+			 * @namespace StormByte::Crypto::Engine::KeyPair
 			 * @brief Private keypair implementation.
 			 */
 			namespace KeyPair {

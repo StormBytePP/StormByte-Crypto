@@ -40,7 +40,7 @@
 
 #include <StormByte/buffer/producer.hxx>
 #include <StormByte/crypto/helpers/secure_wipe.hxx>
-#include <StormByte/crypto/implementation/crypter/asymmetric/details.hxx>
+#include <StormByte/crypto/engine/crypter/asymmetric/details.hxx>
 #include <StormByte/crypto/random.hxx>
 
 #include <aes.h>
@@ -55,9 +55,9 @@ using StormByte::Buffer::WriteOnly;
 using StormByte::Crypto::Helpers::SecureWipe;
 using StormByte::Crypto::RNG;
 using StormByte::Crypto::ReadMode;
-using namespace StormByte::Crypto::Implementation::Crypter::Asymmetric;
+using namespace StormByte::Crypto::Engine::Crypter::Asymmetric;
 
-bool StormByte::Crypto::Implementation::Crypter::Asymmetric::WriteEnvelopeHeader(
+bool StormByte::Crypto::Engine::Crypter::Asymmetric::WriteEnvelopeHeader(
 	const StormByte::BinaryData& esk,
 	const CryptoPP::SecByteBlock& iv,
 	StormByte::BinaryData& out) noexcept {
@@ -77,7 +77,7 @@ bool StormByte::Crypto::Implementation::Crypter::Asymmetric::WriteEnvelopeHeader
 	}
 }
 
-std::uint32_t StormByte::Crypto::Implementation::Crypter::Asymmetric::ParseEskLength(
+std::uint32_t StormByte::Crypto::Engine::Crypter::Asymmetric::ParseEskLength(
 	const StormByte::BinaryData& lenBytes) noexcept {
 	if (lenBytes.size() != 4)
 		return 0;
@@ -88,7 +88,7 @@ std::uint32_t StormByte::Crypto::Implementation::Crypter::Asymmetric::ParseEskLe
 }
 
 namespace {
-	struct NativeOps final : StormByte::Crypto::Implementation::Crypter::Ops {
+	struct NativeOps final : StormByte::Crypto::Engine::Crypter::Ops {
 		std::unique_ptr<PkBox> box;
 
 		explicit NativeOps(std::unique_ptr<PkBox> b):
@@ -104,17 +104,17 @@ namespace {
 	};
 }
 
-bool StormByte::Crypto::Implementation::Crypter::Asymmetric::NativeProcessSpan(
+bool StormByte::Crypto::Engine::Crypter::Asymmetric::NativeProcessSpan(
 	std::span<const std::byte> data,
 	WriteOnly& output,
 	std::unique_ptr<PkBox> box) noexcept {
 	if (!box)
 		return false;
-	return StormByte::Crypto::Implementation::Crypter::ProcessSpan(
+	return StormByte::Crypto::Engine::Crypter::ProcessSpan(
 		data, output, std::make_unique<NativeOps>(std::move(box)));
 }
 
-Consumer StormByte::Crypto::Implementation::Crypter::Asymmetric::NativeProcessStream(
+Consumer StormByte::Crypto::Engine::Crypter::Asymmetric::NativeProcessStream(
 	Consumer consumer,
 	ReadMode mode,
 	std::unique_ptr<PkBox> box) noexcept {
@@ -124,12 +124,12 @@ Consumer StormByte::Crypto::Implementation::Crypter::Asymmetric::NativeProcessSt
 		return producer.Consumer();
 	}
 
-	return StormByte::Crypto::Implementation::Crypter::Stream(
+	return StormByte::Crypto::Engine::Crypter::Stream(
 		std::move(consumer), mode, std::make_unique<NativeOps>(std::move(box)));
 }
 
 namespace {
-	struct HybridEncryptOps final : StormByte::Crypto::Implementation::Crypter::Ops {
+	struct HybridEncryptOps final : StormByte::Crypto::Engine::Crypter::Ops {
 		std::unique_ptr<PkBox> box;
 		CryptoPP::SecByteBlock symKey, iv;
 		CryptoPP::GCM<CryptoPP::AES>::Encryption aead;
@@ -213,17 +213,17 @@ namespace {
 	};
 }
 
-bool StormByte::Crypto::Implementation::Crypter::Asymmetric::HybridEncryptSpan(
+bool StormByte::Crypto::Engine::Crypter::Asymmetric::HybridEncryptSpan(
 	std::span<const std::byte> data,
 	WriteOnly& output,
 	std::unique_ptr<PkBox> box) noexcept {
 	if (!box)
 		return false;
-	return StormByte::Crypto::Implementation::Crypter::ProcessSpan(
+	return StormByte::Crypto::Engine::Crypter::ProcessSpan(
 		data, output, std::make_unique<HybridEncryptOps>(std::move(box), false));
 }
 
-Consumer StormByte::Crypto::Implementation::Crypter::Asymmetric::HybridEncryptStream(
+Consumer StormByte::Crypto::Engine::Crypter::Asymmetric::HybridEncryptStream(
 	Consumer consumer,
 	ReadMode mode,
 	std::unique_ptr<PkBox> box) noexcept {
@@ -233,12 +233,12 @@ Consumer StormByte::Crypto::Implementation::Crypter::Asymmetric::HybridEncryptSt
 		return producer.Consumer();
 	}
 
-	return StormByte::Crypto::Implementation::Crypter::Stream(
+	return StormByte::Crypto::Engine::Crypter::Stream(
 		std::move(consumer), mode, std::make_unique<HybridEncryptOps>(std::move(box), true));
 }
 
 namespace {
-	struct HybridDecryptOps final : StormByte::Crypto::Implementation::Crypter::Ops {
+	struct HybridDecryptOps final : StormByte::Crypto::Engine::Crypter::Ops {
 		std::unique_ptr<PkBox> box;
 		ReadMode mode;
 		CryptoPP::SecByteBlock iv, symKey;
@@ -399,17 +399,17 @@ namespace {
 	};
 }
 
-bool StormByte::Crypto::Implementation::Crypter::Asymmetric::HybridDecryptSpan(
+bool StormByte::Crypto::Engine::Crypter::Asymmetric::HybridDecryptSpan(
 	std::span<const std::byte> data,
 	WriteOnly& output,
 	std::unique_ptr<PkBox> box) noexcept {
 	if (!box)
 		return false;
-	return StormByte::Crypto::Implementation::Crypter::ProcessSpan(
+	return StormByte::Crypto::Engine::Crypter::ProcessSpan(
 		data, output, std::make_unique<HybridDecryptOps>(std::move(box), ReadMode::Copy, false));
 }
 
-Consumer StormByte::Crypto::Implementation::Crypter::Asymmetric::HybridDecryptStream(
+Consumer StormByte::Crypto::Engine::Crypter::Asymmetric::HybridDecryptStream(
 	Consumer consumer,
 	ReadMode mode,
 	std::unique_ptr<PkBox> box) noexcept {
@@ -419,6 +419,6 @@ Consumer StormByte::Crypto::Implementation::Crypter::Asymmetric::HybridDecryptSt
 		return producer.Consumer();
 	}
 
-	return StormByte::Crypto::Implementation::Crypter::Stream(
+	return StormByte::Crypto::Engine::Crypter::Stream(
 		std::move(consumer), mode, std::make_unique<HybridDecryptOps>(std::move(box), mode, true));
 }

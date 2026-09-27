@@ -39,7 +39,7 @@
  */
 
 #include <StormByte/crypto/secret/ecdh.hxx>
-#include <StormByte/crypto/implementation/secret/details.hxx>
+#include <StormByte/crypto/engine/secret/details.hxx>
 
 #include <string>
 #include <string_view>
@@ -53,7 +53,7 @@ ECDH::Share(std::string_view peerPublicKey) const noexcept
 {
 	if (!m_keypair || !m_keypair->HasPrivateKey())
 		return std::nullopt;
-	return Implementation::Secret::ECDHShare(
+	return Engine::Secret::ECDHShare(
 		*m_keypair->PrivateKey(),
 		std::string(peerPublicKey),
 		m_bits);

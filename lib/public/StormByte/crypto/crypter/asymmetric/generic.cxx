@@ -40,7 +40,7 @@
 
 #include <StormByte/crypto/crypter/asymmetric/ecc.hxx>
 #include <StormByte/crypto/crypter/asymmetric/rsa.hxx>
-#include <StormByte/crypto/implementation/crypter/asymmetric/api.hxx>
+#include <StormByte/crypto/engine/crypter/asymmetric/api.hxx>
 #include <StormByte/crypto/keypair/ecc.hxx>
 #include <StormByte/crypto/keypair/rsa.hxx>
 
@@ -88,7 +88,7 @@ bool Asymmetric::Encrypt(std::span<const std::byte> input,
 	Strategy strategy) const noexcept {
 	if (strategy == Strategy::Native)
 		return DoEncrypt(input, output);
-	namespace Impl = Implementation::Crypter::Asymmetric;
+	namespace Impl = Engine::Crypter::Asymmetric;
 	if (Type() == Type::RSA) {
 		return Impl::EncryptAsymmetricBlockEnvelope<
 			CryptoPP::RSAES_OAEP_SHA_Encryptor,
@@ -127,7 +127,7 @@ Consumer Asymmetric::Encrypt(Consumer consumer,
 	ReadMode mode) const noexcept {
 	if (strategy == Strategy::Native)
 		return DoEncrypt(std::move(consumer), mode);
-	namespace Impl = Implementation::Crypter::Asymmetric;
+	namespace Impl = Engine::Crypter::Asymmetric;
 	if (Type() == Type::RSA) {
 		return Impl::EncryptAsymmetricBlockEnvelope<
 			CryptoPP::RSAES_OAEP_SHA_Encryptor,
@@ -147,7 +147,7 @@ Consumer Asymmetric::Encrypt(Consumer consumer,
 
 bool Asymmetric::Decrypt(std::span<const std::byte> input,
 	WriteOnly& output) const noexcept {
-	namespace Impl = Implementation::Crypter::Asymmetric;
+	namespace Impl = Engine::Crypter::Asymmetric;
 	bool hybridOk = false;
 	if (Type() == Type::RSA) {
 		hybridOk = Impl::DecryptAsymmetricBlockEnvelope<
@@ -181,7 +181,7 @@ bool Asymmetric::Decrypt(ReadOnly& input,
 }
 
 Consumer Asymmetric::Decrypt(Consumer consumer, ReadMode mode) const noexcept {
-	namespace Impl = Implementation::Crypter::Asymmetric;
+	namespace Impl = Engine::Crypter::Asymmetric;
 	StormByte::BinaryData headerPeek;
 	if (!consumer.Peek(StormByte::ByteSize{4}, headerPeek) || headerPeek.size() < 4)
 		return DoDecrypt(std::move(consumer), mode);

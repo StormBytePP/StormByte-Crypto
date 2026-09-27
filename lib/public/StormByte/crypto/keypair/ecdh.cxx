@@ -39,7 +39,7 @@
  */
 
 #include <StormByte/crypto/helpers/secure_wipe.hxx>
-#include <StormByte/crypto/implementation/keypair/api.hxx>
+#include <StormByte/crypto/engine/keypair/api.hxx>
 #include <StormByte/crypto/keypair/ecdh.hxx>
 #include <StormByte/crypto/secure/password.hxx>
 #include <StormByte/crypto/random.hxx>
@@ -86,8 +86,8 @@ ECDH::PointerType ECDH::Generate(unsigned short bits) noexcept {
 		Helpers::SecureWipe(privRaw);
 		Helpers::SecureWipe(pubRaw);
 		return MakePointer<ECDH>(
-			Implementation::KeyPair::SerializeKey(publicKey),
-			Implementation::KeyPair::SerializeKeyBinary(privateKey)
+			Engine::KeyPair::SerializeKey(publicKey),
+			Engine::KeyPair::SerializeKeyBinary(privateKey)
 		);
 	} catch (...) {
 		return nullptr;

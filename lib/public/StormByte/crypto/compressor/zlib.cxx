@@ -40,7 +40,7 @@
 
 #include <StormByte/buffer/producer.hxx>
 #include <StormByte/crypto/compressor/zlib.hxx>
-#include <StormByte/crypto/implementation/compressor/details.hxx>
+#include <StormByte/crypto/engine/compressor/details.hxx>
 
 #include <algorithm>
 #include <filters.h>
@@ -55,7 +55,7 @@ using namespace StormByte::Crypto::Compressor;
 Zlib::~Zlib() noexcept = default;
 
 namespace {
-	struct ZlibCompressOps final : StormByte::Crypto::Implementation::Compressor::StreamOps {
+	struct ZlibCompressOps final : StormByte::Crypto::Engine::Compressor::StreamOps {
 		StormByte::BinaryData buffer;
 		std::unique_ptr<CryptoPP::ZlibCompressor> compressor;
 
@@ -91,7 +91,7 @@ namespace {
 		}
 	};
 
-	struct ZlibDecompressOps final : StormByte::Crypto::Implementation::Compressor::StreamOps {
+	struct ZlibDecompressOps final : StormByte::Crypto::Engine::Compressor::StreamOps {
 		StormByte::BinaryData buffer;
 		std::unique_ptr<CryptoPP::ZlibDecompressor> decompressor;
 
@@ -134,21 +134,21 @@ Zlib::Zlib(unsigned short level):
 		CryptoPP::ZlibCompressor::MAX_DEFLATE_LEVEL)) {}
 
 bool Zlib::DoCompress(std::span<const std::byte> input, WriteOnly& output) const noexcept {
-	return Implementation::Compressor::ProcessSpan(
+	return Engine::Compressor::ProcessSpan(
 		input, output, std::make_unique<ZlibCompressOps>(m_level));
 }
 
 Consumer Zlib::DoCompress(Consumer consumer, ReadMode mode) const noexcept {
-	return Implementation::Compressor::Stream(
+	return Engine::Compressor::Stream(
 		std::move(consumer), mode, std::make_unique<ZlibCompressOps>(m_level));
 }
 
 bool Zlib::DoDecompress(std::span<const std::byte> input, WriteOnly& output) const noexcept {
-	return Implementation::Compressor::ProcessSpan(
+	return Engine::Compressor::ProcessSpan(
 		input, output, std::make_unique<ZlibDecompressOps>());
 }
 
 Consumer Zlib::DoDecompress(Consumer consumer, ReadMode mode) const noexcept {
-	return Implementation::Compressor::Stream(
+	return Engine::Compressor::Stream(
 		std::move(consumer), mode, std::make_unique<ZlibDecompressOps>());
 }

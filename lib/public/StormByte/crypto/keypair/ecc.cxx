@@ -38,7 +38,7 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
-#include <StormByte/crypto/implementation/keypair/api.hxx>
+#include <StormByte/crypto/engine/keypair/api.hxx>
 #include <StormByte/crypto/keypair/ecc.hxx>
 #include <StormByte/crypto/secure/password.hxx>
 #include <StormByte/crypto/random.hxx>
@@ -70,8 +70,8 @@ ECC::PointerType ECC::Generate(unsigned short bits) noexcept {
 		CryptoPP::ECIES<CryptoPP::ECP>::Decryptor decryptor(RNG(), curve);
 		CryptoPP::ECIES<CryptoPP::ECP>::Encryptor encryptor(decryptor);
 		return MakePointer<ECC>(
-			Implementation::KeyPair::SerializeKey(encryptor.GetPublicKey()),
-			Implementation::KeyPair::SerializeKeyBinary(decryptor.GetPrivateKey())
+			Engine::KeyPair::SerializeKey(encryptor.GetPublicKey()),
+			Engine::KeyPair::SerializeKeyBinary(decryptor.GetPrivateKey())
 		);
 	} catch (...) {
 		return nullptr;

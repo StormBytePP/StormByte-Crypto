@@ -41,7 +41,7 @@
 #pragma once
 
 #include <StormByte/crypto/helpers/password_view.hxx>
-#include <StormByte/crypto/implementation/crypter/details.hxx>
+#include <StormByte/crypto/engine/crypter/details.hxx>
 #include <StormByte/crypto/secure/password.hxx>
 #include <StormByte/crypto/typedefs.hxx>
 #include <StormByte/crypto/visibility.h>
@@ -54,7 +54,7 @@
 /**
  * @brief Private symmetric crypter implementation.
  */
-namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
+namespace StormByte::Crypto::Engine::Crypter::Symmetric {
 #ifdef STORMBYTE_CRYPTO_INSECURE_PBKDF2_ITERATIONS_FOR_CI
 	inline constexpr unsigned int kPbkdf2Iterations = 1000;		///< CI only
 #else

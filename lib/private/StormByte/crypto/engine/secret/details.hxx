@@ -38,27 +38,35 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
-#include <StormByte/crypto/implementation/keypair/details.hxx>
-#include <base64.h>
-#include <filters.h>
-namespace StormByte::Crypto::Implementation::KeyPair {
-	std::string EncodeSecBlockBase64(const CryptoPP::SecByteBlock& b) noexcept
-	{
-		std::string out;
-		CryptoPP::Base64Encoder enc(new CryptoPP::StringSink(out), false);
-		enc.Put(b.data(), b.size());
-		enc.MessageEnd();
-		return out;
-	}
+#pragma once
 
-	CryptoPP::SecByteBlock DecodeSecBlockBase64(const std::string& s) noexcept
-	{
-		CryptoPP::Base64Decoder dec;
-		CryptoPP::StringSource ss(s, true, new CryptoPP::Redirector(dec));
-		CryptoPP::SecByteBlock b;
-		b.resize(dec.MaxRetrievable());
-		if (b.size() > 0)
-			dec.Get(b.data(), b.size());
-		return b;
-	}
+#include <StormByte/crypto/secure/password.hxx>
+#include <StormByte/crypto/visibility.h>
+
+#include <optional>
+#include <string>
+
+/**
+ * @brief Private key-agreement implementation.
+ */
+namespace StormByte::Crypto::Engine::Secret {
+	/**
+	 * @brief ECDH share (raw path + ASN.1 fallback).
+	 * @param privateKey Local private key.
+	 * @param peerPublicKeyBase64 Peer public key as Base64.
+	 * @param bits Curve size (256 / 384 / 521).
+	 * @return Password, or empty.
+	 */
+	std::optional<Secure::Password> ECDHShare(const Secure::Password& privateKey,
+									const std::string& peerPublicKeyBase64,
+									unsigned short bits) noexcept;
+
+	/**
+	 * @brief X25519 share.
+	 * @param privateKey Local private key.
+	 * @param peerPublicKeyBase64 Peer public key as Base64.
+	 * @return Password, or empty.
+	 */
+	std::optional<Secure::Password> X25519Share(const Secure::Password& privateKey,
+										const std::string& peerPublicKeyBase64) noexcept;
 }

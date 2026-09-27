@@ -39,7 +39,7 @@
  */
 
 #include <StormByte/crypto/helpers/secure_wipe.hxx>
-#include <StormByte/crypto/implementation/keypair/api.hxx>
+#include <StormByte/crypto/engine/keypair/api.hxx>
 #include <StormByte/crypto/keypair/x25519.hxx>
 #include <StormByte/crypto/secure/password.hxx>
 #include <StormByte/crypto/random.hxx>
@@ -56,8 +56,8 @@ X25519::PointerType X25519::Generate(unsigned short /*bits*/) noexcept {
 		CryptoPP::SecByteBlock priv(agreement.PrivateKeyLength());
 		CryptoPP::SecByteBlock pub(agreement.PublicKeyLength());
 		agreement.GenerateKeyPair(RNG(), priv, pub);
-		auto pubStr = Implementation::KeyPair::EncodeSecBlockBase64(pub);
-		Secure::Password privPwd = Implementation::KeyPair::PasswordFromSecBlock(priv);
+		auto pubStr = Engine::KeyPair::EncodeSecBlockBase64(pub);
+		Secure::Password privPwd = Engine::KeyPair::PasswordFromSecBlock(priv);
 		Helpers::SecureWipe(pub);
 		return MakePointer<X25519>(pubStr, std::move(privPwd));
 	} catch (...) {

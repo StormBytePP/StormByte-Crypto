@@ -39,7 +39,7 @@
  */
 
 #include <StormByte/buffer/producer.hxx>
-#include <StormByte/crypto/implementation/signer/details.hxx>
+#include <StormByte/crypto/engine/hasher/details.hxx>
 
 #include <thread>
 
@@ -52,35 +52,34 @@ namespace {
 	constexpr unsigned long long kChunkSize = 4096;
 }
 
-bool StormByte::Crypto::Implementation::Signer::SignSpan(
+bool StormByte::Crypto::Engine::Hasher::ProcessSpan(
 	std::span<const std::byte> data,
 	WriteOnly& output,
-	std::unique_ptr<SignBox> box) noexcept {
-	if (!box)
+	std::unique_ptr<Ops> ops) noexcept {
+	if (!ops)
 		return false;
 	try {
-		if (!box->Update(data))
+		ops->Update(data);
+		StormByte::BinaryData result;
+		if (!ops->Finalize(result))
 			return false;
-		StormByte::BinaryData signature;
-		if (!box->Finalize(signature))
-			return false;
-		return output.Write(std::move(signature));
+		return output.Write(std::move(result));
 	} catch (...) {
 		return false;
 	}
 }
 
-Consumer StormByte::Crypto::Implementation::Signer::SignStream(
+Consumer StormByte::Crypto::Engine::Hasher::Stream(
 	Consumer consumer,
 	ReadMode mode,
-	std::unique_ptr<SignBox> box) noexcept {
+	std::unique_ptr<Ops> ops) noexcept {
 	Producer producer;
-	if (!box) {
+	if (!ops) {
 		producer.SetError();
 		return producer.Consumer();
 	}
 
-	std::thread([consumer = std::move(consumer), producer, box = std::move(box), mode]() mutable {
+	std::thread([consumer = std::move(consumer), producer, ops = std::move(ops), mode]() mutable {
 		try {
 			while (!consumer.EoF()) {
 				const StormByte::ByteSize available = consumer.Available();
@@ -100,19 +99,16 @@ Consumer StormByte::Crypto::Implementation::Signer::SignStream(
 					return;
 				}
 
-				if (!box->Update(std::span<const std::byte>(data.data(), data.size()))) {
-					producer.SetError();
-					return;
-				}
+				ops->Update(std::span<const std::byte>(data.data(), data.size()));
 			}
 
-			StormByte::BinaryData signature;
-			if (!box->Finalize(signature)) {
+			StormByte::BinaryData result;
+			if (!ops->Finalize(result)) {
 				producer.SetError();
 				return;
 			}
 
-			if (!producer.Write(std::move(signature))) {
+			if (!producer.Write(std::move(result))) {
 				producer.SetError();
 				return;
 			}
@@ -123,56 +119,4 @@ Consumer StormByte::Crypto::Implementation::Signer::SignStream(
 		}
 	}).detach();
 	return producer.Consumer();
-}
-
-bool StormByte::Crypto::Implementation::Signer::VerifySpan(
-	std::span<const std::byte> data,
-	const std::string& signature,
-	std::unique_ptr<VerifyBox> box) noexcept {
-	if (!box)
-		return false;
-	try {
-		if (!box->Begin(signature))
-			return false;
-		if (!data.empty() && !box->Update(data))
-			return false;
-		return box->Finalize();
-	} catch (...) {
-		return false;
-	}
-}
-
-bool StormByte::Crypto::Implementation::Signer::VerifyStream(
-	Consumer consumer,
-	ReadMode mode,
-	const std::string& signature,
-	std::unique_ptr<VerifyBox> box) noexcept {
-	if (!box)
-		return false;
-	try {
-		if (!box->Begin(signature))
-			return false;
-		while (!consumer.EoF()) {
-			const StormByte::ByteSize available = consumer.Available();
-			if (available == StormByte::ByteSize{0}) {
-				std::this_thread::yield();
-				continue;
-			}
-
-			const StormByte::ByteSize chunk{kChunkSize};
-			const StormByte::ByteSize toRead = (available < chunk) ? available : chunk;
-			StormByte::BinaryData data;
-			const bool ok = (mode == ReadMode::Copy)
-				? consumer.Read(toRead, data)
-				: consumer.Extract(toRead, data);
-			if (!ok)
-				return false;
-			if (!box->Update(std::span<const std::byte>(data.data(), data.size())))
-				return false;
-		}
-
-		return box->Finalize();
-	} catch (...) {
-		return false;
-	}
 }

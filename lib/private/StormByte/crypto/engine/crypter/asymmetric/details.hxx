@@ -40,7 +40,7 @@
 
 #pragma once
 
-#include <StormByte/crypto/implementation/crypter/details.hxx>
+#include <StormByte/crypto/engine/crypter/details.hxx>
 #include <StormByte/crypto/typedefs.hxx>
 #include <StormByte/crypto/visibility.h>
 
@@ -64,14 +64,14 @@ namespace StormByte {
 		 * @namespace StormByte::Crypto::Implementation
 		 * @brief Private implementation of the Crypto module.
 		 */
-		namespace Implementation {
+		namespace Engine {
 			/**
-			 * @namespace StormByte::Crypto::Implementation::Crypter
+			 * @namespace StormByte::Crypto::Engine::Crypter
 			 * @brief Private crypter implementation.
 			 */
 			namespace Crypter {
 				/**
-				 * @namespace StormByte::Crypto::Implementation::Crypter::Asymmetric
+				 * @namespace StormByte::Crypto::Engine::Crypter::Asymmetric
 				 * @brief Private asymmetric crypter implementation.
 				 */
 				namespace Asymmetric {

@@ -40,33 +40,72 @@
 
 #pragma once
 
-#include <StormByte/crypto/secure/password.hxx>
+#include <StormByte/buffer/producer.hxx>
+#include <StormByte/crypto/typedefs.hxx>
 #include <StormByte/crypto/visibility.h>
 
-#include <optional>
-#include <string>
+#include <memory>
+#include <span>
 
 /**
- * @brief Private key-agreement implementation.
+ * @namespace StormByte
+ * @brief Root namespace of the StormByte suite.
  */
-namespace StormByte::Crypto::Implementation::Secret {
+namespace StormByte {
 	/**
-	 * @brief ECDH share (raw path + ASN.1 fallback).
-	 * @param privateKey Local private key.
-	 * @param peerPublicKeyBase64 Peer public key as Base64.
-	 * @param bits Curve size (256 / 384 / 521).
-	 * @return Password, or empty.
+	 * @namespace StormByte::Crypto
+	 * @brief Crypto module of the StormByte suite.
 	 */
-	std::optional<Secure::Password> ECDHShare(const Secure::Password& privateKey,
-									const std::string& peerPublicKeyBase64,
-									unsigned short bits) noexcept;
+	namespace Crypto {
+		/**
+		 * @namespace StormByte::Crypto::Implementation
+		 * @brief Private implementation of the Crypto module.
+		 */
+		namespace Engine {
+			/**
+			 * @namespace StormByte::Crypto::Engine::Hasher
+			 * @brief Private hasher implementation.
+			 */
+			namespace Hasher {
+				/**
+				 * @struct Ops
+				 * @brief Chunk-oriented hash engine.
+				 */
+				struct Ops {
+					virtual ~Ops() = default;
 
-	/**
-	 * @brief X25519 share.
-	 * @param privateKey Local private key.
-	 * @param peerPublicKeyBase64 Peer public key as Base64.
-	 * @return Password, or empty.
-	 */
-	std::optional<Secure::Password> X25519Share(const Secure::Password& privateKey,
-										const std::string& peerPublicKeyBase64) noexcept;
+					/**
+					 * @brief Feed one chunk.
+					 * @param in Input bytes.
+					 */
+					virtual void Update(std::span<const std::byte> in) = 0;
+
+					/**
+					 * @brief Finish and write the hex digest.
+					 * @param out Destination.
+					 * @return true on success.
+					 */
+					virtual bool Finalize(StormByte::BinaryData& out) = 0;
+				};
+
+				/**
+				 * @brief One-shot hash.
+				 * @param data Input.
+				 * @param output Destination.
+				 * @param ops Engine.
+				 * @return true on success.
+				 */
+				STORMBYTE_CRYPTO_PRIVATE bool ProcessSpan(std::span<const std::byte> data, Buffer::WriteOnly& output, std::unique_ptr<Ops> ops) noexcept;
+
+				/**
+				 * @brief Streaming hash. Yields a hex digest.
+				 * @param consumer Input consumer.
+				 * @param mode Copy or move.
+				 * @param ops Engine.
+				 * @return Consumer with the digest.
+				 */
+				STORMBYTE_CRYPTO_PRIVATE Buffer::Consumer Stream(Buffer::Consumer consumer, ReadMode mode, std::unique_ptr<Ops> ops) noexcept;
+			}
+		}
+	}
 }

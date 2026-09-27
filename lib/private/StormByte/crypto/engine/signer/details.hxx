@@ -62,9 +62,9 @@ namespace StormByte {
 		 * @namespace StormByte::Crypto::Implementation
 		 * @brief Private implementation of the Crypto module.
 		 */
-		namespace Implementation {
+		namespace Engine {
 			/**
-			 * @namespace StormByte::Crypto::Implementation::Signer
+			 * @namespace StormByte::Crypto::Engine::Signer
 			 * @brief Private signer implementation.
 			 */
 			namespace Signer {

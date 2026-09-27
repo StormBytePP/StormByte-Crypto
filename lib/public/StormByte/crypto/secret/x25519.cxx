@@ -39,7 +39,7 @@
  */
 
 #include <StormByte/crypto/secret/x25519.hxx>
-#include <StormByte/crypto/implementation/secret/details.hxx>
+#include <StormByte/crypto/engine/secret/details.hxx>
 
 #include <string>
 #include <string_view>
@@ -53,7 +53,7 @@ X25519::Share(std::string_view peerPublicKey) const noexcept
 {
 	if (!m_keypair || !m_keypair->HasPrivateKey())
 		return std::nullopt;
-	return Implementation::Secret::X25519Share(
+	return Engine::Secret::X25519Share(
 		*m_keypair->PrivateKey(),
 		std::string(peerPublicKey));
 }
@@ -64,7 +64,7 @@ X25519::DeriveSharedSecret(KeyPair::Generic::PointerType keypair,
 {
 	if (!keypair || !keypair->HasPrivateKey())
 		return std::nullopt;
-	return Implementation::Secret::X25519Share(
+	return Engine::Secret::X25519Share(
 		*keypair->PrivateKey(),
 		std::string(peerPublicKey));
 }

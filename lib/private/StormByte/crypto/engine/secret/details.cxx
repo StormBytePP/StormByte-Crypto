@@ -40,8 +40,8 @@
 
 #include <StormByte/crypto/helpers/password_view.hxx>
 #include <StormByte/crypto/helpers/secure_wipe.hxx>
-#include <StormByte/crypto/implementation/keypair/api.hxx>
-#include <StormByte/crypto/implementation/secret/details.hxx>
+#include <StormByte/crypto/engine/keypair/api.hxx>
+#include <StormByte/crypto/engine/secret/details.hxx>
 #include <StormByte/crypto/random.hxx>
 
 #include <eccrypto.h>
@@ -94,7 +94,7 @@ namespace {
 	}
 }
 
-std::optional<Secure::Password> StormByte::Crypto::Implementation::Secret::ECDHShare(
+std::optional<Secure::Password> StormByte::Crypto::Engine::Secret::ECDHShare(
 	const Secure::Password& privateKey,
 	const std::string& peerPublicKeyBase64,
 	unsigned short bits) noexcept {
@@ -114,7 +114,7 @@ std::optional<Secure::Password> StormByte::Crypto::Implementation::Secret::ECDHS
 			return std::nullopt;
 
 		priv.Assign(privPtr, privLen);
-		pub = StormByte::Crypto::Implementation::KeyPair::DecodeSecBlockBase64(peerPublicKeyBase64);
+		pub = StormByte::Crypto::Engine::KeyPair::DecodeSecBlockBase64(peerPublicKeyBase64);
 
 		if (priv.size() == domain.PrivateKeyLength()
 			&& pub.size() == domain.PublicKeyLength()) {
@@ -204,7 +204,7 @@ std::optional<Secure::Password> StormByte::Crypto::Implementation::Secret::ECDHS
 	}
 }
 
-std::optional<Secure::Password> StormByte::Crypto::Implementation::Secret::X25519Share(
+std::optional<Secure::Password> StormByte::Crypto::Engine::Secret::X25519Share(
 	const Secure::Password& privateKey,
 	const std::string& peerPublicKeyBase64) noexcept {
 	CryptoPP::SecByteBlock privIn, pubIn, priv, pub, secret;
@@ -215,7 +215,7 @@ std::optional<Secure::Password> StormByte::Crypto::Implementation::Secret::X2551
 			return std::nullopt;
 
 		privIn.Assign(privPtr, privLen);
-		pubIn = StormByte::Crypto::Implementation::KeyPair::DecodeSecBlockBase64(peerPublicKeyBase64);
+		pubIn = StormByte::Crypto::Engine::KeyPair::DecodeSecBlockBase64(peerPublicKeyBase64);
 
 		if (!ExtractX25519Raw32(privIn, priv) || !ExtractX25519Raw32(pubIn, pub)) {
 			SecureWipe(privIn);

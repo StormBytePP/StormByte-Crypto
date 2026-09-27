@@ -39,7 +39,7 @@
  */
 
 #include <StormByte/buffer/producer.hxx>
-#include <StormByte/crypto/implementation/crypter/details.hxx>
+#include <StormByte/crypto/engine/crypter/details.hxx>
 
 #include <thread>
 
@@ -52,7 +52,7 @@ namespace {
 	constexpr unsigned long long kChunkSize = 4096;
 }
 
-bool StormByte::Crypto::Implementation::Crypter::ProcessSpan(
+bool StormByte::Crypto::Engine::Crypter::ProcessSpan(
 	std::span<const std::byte> data,
 	WriteOnly& output,
 	std::unique_ptr<Ops> ops) noexcept {
@@ -82,7 +82,7 @@ bool StormByte::Crypto::Implementation::Crypter::ProcessSpan(
 	}
 }
 
-Consumer StormByte::Crypto::Implementation::Crypter::Stream(
+Consumer StormByte::Crypto::Engine::Crypter::Stream(
 	Consumer consumer,
 	ReadMode mode,
 	std::unique_ptr<Ops> ops) noexcept {

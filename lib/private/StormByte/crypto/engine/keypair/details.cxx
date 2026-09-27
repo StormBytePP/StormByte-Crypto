@@ -38,60 +38,27 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
-#pragma once
+#include <StormByte/crypto/engine/keypair/details.hxx>
+#include <base64.h>
+#include <filters.h>
+namespace StormByte::Crypto::Engine::KeyPair {
+	std::string EncodeSecBlockBase64(const CryptoPP::SecByteBlock& b) noexcept
+	{
+		std::string out;
+		CryptoPP::Base64Encoder enc(new CryptoPP::StringSink(out), false);
+		enc.Put(b.data(), b.size());
+		enc.MessageEnd();
+		return out;
+	}
 
-#include <StormByte/crypto/helpers/secure_wipe.hxx>
-#include <StormByte/crypto/secure/password.hxx>
-#include <StormByte/crypto/visibility.h>
-
-#include <secblock.h>
-#include <string>
-
-/**
- * @namespace StormByte
- * @brief Root namespace of the StormByte suite.
- */
-namespace StormByte {
-	/**
-	 * @namespace StormByte::Crypto
-	 * @brief Crypto module of the StormByte suite.
-	 */
-	namespace Crypto {
-		/**
-		 * @namespace StormByte::Crypto::Implementation
-		 * @brief Private implementation of the Crypto module.
-		 */
-		namespace Implementation {
-			/**
-			 * @namespace StormByte::Crypto::Implementation::KeyPair
-			 * @brief Private keypair implementation.
-			 */
-			namespace KeyPair {
-				/**
-				 * @brief Encode a SecByteBlock as Base64.
-				 * @param block Source.
-				 * @return Base64 string.
-				 */
-				std::string EncodeSecBlockBase64(const CryptoPP::SecByteBlock& block) noexcept;
-
-				/**
-				 * @brief Decode Base64 into a SecByteBlock.
-				 * @param encoded Base64.
-				 * @return Decoded block.
-				 */
-				CryptoPP::SecByteBlock DecodeSecBlockBase64(const std::string& encoded) noexcept;
-
-				/**
-				 * @brief Wrap raw key bytes into a Password and wipe the source.
-				 * @param block Source block (wiped).
-				 * @return Password.
-				 */
-				inline Secure::Password PasswordFromSecBlock(CryptoPP::SecByteBlock& block) noexcept {
-					Secure::Password result(block.data(), StormByte::ByteSize{block.size()});
-					Helpers::SecureWipe(block);
-					return result;
-				}
-			}
-		}
+	CryptoPP::SecByteBlock DecodeSecBlockBase64(const std::string& s) noexcept
+	{
+		CryptoPP::Base64Decoder dec;
+		CryptoPP::StringSource ss(s, true, new CryptoPP::Redirector(dec));
+		CryptoPP::SecByteBlock b;
+		b.resize(dec.MaxRetrievable());
+		if (b.size() > 0)
+			dec.Get(b.data(), b.size());
+		return b;
 	}
 }

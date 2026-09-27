@@ -40,8 +40,8 @@
 
 #include <StormByte/crypto/helpers/password_view.hxx>
 #include <StormByte/crypto/helpers/secure_wipe.hxx>
-#include <StormByte/crypto/implementation/keypair/api.hxx>
-#include <StormByte/crypto/implementation/signer/details.hxx>
+#include <StormByte/crypto/engine/keypair/api.hxx>
+#include <StormByte/crypto/engine/signer/details.hxx>
 #include <StormByte/crypto/random.hxx>
 #include <StormByte/crypto/signer/ed25519.hxx>
 
@@ -62,7 +62,7 @@ using namespace StormByte::Crypto::Signer;
 ED25519::~ED25519() noexcept = default;
 
 namespace {
-	struct Ed25519SignBox final : StormByte::Crypto::Implementation::Signer::SignBox {
+	struct Ed25519SignBox final : StormByte::Crypto::Engine::Signer::SignBox {
 		CryptoPP::ed25519::Signer signer;
 		StormByte::BinaryData signature;
 		std::unique_ptr<CryptoPP::SignerFilter> filter;
@@ -111,7 +111,7 @@ namespace {
 		}
 	};
 
-	struct Ed25519VerifyBox final : StormByte::Crypto::Implementation::Signer::VerifyBox {
+	struct Ed25519VerifyBox final : StormByte::Crypto::Engine::Signer::VerifyBox {
 		CryptoPP::ed25519::Verifier verifier;
 		bool result = false;
 		std::unique_ptr<CryptoPP::SignatureVerificationFilter> filter;
@@ -120,7 +120,7 @@ namespace {
 		explicit Ed25519VerifyBox(const StormByte::String::String& pubKeyB64) {
 			const std::string pubKey { static_cast<std::string_view>(pubKeyB64) };
 			CryptoPP::SecByteBlock pubRaw =
-				StormByte::Crypto::Implementation::KeyPair::DecodeSecBlockBase64(pubKey);
+				StormByte::Crypto::Engine::KeyPair::DecodeSecBlockBase64(pubKey);
 			CryptoPP::ByteQueue queue;
 			queue.Put(pubRaw.data(), pubRaw.size());
 			SecureWipe(pubRaw);
@@ -179,7 +179,7 @@ namespace {
 bool ED25519::DoSign(std::span<const std::byte> data, WriteOnly& output) const noexcept {
 	if (!m_keypair || !m_keypair->HasPrivateKey())
 		return false;
-	return Implementation::Signer::SignSpan(
+	return Engine::Signer::SignSpan(
 		data, output,
 		std::make_unique<Ed25519SignBox>(*m_keypair->PrivateKey()));
 }
@@ -191,7 +191,7 @@ Consumer ED25519::DoSign(Consumer consumer, ReadMode mode) const noexcept {
 		return producer.Consumer();
 	}
 
-	return Implementation::Signer::SignStream(
+	return Engine::Signer::SignStream(
 		std::move(consumer), mode,
 		std::make_unique<Ed25519SignBox>(*m_keypair->PrivateKey()));
 }
@@ -200,7 +200,7 @@ bool ED25519::DoVerify(std::span<const std::byte> data,
 	std::string_view signature) const noexcept {
 	if (!m_keypair)
 		return false;
-	return Implementation::Signer::VerifySpan(
+	return Engine::Signer::VerifySpan(
 		data, std::string{signature},
 		std::make_unique<Ed25519VerifyBox>(m_keypair->PublicKey()));
 }
@@ -210,7 +210,7 @@ bool ED25519::DoVerify(Consumer consumer,
 	ReadMode mode) const noexcept {
 	if (!m_keypair)
 		return false;
-	return Implementation::Signer::VerifyStream(
+	return Engine::Signer::VerifyStream(
 		std::move(consumer), mode, std::string{signature},
 		std::make_unique<Ed25519VerifyBox>(m_keypair->PublicKey()));
 }

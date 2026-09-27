@@ -39,7 +39,7 @@
  */
 
 #include <StormByte/buffer/producer.hxx>
-#include <StormByte/crypto/implementation/compressor/details.hxx>
+#include <StormByte/crypto/engine/signer/details.hxx>
 
 #include <thread>
 
@@ -52,43 +52,35 @@ namespace {
 	constexpr unsigned long long kChunkSize = 4096;
 }
 
-bool StormByte::Crypto::Implementation::Compressor::ProcessSpan(
+bool StormByte::Crypto::Engine::Signer::SignSpan(
 	std::span<const std::byte> data,
 	WriteOnly& output,
-	std::unique_ptr<StreamOps> ops) noexcept {
-	if (!ops)
+	std::unique_ptr<SignBox> box) noexcept {
+	if (!box)
 		return false;
 	try {
-		StormByte::BinaryData total;
-		StormByte::BinaryData part;
-		if (!ops->Process(data, part))
+		if (!box->Update(data))
 			return false;
-		if (!part.empty())
-			total.insert(total.end(), part.begin(), part.end());
-		part.clear();
-		if (!ops->Finalize(part))
+		StormByte::BinaryData signature;
+		if (!box->Finalize(signature))
 			return false;
-		if (!part.empty())
-			total.insert(total.end(), part.begin(), part.end());
-		if (!total.empty() && !output.Write(std::move(total)))
-			return false;
-		return true;
+		return output.Write(std::move(signature));
 	} catch (...) {
 		return false;
 	}
 }
 
-Consumer StormByte::Crypto::Implementation::Compressor::Stream(
+Consumer StormByte::Crypto::Engine::Signer::SignStream(
 	Consumer consumer,
 	ReadMode mode,
-	std::unique_ptr<StreamOps> ops) noexcept {
+	std::unique_ptr<SignBox> box) noexcept {
 	Producer producer;
-	if (!ops) {
+	if (!box) {
 		producer.SetError();
 		return producer.Consumer();
 	}
 
-	std::thread([consumer = std::move(consumer), producer, ops = std::move(ops), mode]() mutable {
+	std::thread([consumer = std::move(consumer), producer, box = std::move(box), mode]() mutable {
 		try {
 			while (!consumer.EoF()) {
 				const StormByte::ByteSize available = consumer.Available();
@@ -108,25 +100,19 @@ Consumer StormByte::Crypto::Implementation::Compressor::Stream(
 					return;
 				}
 
-				StormByte::BinaryData out;
-				if (!ops->Process(std::span<const std::byte>(data.data(), data.size()), out)) {
-					producer.SetError();
-					return;
-				}
-
-				if (!out.empty() && !producer.Write(std::move(out))) {
+				if (!box->Update(std::span<const std::byte>(data.data(), data.size()))) {
 					producer.SetError();
 					return;
 				}
 			}
 
-			StormByte::BinaryData out;
-			if (!ops->Finalize(out)) {
+			StormByte::BinaryData signature;
+			if (!box->Finalize(signature)) {
 				producer.SetError();
 				return;
 			}
 
-			if (!out.empty() && !producer.Write(std::move(out))) {
+			if (!producer.Write(std::move(signature))) {
 				producer.SetError();
 				return;
 			}
@@ -137,4 +123,56 @@ Consumer StormByte::Crypto::Implementation::Compressor::Stream(
 		}
 	}).detach();
 	return producer.Consumer();
+}
+
+bool StormByte::Crypto::Engine::Signer::VerifySpan(
+	std::span<const std::byte> data,
+	const std::string& signature,
+	std::unique_ptr<VerifyBox> box) noexcept {
+	if (!box)
+		return false;
+	try {
+		if (!box->Begin(signature))
+			return false;
+		if (!data.empty() && !box->Update(data))
+			return false;
+		return box->Finalize();
+	} catch (...) {
+		return false;
+	}
+}
+
+bool StormByte::Crypto::Engine::Signer::VerifyStream(
+	Consumer consumer,
+	ReadMode mode,
+	const std::string& signature,
+	std::unique_ptr<VerifyBox> box) noexcept {
+	if (!box)
+		return false;
+	try {
+		if (!box->Begin(signature))
+			return false;
+		while (!consumer.EoF()) {
+			const StormByte::ByteSize available = consumer.Available();
+			if (available == StormByte::ByteSize{0}) {
+				std::this_thread::yield();
+				continue;
+			}
+
+			const StormByte::ByteSize chunk{kChunkSize};
+			const StormByte::ByteSize toRead = (available < chunk) ? available : chunk;
+			StormByte::BinaryData data;
+			const bool ok = (mode == ReadMode::Copy)
+				? consumer.Read(toRead, data)
+				: consumer.Extract(toRead, data);
+			if (!ok)
+				return false;
+			if (!box->Update(std::span<const std::byte>(data.data(), data.size())))
+				return false;
+		}
+
+		return box->Finalize();
+	} catch (...) {
+		return false;
+	}
 }

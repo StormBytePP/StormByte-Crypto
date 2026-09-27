@@ -41,8 +41,8 @@
 #pragma once
 
 #include <StormByte/crypto/helpers/secure_wipe.hxx>
-#include <StormByte/crypto/implementation/crypter/details.hxx>
-#include <StormByte/crypto/implementation/crypter/symmetric/details.hxx>
+#include <StormByte/crypto/engine/crypter/details.hxx>
+#include <StormByte/crypto/engine/crypter/symmetric/details.hxx>
 #include <StormByte/crypto/secure/password.hxx>
 #include <StormByte/crypto/random.hxx>
 #include <StormByte/crypto/typedefs.hxx>
@@ -60,7 +60,7 @@
 /**
  * @brief Private symmetric crypter implementation.
  */
-namespace StormByte::Crypto::Implementation::Crypter::Symmetric {
+namespace StormByte::Crypto::Engine::Crypter::Symmetric {
 	/**
 	 * @brief One-shot CBC encrypt.
 	 * @tparam AlgoT Algorithm traits (DEFAULT_KEYLENGTH).

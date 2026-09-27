@@ -39,7 +39,7 @@
  */
 
 #include <StormByte/crypto/hasher/sha3_512.hxx>
-#include <StormByte/crypto/implementation/hasher/api.hxx>
+#include <StormByte/crypto/engine/hasher/api.hxx>
 #include <sha3.h>
 
 using StormByte::Buffer::Consumer;
@@ -50,9 +50,9 @@ using namespace StormByte::Crypto::Hasher;
 SHA3_512::~SHA3_512() noexcept = default;
 
 bool SHA3_512::DoHash(std::span<const std::byte> dataSpan, WriteOnly& output) const noexcept {
-	return Implementation::Hasher::Hash<CryptoPP::SHA3_512>(dataSpan, output);
+	return Engine::Hasher::Hash<CryptoPP::SHA3_512>(dataSpan, output);
 }
 
 Consumer SHA3_512::DoHash(Consumer consumer, ReadMode mode) const noexcept {
-	return Implementation::Hasher::Hash<CryptoPP::SHA3_512>(consumer, mode);
+	return Engine::Hasher::Hash<CryptoPP::SHA3_512>(consumer, mode);
 }

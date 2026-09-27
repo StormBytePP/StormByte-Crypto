@@ -38,7 +38,7 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
-#include <StormByte/crypto/implementation/keypair/api.hxx>
+#include <StormByte/crypto/engine/keypair/api.hxx>
 #include <StormByte/crypto/keypair/ecdsa.hxx>
 #include <StormByte/crypto/secure/password.hxx>
 #include <StormByte/crypto/random.hxx>
@@ -72,8 +72,8 @@ ECDSA::PointerType ECDSA::Generate(unsigned short bits) noexcept {
 		CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>::PublicKey publicKey;
 		privateKey.MakePublicKey(publicKey);
 		return MakePointer<ECDSA>(
-			Implementation::KeyPair::SerializeKey(publicKey),
-			Implementation::KeyPair::SerializeKeyBinary(privateKey)
+			Engine::KeyPair::SerializeKey(publicKey),
+			Engine::KeyPair::SerializeKeyBinary(privateKey)
 		);
 	} catch (...) {
 		return nullptr;

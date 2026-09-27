@@ -38,7 +38,7 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
-#include <StormByte/crypto/implementation/keypair/api.hxx>
+#include <StormByte/crypto/engine/keypair/api.hxx>
 #include <StormByte/crypto/keypair/dsa.hxx>
 #include <StormByte/crypto/secure/password.hxx>
 #include <StormByte/crypto/random.hxx>
@@ -56,8 +56,8 @@ DSA::PointerType DSA::Generate(unsigned short bits) noexcept {
 		CryptoPP::DSA::PublicKey publicKey;
 		privateKey.MakePublicKey(publicKey);
 		return MakePointer<DSA>(
-			Implementation::KeyPair::SerializeKey(publicKey),
-			Implementation::KeyPair::SerializeKeyBinary(privateKey)
+			Engine::KeyPair::SerializeKey(publicKey),
+			Engine::KeyPair::SerializeKeyBinary(privateKey)
 		);
 	} catch (...) {
 		return nullptr;

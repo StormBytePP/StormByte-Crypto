@@ -40,8 +40,8 @@
 
 #pragma once
 
-#include <StormByte/crypto/implementation/crypter/asymmetric/details.hxx>
-#include <StormByte/crypto/implementation/keypair/api.hxx>
+#include <StormByte/crypto/engine/crypter/asymmetric/details.hxx>
+#include <StormByte/crypto/engine/keypair/api.hxx>
 #include <StormByte/crypto/keypair/generic.hxx>
 #include <StormByte/crypto/secure/password.hxx>
 #include <StormByte/crypto/random.hxx>
@@ -66,14 +66,14 @@ namespace StormByte {
 		 * @namespace StormByte::Crypto::Implementation
 		 * @brief Private implementation of the Crypto module.
 		 */
-		namespace Implementation {
+		namespace Engine {
 			/**
-			 * @namespace StormByte::Crypto::Implementation::Crypter
+			 * @namespace StormByte::Crypto::Engine::Crypter
 			 * @brief Private crypter implementation.
 			 */
 			namespace Crypter {
 				/**
-				 * @namespace StormByte::Crypto::Implementation::Crypter::Asymmetric
+				 * @namespace StormByte::Crypto::Engine::Crypter::Asymmetric
 				 * @brief Private asymmetric crypter implementation.
 				 */
 				namespace Asymmetric {

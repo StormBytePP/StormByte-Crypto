@@ -39,7 +39,7 @@
  */
 
 #include <StormByte/crypto/helpers/secure_wipe.hxx>
-#include <StormByte/crypto/implementation/keypair/api.hxx>
+#include <StormByte/crypto/engine/keypair/api.hxx>
 #include <StormByte/crypto/keypair/dsa.hxx>
 #include <StormByte/crypto/keypair/ecc.hxx>
 #include <StormByte/crypto/keypair/ecdh.hxx>
@@ -498,7 +498,7 @@ namespace {
 
 	Password PrivateDerToPassword(std::span<const CryptoPP::byte> der) {
 		CryptoPP::SecByteBlock block(der.data(), der.size());
-		Password pwd = StormByte::Crypto::Implementation::KeyPair::PasswordFromSecBlock(block);
+		Password pwd = StormByte::Crypto::Engine::KeyPair::PasswordFromSecBlock(block);
 		SecureWipe(block);
 		return pwd;
 	}
@@ -962,7 +962,7 @@ namespace {
 						} else {
 							CryptoPP::ECIES<CryptoPP::ECP>::PublicKey pub;
 							priv.MakePublicKey(pub);
-							pubStored = StormByte::Crypto::Implementation::KeyPair::SerializeKey(pub);
+							pubStored = StormByte::Crypto::Engine::KeyPair::SerializeKey(pub);
 						}
 						return MakeKeyPair(type, std::move(pubStored), std::move(privPwd));
 					} catch (...) {

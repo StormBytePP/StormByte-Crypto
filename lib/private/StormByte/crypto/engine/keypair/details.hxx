@@ -38,26 +38,60 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later OR LicenseRef-StormByte-Commercial
  */
 
-#include <StormByte/crypto/crypter/symmetric/twofish.hxx>
-#include <StormByte/crypto/engine/crypter/symmetric/api.hxx>
-#include <twofish.h>
+#pragma once
 
-using namespace StormByte::Crypto::Crypter;
+#include <StormByte/crypto/helpers/secure_wipe.hxx>
+#include <StormByte/crypto/secure/password.hxx>
+#include <StormByte/crypto/visibility.h>
 
-TwoFish::~TwoFish() noexcept = default;
+#include <secblock.h>
+#include <string>
 
-bool TwoFish::DoEncrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept {
-	return Engine::Crypter::Symmetric::EncryptCBC<CryptoPP::Twofish, CryptoPP::CBC_Mode<CryptoPP::Twofish>::Encryption, CryptoPP::SHA256>(input, m_password, output, 16, CryptoPP::Twofish::BLOCKSIZE);
-}
+/**
+ * @namespace StormByte
+ * @brief Root namespace of the StormByte suite.
+ */
+namespace StormByte {
+	/**
+	 * @namespace StormByte::Crypto
+	 * @brief Crypto module of the StormByte suite.
+	 */
+	namespace Crypto {
+		/**
+		 * @namespace StormByte::Crypto::Implementation
+		 * @brief Private implementation of the Crypto module.
+		 */
+		namespace Engine {
+			/**
+			 * @namespace StormByte::Crypto::Engine::KeyPair
+			 * @brief Private keypair implementation.
+			 */
+			namespace KeyPair {
+				/**
+				 * @brief Encode a SecByteBlock as Base64.
+				 * @param block Source.
+				 * @return Base64 string.
+				 */
+				std::string EncodeSecBlockBase64(const CryptoPP::SecByteBlock& block) noexcept;
 
-StormByte::Buffer::Consumer TwoFish::DoEncrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept {
-	return Engine::Crypter::Symmetric::EncryptCBC<CryptoPP::Twofish, CryptoPP::CBC_Mode<CryptoPP::Twofish>::Encryption, CryptoPP::SHA256>(consumer, m_password, mode, 16, CryptoPP::Twofish::BLOCKSIZE);
-}
+				/**
+				 * @brief Decode Base64 into a SecByteBlock.
+				 * @param encoded Base64.
+				 * @return Decoded block.
+				 */
+				CryptoPP::SecByteBlock DecodeSecBlockBase64(const std::string& encoded) noexcept;
 
-bool TwoFish::DoDecrypt(std::span<const std::byte> input, Buffer::WriteOnly& output) const noexcept {
-	return Engine::Crypter::Symmetric::DecryptCBC<CryptoPP::Twofish, CryptoPP::CBC_Mode<CryptoPP::Twofish>::Decryption, CryptoPP::SHA256>(input, m_password, output, 16, CryptoPP::Twofish::BLOCKSIZE);
-}
-
-StormByte::Buffer::Consumer TwoFish::DoDecrypt(Buffer::Consumer consumer, ReadMode mode) const noexcept {
-	return Engine::Crypter::Symmetric::DecryptCBC<CryptoPP::Twofish, CryptoPP::CBC_Mode<CryptoPP::Twofish>::Decryption, CryptoPP::SHA256>(consumer, m_password, mode, 16, CryptoPP::Twofish::BLOCKSIZE);
+				/**
+				 * @brief Wrap raw key bytes into a Password and wipe the source.
+				 * @param block Source block (wiped).
+				 * @return Password.
+				 */
+				inline Secure::Password PasswordFromSecBlock(CryptoPP::SecByteBlock& block) noexcept {
+					Secure::Password result(block.data(), StormByte::ByteSize{block.size()});
+					Helpers::SecureWipe(block);
+					return result;
+				}
+			}
+		}
+	}
 }

@@ -39,7 +39,7 @@
  */
 
 #include <StormByte/crypto/hasher/blake2b.hxx>
-#include <StormByte/crypto/implementation/hasher/api.hxx>
+#include <StormByte/crypto/engine/hasher/api.hxx>
 #include <blake2.h>
 
 using StormByte::Buffer::Consumer;
@@ -50,9 +50,9 @@ using namespace StormByte::Crypto::Hasher;
 Blake2b::~Blake2b() noexcept = default;
 
 bool Blake2b::DoHash(std::span<const std::byte> dataSpan, WriteOnly& output) const noexcept {
-	return Implementation::Hasher::Hash<CryptoPP::BLAKE2b>(dataSpan, output);
+	return Engine::Hasher::Hash<CryptoPP::BLAKE2b>(dataSpan, output);
 }
 
 Consumer Blake2b::DoHash(Consumer consumer, ReadMode mode) const noexcept {
-	return Implementation::Hasher::Hash<CryptoPP::BLAKE2b>(consumer, mode);
+	return Engine::Hasher::Hash<CryptoPP::BLAKE2b>(consumer, mode);
 }

@@ -39,7 +39,7 @@
  */
 
 #include <StormByte/buffer/producer.hxx>
-#include <StormByte/crypto/implementation/hasher/details.hxx>
+#include <StormByte/crypto/engine/compressor/details.hxx>
 
 #include <thread>
 
@@ -52,27 +52,36 @@ namespace {
 	constexpr unsigned long long kChunkSize = 4096;
 }
 
-bool StormByte::Crypto::Implementation::Hasher::ProcessSpan(
+bool StormByte::Crypto::Engine::Compressor::ProcessSpan(
 	std::span<const std::byte> data,
 	WriteOnly& output,
-	std::unique_ptr<Ops> ops) noexcept {
+	std::unique_ptr<StreamOps> ops) noexcept {
 	if (!ops)
 		return false;
 	try {
-		ops->Update(data);
-		StormByte::BinaryData result;
-		if (!ops->Finalize(result))
+		StormByte::BinaryData total;
+		StormByte::BinaryData part;
+		if (!ops->Process(data, part))
 			return false;
-		return output.Write(std::move(result));
+		if (!part.empty())
+			total.insert(total.end(), part.begin(), part.end());
+		part.clear();
+		if (!ops->Finalize(part))
+			return false;
+		if (!part.empty())
+			total.insert(total.end(), part.begin(), part.end());
+		if (!total.empty() && !output.Write(std::move(total)))
+			return false;
+		return true;
 	} catch (...) {
 		return false;
 	}
 }
 
-Consumer StormByte::Crypto::Implementation::Hasher::Stream(
+Consumer StormByte::Crypto::Engine::Compressor::Stream(
 	Consumer consumer,
 	ReadMode mode,
-	std::unique_ptr<Ops> ops) noexcept {
+	std::unique_ptr<StreamOps> ops) noexcept {
 	Producer producer;
 	if (!ops) {
 		producer.SetError();
@@ -99,16 +108,25 @@ Consumer StormByte::Crypto::Implementation::Hasher::Stream(
 					return;
 				}
 
-				ops->Update(std::span<const std::byte>(data.data(), data.size()));
+				StormByte::BinaryData out;
+				if (!ops->Process(std::span<const std::byte>(data.data(), data.size()), out)) {
+					producer.SetError();
+					return;
+				}
+
+				if (!out.empty() && !producer.Write(std::move(out))) {
+					producer.SetError();
+					return;
+				}
 			}
 
-			StormByte::BinaryData result;
-			if (!ops->Finalize(result)) {
+			StormByte::BinaryData out;
+			if (!ops->Finalize(out)) {
 				producer.SetError();
 				return;
 			}
 
-			if (!producer.Write(std::move(result))) {
+			if (!out.empty() && !producer.Write(std::move(out))) {
 				producer.SetError();
 				return;
 			}

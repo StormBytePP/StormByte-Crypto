@@ -61,52 +61,80 @@ namespace StormByte {
 		 * @namespace StormByte::Crypto::Implementation
 		 * @brief Private implementation of the Crypto module.
 		 */
-		namespace Implementation {
+		namespace Engine {
 			/**
-			 * @namespace StormByte::Crypto::Implementation::Compressor
-			 * @brief Private compressor implementation.
+			 * @namespace StormByte::Crypto::Engine::Crypter
+			 * @brief Private crypter implementation.
 			 */
-			namespace Compressor {
+			namespace Crypter {
 				/**
-				 * @struct StreamOps
-				 * @brief Type-erased chunk compress/decompress engine.
+				 * @struct Ops
+				 * @brief Chunk encrypt/decrypt engine (symmetric and asymmetric).
 				 */
-				struct StreamOps {
-					virtual ~StreamOps() = default;
+				struct Ops {
+					virtual ~Ops() = default;
 
 					/**
-					 * @brief Feed one chunk and append output.
+					 * @brief Optional header write (salt||IV, hybrid envelope).
+					 * @param outChunk Destination.
+					 * @return true on success.
+					 */
+					virtual bool WriteHeader(StormByte::BinaryData& outChunk) {
+						outChunk.clear();
+						return true;
+					}
+
+					/**
+					 * @brief Optional header read from a span (one-shot decrypt).
+					 * @param in Input; advanced past the header.
+					 * @return true on success.
+					 */
+					virtual bool ReadHeader(std::span<const std::byte>& /*in*/) {
+						return true;
+					}
+
+					/**
+					 * @brief Optional header read from a Consumer (streaming decrypt).
+					 * @param consumer Input consumer.
+					 * @return true on success.
+					 */
+					virtual bool ReadHeader(Buffer::Consumer& /*consumer*/) {
+						return true;
+					}
+
+					/**
+					 * @brief Process one chunk.
 					 * @param in Input bytes.
-					 * @param out Accumulated output.
+					 * @param outChunk Output chunk.
 					 * @return true on success.
 					 */
-					virtual bool Process(std::span<const std::byte> in, StormByte::BinaryData& out) = 0;
+					virtual bool Process(std::span<const std::byte> in, StormByte::BinaryData& outChunk) = 0;
 
 					/**
-					 * @brief Finish the stream and append remaining bytes.
-					 * @param out Accumulated output.
+					 * @brief Finish and emit padding/tag.
+					 * @param outChunk Output chunk.
 					 * @return true on success.
 					 */
-					virtual bool Finalize(StormByte::BinaryData& out) = 0;
+					virtual bool Finalize(StormByte::BinaryData& outChunk) = 0;
 				};
 
 				/**
-				 * @brief One-shot Process + Finalize into a buffer.
+				 * @brief One-shot encrypt/decrypt.
 				 * @param data Input.
 				 * @param output Destination.
 				 * @param ops Engine.
 				 * @return true on success.
 				 */
-				bool ProcessSpan(std::span<const std::byte> data, Buffer::WriteOnly& output, std::unique_ptr<StreamOps> ops) noexcept;
+				bool ProcessSpan(std::span<const std::byte> data, Buffer::WriteOnly& output, std::unique_ptr<Ops> ops) noexcept;
 
 				/**
-				 * @brief Streaming compress/decompress.
+				 * @brief Streaming encrypt/decrypt.
 				 * @param consumer Input consumer.
 				 * @param mode Copy or move.
 				 * @param ops Engine.
 				 * @return Consumer with the result.
 				 */
-				Buffer::Consumer Stream(Buffer::Consumer consumer, ReadMode mode, std::unique_ptr<StreamOps> ops) noexcept;
+				Buffer::Consumer Stream(Buffer::Consumer consumer, ReadMode mode, std::unique_ptr<Ops> ops) noexcept;
 			}
 		}
 	}
