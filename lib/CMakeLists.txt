@@ -4,8 +4,25 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 file(GLOB_RECURSE STORMBYTE_CRYPTO_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/*.cxx")
 
-add_library(StormByte-Crypto SHARED ${STORMBYTE_CRYPTO_SOURCES})
-add_library(StormByte::Crypto ALIAS StormByte-Crypto)
+if(BUILD_SHARED_LIBS)
+	set(_mode shared)
+else()
+	set(_mode static)
+endif()
+
+buildmaster_component(
+	StormByte-Crypto
+	"StormByte Suite - Crypto"
+	"${STORMBYTE_CRYPTO_SOURCES}"
+	""
+	${_mode}
+	"StormByte-Crypto"
+	"BACKEND=host;ALIAS=StormByte::Crypto"
+)
+
+if(BUILD_SHARED_LIBS)
+	target_compile_definitions(StormByte-Crypto PUBLIC STORMBYTE_CRYPTO_SHARED)
+endif()
 
 set_target_properties(StormByte-Crypto PROPERTIES
 	LINKER_LANGUAGE CXX

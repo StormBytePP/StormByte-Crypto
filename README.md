@@ -70,6 +70,12 @@ cmake -S . -B build
 cmake --build build
 ```
 
+Shared vs static follows CMake `BUILD_SHARED_LIBS` (declared in `lib/`, default ON). A plain configure builds the shared library. `-DBUILD_SHARED_LIBS=OFF` builds a static archive; on Windows the headers then do not use `dllimport`. Vendored StormByte-Buffer (and Base / String / System through Buffer) follows the same mode. Prefer a **static** Crypto++ link when you redistribute; that is independent of whether StormByte-Crypto itself is shared or static.
+
+A shared build keeps this library as its own `.so` / `.dll`. Under the LGPL that is usually the simpler way to ship: the user can replace that file. A static archive is folded into your binary. The LGPL still applies to this code; you must give the recipient a way to relink your product with a different build of this library. If that does not fit how you distribute the final product, a commercial license is available from the copyright holder (see [License](#license)).
+
+Link `StormByte-Crypto` (and Buffer / String / System / Base). Include path: the public install prefix, headers as `#include <StormByte/crypto/….hxx>`.
+
 ## Usage
 
 Headers are `#include <StormByte/crypto/….hxx>`. Namespace root is `StormByte::Crypto`. Wiped secrets live in `StormByte::Crypto::Secure`.

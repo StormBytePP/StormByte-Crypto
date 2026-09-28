@@ -22,10 +22,10 @@ If you landed here from a release link and have not read the tree:
 
 [Unreleased]: https://github.com/StormBytePP/StormByte-Crypto/compare/2.0.0...HEAD
 
-## [2.0.0] - 2026-09-27
+## [2.0.0] - 2026-09-29
 
 ### Changed
-
+- Shared vs static follows CMake `BUILD_SHARED_LIBS` (declared in the project root, default ON). There is no `STORMBYTE_CRYPTO_SHARED` CMake option. When the library is shared, the compile definition `STORMBYTE_CRYPTO_SHARED` is still set so `visibility.h` can distinguish `dllexport` / `dllimport` / static. CI passes `-DBUILD_SHARED_LIBS=ON`. Vendored Crypto++ and BZip2 stay static BM components; their archives are closed onto consumers by the static sidecar.
 - **Breaking**: Port to StormByte Base 2.0.0, Buffer 2.0.0, System 2.0.0 and String 1.0.0. Public types follow Base 2.0: `Clonable` + `MakePointer` / `Shared` instead of `std::shared_ptr`, `StormByte::BinaryData` instead of Buffer `DataType` / raw vectors at the public edge, `StormByte::Size` for abstract counts and `StormByte::ByteSize` for octet lengths (`Password::Size()` is `ByteSize`). `std::size` is gone from the public API.
 - **Breaking**: Exceptions no longer use `StormByte::Component`. `Crypto::Exception` forwards `Path{"Crypto"}` to `StormByte::Exception`. Per-office exceptions (`Compressor::Exception`, `Crypter::Exception`, `Hasher::Exception`, `KeyPair::Exception`, `Secret::Exception`, `Signer::Exception`) live in their own namespace and add only their own segment; Crypto concatenates before forwarding. `what()` is `StormByte.Crypto` or `StormByte.Crypto.<Child>: message`.
 - **Breaking**: Buffer 2.0 streaming contract. Block I/O is `std::span<const std::byte>` into `Buffer::WriteOnly`. Pipelines take `Buffer::Consumer` and return a consumer; `FIFO::Data()` is `BinaryData`.

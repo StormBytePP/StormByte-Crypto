@@ -4,8 +4,8 @@
 [submodule "StormByte Suite - Buffer"]
 	path = thirdparty/StormByte/buffer/src
 	url = https://github.com/StormBytePP/StormByte-Buffer.git
-[submodule "StormByte Build Master"]
-	path = thirdparty/buildmaster
+[submodule "Build Master"]
+	path = buildmaster
 	url = https://github.com/StormBytePP/StormByte-BuildMaster.git
 [submodule "Crypto++"]
 	path = thirdparty/Crypto++/cmake-port/src
