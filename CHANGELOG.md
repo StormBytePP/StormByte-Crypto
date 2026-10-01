@@ -9,24 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 StormByte Crypto is the cryptography module of the StormByte C++ suite.
 
-It depends on [StormByte Base ≥ 2.0.0](https://github.com/StormBytePP/StormByte/releases/tag/2.0.0), [StormByte Buffer ≥ 2.0.0](https://github.com/StormBytePP/StormByte-Buffer/releases/tag/2.0.0), [StormByte System ≥ 2.0.0](https://github.com/StormBytePP/StormByte-System/releases/tag/2.0.0) and [StormByte String ≥ 1.0.0](https://github.com/StormBytePP/StormByte-String/releases/tag/1.0.0). This repository is not Base, Buffer, Config, Database, Logger, Multimedia, Network, String or System.
+It depends on [StormByte Base ≥ 2.0.0](https://github.com/StormByte-Suite/StormByte/releases/tag/2.0.0), [StormByte Buffer ≥ 2.0.0](https://github.com/StormByte-Suite/StormByte-Buffer/releases/tag/2.0.0) and [StormByte System ≥ 2.0.0](https://github.com/StormByte-Suite/StormByte-System/releases/tag/2.0.0). This repository is not Base, Buffer, Config, Database, Logger, Multimedia, Network or System.
 
 Public headers under `StormByte/crypto/` cover Hasher, Compressor, Crypter (symmetric and asymmetric), Signer, Secret, KeyPair, Password and Vault. Crypto++ never leaves the private tree.
 
 If you landed here from a release link and have not read the tree:
 
-- What this module is, how to build it, and short examples: [README.md](https://github.com/StormBytePP/StormByte-Crypto/blob/master/README.md)
-- License: GNU Lesser General Public License version 3 or later, [LICENSE](https://github.com/StormBytePP/StormByte-Crypto/blob/master/LICENSE)
+- What this module is, how to build it, and short examples: [README.md](https://github.com/StormByte-Suite/StormByte-Crypto/blob/master/README.md)
+- License: GNU Lesser General Public License version 3 or later, [LICENSE](https://github.com/StormByte-Suite/StormByte-Crypto/blob/master/LICENSE)
 
 ## [Unreleased]
 
-[Unreleased]: https://github.com/StormBytePP/StormByte-Crypto/compare/2.0.0...HEAD
+[Unreleased]: https://github.com/StormByte-Suite/StormByte-Crypto/compare/2.0.0...HEAD
 
-## [2.0.0] - 2026-09-29
+## [2.0.0] - 2026-10-02
 
 ### Changed
+- Updated repository links to the StormByte-Suite organization and removed documentation for the retired standalone dependency.
 - Shared vs static follows CMake `BUILD_SHARED_LIBS` (declared in the project root, default ON). There is no `STORMBYTE_CRYPTO_SHARED` CMake option. When the library is shared, the compile definition `STORMBYTE_CRYPTO_SHARED` is still set so `visibility.h` can distinguish `dllexport` / `dllimport` / static. CI passes `-DBUILD_SHARED_LIBS=ON`. Vendored Crypto++ and BZip2 stay static BM components; their archives are closed onto consumers by the static sidecar.
-- **Breaking**: Port to StormByte Base 2.0.0, Buffer 2.0.0, System 2.0.0 and String 1.0.0. Public types follow Base 2.0: `Clonable` + `MakePointer` / `Shared` instead of `std::shared_ptr`, `StormByte::BinaryData` instead of Buffer `DataType` / raw vectors at the public edge, `StormByte::Size` for abstract counts and `StormByte::ByteSize` for octet lengths (`Password::Size()` is `ByteSize`). `std::size` is gone from the public API.
+- **Breaking**: Port to StormByte Base 2.0.0, Buffer 2.0.0 and System 2.0.0. Public types follow Base 2.0: `Clonable` + `MakePointer` / `Shared` instead of `std::shared_ptr`, `StormByte::BinaryData` instead of Buffer `DataType` / raw vectors at the public edge, `StormByte::Size` for abstract counts and `StormByte::ByteSize` for octet lengths (`Password::Size()` is `ByteSize`). `std::size` is gone from the public API.
 - **Breaking**: Exceptions no longer use `StormByte::Component`. `Crypto::Exception` forwards `Path{"Crypto"}` to `StormByte::Exception`. Per-office exceptions (`Compressor::Exception`, `Crypter::Exception`, `Hasher::Exception`, `KeyPair::Exception`, `Secret::Exception`, `Signer::Exception`) live in their own namespace and add only their own segment; Crypto concatenates before forwarding. `what()` is `StormByte.Crypto` or `StormByte.Crypto.<Child>: message`.
 - **Breaking**: Buffer 2.0 streaming contract. Block I/O is `std::span<const std::byte>` into `Buffer::WriteOnly`. Pipelines take `Buffer::Consumer` and return a consumer; `FIFO::Data()` is `BinaryData`.
 - **Breaking**: Factories and keypair / signer / crypter / secret constructors take `KeyPair::Generic::PointerType` (`Shared`), not `std::shared_ptr`. Generate / Load return that pointer type. `MakePointer` is used for public-only views.
@@ -38,15 +39,15 @@ If you landed here from a release link and have not read the tree:
 - Dual license on sources and `LICENSE`: LGPL-3.0-or-later or commercial. Neither covers Crypto++, bundled libbzip2, or vendored StormByte trees under `thirdparty/`.
 - Tests rewritten to the suite format (section headers, snake_case functions, accumulating `main`). Coverage of hasher, compressor, crypter, signer, secret, password, vault and keypair (save/load and OpenSSL fixtures) updated to the new pins.
 - Hybrid encrypt/decrypt tests compare plaintext with `std::string::operator==` (`ASSERT_TRUE`), not `ASSERT_EQUAL`. The harness C-string path false-failed prefix+4096 payloads on Ubuntu clang while the bytes already matched.
-- Doxygen (`ENABLE_DOC`) resolves Buffer, Logger, System, String and Base headers via `INCLUDE_PATH` and skips `thirdparty`.
+- Doxygen (`ENABLE_DOC`) resolves Buffer, Logger, System and Base headers via `INCLUDE_PATH` and skips `thirdparty`.
 - `CONTRIBUTING.md` and `CODING_STYLE.md` aligned with Logger.
 
 ### Notes
 
 - Installed headers still do not include Crypto++. Crypto++ stays under `lib/private` and `thirdparty`.
-- Needs a C++26 compiler, [StormByte Base ≥ 2.0.0](https://github.com/StormBytePP/StormByte/releases/tag/2.0.0), [StormByte Buffer ≥ 2.0.0](https://github.com/StormBytePP/StormByte-Buffer/releases/tag/2.0.0), [StormByte System ≥ 2.0.0](https://github.com/StormBytePP/StormByte-System/releases/tag/2.0.0), [StormByte String ≥ 1.0.0](https://github.com/StormBytePP/StormByte-String/releases/tag/1.0.0), and Crypto++ at build time.
+- Needs a C++26 compiler, [StormByte Base ≥ 2.0.0](https://github.com/StormByte-Suite/StormByte/releases/tag/2.0.0), [StormByte Buffer ≥ 2.0.0](https://github.com/StormByte-Suite/StormByte-Buffer/releases/tag/2.0.0), [StormByte System ≥ 2.0.0](https://github.com/StormByte-Suite/StormByte-System/releases/tag/2.0.0), and Crypto++ at build time.
 
-[2.0.0]: https://github.com/StormBytePP/StormByte-Crypto/compare/1.1.0...2.0.0
+[2.0.0]: https://github.com/StormByte-Suite/StormByte-Crypto/compare/1.1.0...2.0.0
 
 ## [1.1.0] - 2026-09-13
 
@@ -72,10 +73,10 @@ If you landed here from a release link and have not read the tree:
 
 ### Notes
 
-- Decompression of untrusted input is not size-bounded by this module (same as the underlying zlib/libbzip2); callers must bound it themselves. See [README.md](https://github.com/StormBytePP/StormByte-Crypto/blob/master/README.md#security-notes).
-- Needs a C++26 compiler, [StormByte Base ≥ 1.1.0](https://github.com/StormBytePP/StormByte/releases/tag/1.1.0), [StormByte Buffer ≥ 1.1.0](https://github.com/StormBytePP/StormByte-Buffer/releases/tag/1.1.0), and Crypto++ at build time.
+- Decompression of untrusted input is not size-bounded by this module (same as the underlying zlib/libbzip2); callers must bound it themselves. See [README.md](https://github.com/StormByte-Suite/StormByte-Crypto/blob/master/README.md#security-notes).
+- Needs a C++26 compiler, [StormByte Base ≥ 1.1.0](https://github.com/StormByte-Suite/StormByte/releases/tag/1.1.0), [StormByte Buffer ≥ 1.1.0](https://github.com/StormByte-Suite/StormByte-Buffer/releases/tag/1.1.0), and Crypto++ at build time.
 
-[1.1.0]: https://github.com/StormBytePP/StormByte-Crypto/compare/1.0.0...1.1.0
+[1.1.0]: https://github.com/StormByte-Suite/StormByte-Crypto/compare/1.0.0...1.1.0
 
 ## [1.0.0] - 2026-09-04
 
@@ -105,6 +106,6 @@ Initial public release of StormByte Crypto.
 
 - Installed headers do not include Crypto++. Static Crypto++ means consumers do not install it.
 - Authenticated modes and wrapped private keys fail closed on a bad password or a bad tag.
-- Needs a C++26 compiler, [StormByte Base ≥ 1.1.0](https://github.com/StormBytePP/StormByte/releases/tag/1.1.0), [StormByte Buffer ≥ 1.1.0](https://github.com/StormBytePP/StormByte-Buffer/releases/tag/1.1.0), and Crypto++ at build time.
+- Needs a C++26 compiler, [StormByte Base ≥ 1.1.0](https://github.com/StormByte-Suite/StormByte/releases/tag/1.1.0), [StormByte Buffer ≥ 1.1.0](https://github.com/StormByte-Suite/StormByte-Buffer/releases/tag/1.1.0), and Crypto++ at build time.
 
-[1.0.0]: https://github.com/StormBytePP/StormByte-Crypto/releases/tag/1.0.0
+[1.0.0]: https://github.com/StormByte-Suite/StormByte-Crypto/releases/tag/1.0.0

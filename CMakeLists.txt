@@ -14,7 +14,7 @@ string(STRIP "${_sb_ver}" _sb_ver)
 project("StormByte C++ Library: Crypto module"
 	VERSION ${_sb_ver}
 	DESCRIPTION "StormByte-Crypto is the cryptography module of the StormByte C++ suite."
-	HOMEPAGE_URL "https://dev.stormbyte.org/StormByte-Crypto"
+	HOMEPAGE_URL "https://github.com/StormByte-Suite/StormByte-Crypto"
 )
 
 option(BUILD_SHARED_LIBS "Build shared libraries" ON)
